@@ -465,8 +465,8 @@ a { color: var(--green-deep); }
 .prequal-call {
     display: flex; align-items: center; justify-content: center; gap: 12px;
     width: 100%;
-    padding: 20px 24px;
-    font-size: 21px; font-weight: 700; letter-spacing: .2px;
+    padding: 16px 22px;
+    font-size: 19px; font-weight: 700; letter-spacing: .2px;
     color: #fff; text-decoration: none;
     background: #018053;             /* teal action accent */
     border-radius: 12px;
@@ -522,13 +522,13 @@ a { color: var(--green-deep); }
     /* Tighten vertical rhythm so the hold-timer countdown clears the fold. */
     .prequal { padding-top: 24px; }
     .prequal-check { width: 46px; height: 46px; margin-bottom: 12px; }
-    .prequal-title { font-size: 21px; line-height: 1.2; margin-bottom: 8px; }
+    .prequal-title { font-size: 19px; line-height: 1.2; margin-bottom: 8px; }
     .prequal-title br { display: none; }   /* flow naturally instead of forcing 4 lines */
     .prequal-lede { font-size: 15px; margin-bottom: 18px; }
     .prequal-assigned__title { font-size: 15px; }
     .prequal-assigned__body p { font-size: 14px; }
     .prequal-card { padding: 26px 18px; margin-top: 22px; }
-    .prequal-card__title { font-size: 18px; }
+    .prequal-card__title { font-size: 16px; }
     .prequal-card__sub { margin-bottom: 18px; }
     .prequal-call { font-size: 16px; padding: 14px 18px; gap: 9px; }
     .prequal-hold { flex-wrap: wrap; justify-content: center; text-align: center; gap: 12px; }
