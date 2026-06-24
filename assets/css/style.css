@@ -530,7 +530,7 @@ a { color: var(--green-deep); }
     .prequal-card { padding: 26px 18px; margin-top: 22px; }
     .prequal-card__title { font-size: 16px; }
     .prequal-card__sub { font-size: 13px; margin-bottom: 18px; }
-    .prequal-call { font-size: 16px; padding: 14px 18px; gap: 9px; }
+    .prequal-call { font-size: 15px; padding: 12px 16px; gap: 8px; }
     .prequal-hold { flex-wrap: wrap; justify-content: center; text-align: center; gap: 12px; }
     .prequal-hold__note { flex-basis: 100%; }
 }
