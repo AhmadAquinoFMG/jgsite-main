@@ -62,8 +62,6 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
             </div>
         </div>
 
-        <hr class="prequal-divider">
-
         <!-- Call CTA card -->
         <section class="prequal-card" aria-label="Speak with your specialist">
             <h2 class="prequal-card__title">Speak With Your Specialist Now</h2>

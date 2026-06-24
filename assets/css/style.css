@@ -451,10 +451,9 @@ a { color: var(--green-deep); }
 }
 .prequal-assigned__body p { margin: 0; color: var(--ink-soft); line-height: 1.55; }
 
-.prequal-divider { border: 0; border-top: 1px solid var(--line); margin: 34px 0; }
-
 /* call CTA card */
 .prequal-card {
+    margin-top: 34px;
     border: 1px solid var(--line);
     border-radius: 16px;
     padding: 34px 30px;
@@ -528,7 +527,6 @@ a { color: var(--green-deep); }
     .prequal-lede { font-size: 15px; margin-bottom: 18px; }
     .prequal-assigned__title { font-size: 15px; }
     .prequal-assigned__body p { font-size: 14px; }
-    .prequal-divider { display: none; }
     .prequal-card { padding: 26px 18px; margin-top: 22px; }
     .prequal-card__title { font-size: 18px; }
     .prequal-card__sub { margin-bottom: 18px; }
