@@ -1,7 +1,6 @@
 <?php
 /** Site footer: dark-green two-column layout (brand/legal left, disclosures right). */
 $brand   = $cfg['brand'];
-$socials = ['facebook-f' => 'Facebook', 'twitter' => 'Twitter', 'youtube' => 'YouTube', 'pinterest-p' => 'Pinterest'];
 ?>
 <footer class="site-footer">
     <div class="footer-inner">
@@ -9,11 +8,6 @@ $socials = ['facebook-f' => 'Facebook', 'twitter' => 'Twitter', 'youtube' => 'Yo
         <div class="footer-head">
             <img class="footer-logo" src="<?= htmlspecialchars($brand['logo_footer']) ?>"
                  alt="<?= htmlspecialchars($brand['name']) ?>" loading="lazy">
-            <div class="footer-social">
-                <?php foreach ($socials as $icon => $label): ?>
-                    <a href="#" aria-label="<?= $label ?>" class="social-icon social-<?= $icon ?>"><span></span></a>
-                <?php endforeach; ?>
-            </div>
         </div>
 
         <div class="footer-cols">

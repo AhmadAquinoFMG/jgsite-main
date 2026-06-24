@@ -8,6 +8,11 @@
  */
 
 return [
+    // ---- Asset cache-busting -------------------------------------------
+    // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
+    // Appended to asset URLs as ?v=… in index.php / thank-you.php.
+    'asset_version' => '3',
+
     // ---- Branding -------------------------------------------------------
     'brand' => [
         'name'         => 'JG Wentworth',
