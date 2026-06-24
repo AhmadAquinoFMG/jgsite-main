@@ -528,8 +528,8 @@ a { color: var(--green-deep); }
     .prequal-lede { font-size: 15px; margin-bottom: 18px; }
     .prequal-assigned__title { font-size: 15px; }
     .prequal-assigned__body p { font-size: 14px; }
-    .prequal-divider { margin: 22px 0; }
-    .prequal-card { padding: 26px 18px; }
+    .prequal-divider { display: none; }
+    .prequal-card { padding: 26px 18px; margin-top: 22px; }
     .prequal-card__title { font-size: 18px; }
     .prequal-card__sub { margin-bottom: 18px; }
     .prequal-call { font-size: 16px; padding: 14px 18px; gap: 9px; }

@@ -76,9 +76,43 @@
 
     var RX = {
         name:  /^[A-Za-z][A-Za-z .'\-]{0,48}$/,
-        email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         zip:   /^\d{5}$/
     };
+
+    // Only accept mail from these trusted/verified consumer providers. This
+    // blocks junk/typo domains and "random symbols on the end of the domain"
+    // by construction (anything not on the list is rejected). Add domains here
+    // as needed.
+    var TRUSTED_EMAIL_DOMAINS = [
+        'gmail.com', 'googlemail.com',
+        'yahoo.com', 'ymail.com', 'rocketmail.com',
+        'outlook.com', 'hotmail.com', 'live.com', 'msn.com',
+        'icloud.com', 'me.com', 'mac.com',
+        'aol.com',
+        'proton.me', 'protonmail.com',
+        'comcast.net', 'verizon.net', 'att.net', 'sbcglobal.net', 'cox.net'
+    ];
+
+    // Strict email check: well-formed local part (no leading/trailing dot, no
+    // consecutive dots, no stray symbols) AND a domain on the trusted list.
+    function checkEmail(v) {
+        var at = v.lastIndexOf('@');
+        if (at < 1 || at !== v.indexOf('@')) return { ok: false, code: 'invalid_email' };
+
+        var local  = v.slice(0, at);
+        var domain = v.slice(at + 1).toLowerCase();
+
+        // local: starts/ends alphanumeric; allows . _ % + - between; no ".."
+        if (!/^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]*[A-Za-z0-9])?$/.test(local)) {
+            return { ok: false, code: 'invalid_email' };
+        }
+        if (local.indexOf('..') !== -1) return { ok: false, code: 'invalid_email' };
+
+        if (TRUSTED_EMAIL_DOMAINS.indexOf(domain) === -1) {
+            return { ok: false, code: 'untrusted_domain' };
+        }
+        return { ok: true };
+    }
 
     // returns {ok:bool, code:string} per field; codes mirror the spec's error keys
     function checkField(f) {
@@ -92,7 +126,7 @@
             case 'street': return v.length >= 4    ? { ok: true } : { ok: false, code: 'too_short' };
             case 'city':   return v.length >= 2    ? { ok: true } : { ok: false, code: 'too_short' };
             case 'zip':    return RX.zip.test(v)   ? { ok: true } : { ok: false, code: 'invalid_format' };
-            case 'email':  return RX.email.test(v) ? { ok: true } : { ok: false, code: 'invalid_format' };
+            case 'email':  return checkEmail(v);
             case 'dob':    return checkDob(v);
             case 'phone':  return phoneDigits(v).length === 10 ? { ok: true } : { ok: false, code: 'invalid_length' };
         }
@@ -106,7 +140,9 @@
         incomplete:     'Please enter a full date as MM/DD/YYYY.',
         out_of_range:   'Please enter a valid calendar date.',
         underage:       'You must be at least 18 years old.',
-        invalid_length: 'Please enter a valid 10-digit phone number.'
+        invalid_length: 'Please enter a valid 10-digit phone number.',
+        invalid_email:  'Please enter a valid email address.',
+        untrusted_domain: 'Please use an email from a common provider (e.g. gmail.com, outlook.com, yahoo.com).'
     };
 
     function validateStep(n) {
