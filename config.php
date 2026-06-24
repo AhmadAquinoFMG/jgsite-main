@@ -119,7 +119,7 @@ return [
 
     // ---- Consent / legal copy ------------------------------------------
     'consent' => [
-        'contact' => 'By clicking “Continue” you consent to allowing JG Wentworth to contact you as described below.',
+        'contact' => 'By clicking “Submit” you consent to allowing JG Wentworth to contact you as described below.',
         'credit'  => 'By clicking “Submit” you consent to allow JG Wentworth to access your credit report as described below. This will not impact your credit score.',
         'tcpa'    => 'By submitting this form, I am providing JG Wentworth with express written consent to contact me regarding product offerings by SMS/text messages or by using an auto dialer (or automated means) at the phone number(s) provided and such consent is not a condition of a purchase. I further consent to initial contact outside of permissible state and federal call times if made within approximately one hour of submission. Message and data rates may apply. You can opt-out of this service at any time by replying to our last message with STOP. For assistance, please call any number listed on this website. I also consent and agree to JG Wentworth’s Privacy Policy and Terms of Use.',
         'fcra'    => 'Pursuant to the Fair Credit Reporting Act (FCRA), I hereby provide my written instructions and authorization for J.G. Wentworth to obtain a consumer report on me. I understand that J.G. Wentworth has a permissible purpose under the FCRA to request and review my consumer report in connection with a financial transaction. I acknowledge that this request for a consumer report is being made in accordance with my explicit consent and instructions as required under the FCRA.',
