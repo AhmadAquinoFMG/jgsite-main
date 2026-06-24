@@ -2,10 +2,10 @@
 /**
  * JG Wentworth — Debt Relief funnel landing page (PHP clone of /ds-aff-lp-2).
  *
- * Single-page, JS-driven 9-step form:
+ * Single-page, JS-driven 8-step form:
  *   1 debt amount · 2 employment · 3 income (auto-advance radios) ·
  *   4 name · 5 address · 6 date of birth · 7 email (Continue) ·
- *   8 phone · 9 consent + Submit.
+ *   8 phone + consent + Submit.
  *
  * UI ONLY: Google Places (step 5) is a lazy-loaded STUB — see
  * assets/js/funnel.js. Submit is not wired to a backend.
@@ -163,8 +163,11 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 8: phone (no OTP verification) ===== -->
-            <section class="step" data-step="8">
+            <!-- ===== Step 8: phone + consent + submit =====
+                 The TCPA consent text lives here, below the fold under the
+                 compliance note, instead of on its own page. This is the final
+                 step, so it submits. -->
+            <section class="step" data-step="8" data-nav="submit">
                 <h2 class="step-title">What is your phone number?</h2>
                 <div class="field">
                     <label for="phone">Phone <span class="req">*</span></label>
@@ -173,17 +176,11 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                            data-validate="phone" required>
                 </div>
                 <p class="consent-note"><?= $e($cfg['consent']['contact']) ?></p>
-            </section>
-
-            <!-- ===== Step 9: consent + submit ===== -->
-            <section class="step" data-step="9" data-nav="submit">
-                <h2 class="step-title">Review &amp; submit your request</h2>
                 <p class="consent-note tcpa"><?= $e($cfg['consent']['tcpa']) ?></p>
             </section>
 
             <!-- Navigation. The back arrow shares this row with whichever primary
-                 button the step uses: Continue (steps 1–7) or Submit (step 9).
-                 Step 8 hides both and drives itself (Send Code / Verify / Continue). -->
+                 button the step uses: Continue (steps 1–7) or Submit (step 8). -->
             <div class="form-nav">
                 <button type="button" class="btn-back" id="btnBack" aria-label="Back" hidden>
                     <img src="assets/img/chevron-left-grey.svg" alt="" width="26" height="26">

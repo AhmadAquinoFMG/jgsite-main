@@ -393,7 +393,7 @@ a { color: var(--green-deep); }
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 15px;
 }
-/* TCPA consent — now on its own step (9), so show it in full, left-aligned. */
+/* TCPA consent — shown in full below the fold on the phone step, left-aligned. */
 .consent-note.tcpa { text-align: left; }
 
 /* trust badges */
@@ -520,10 +520,18 @@ a { color: var(--green-deep); }
 .prequal-hold__note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
 
 @media (max-width: 560px) {
-    .prequal-title { font-size: 26px; }
+    /* Tighten vertical rhythm so the hold-timer countdown clears the fold. */
+    .prequal { padding-top: 24px; }
+    .prequal-check { width: 46px; height: 46px; margin-bottom: 12px; }
+    .prequal-title { font-size: 21px; line-height: 1.2; margin-bottom: 8px; }
+    .prequal-title br { display: none; }   /* flow naturally instead of forcing 4 lines */
+    .prequal-lede { font-size: 15px; margin-bottom: 18px; }
+    .prequal-divider { margin: 22px 0; }
     .prequal-card { padding: 26px 18px; }
+    .prequal-card__title { font-size: 18px; }
+    .prequal-card__sub { margin-bottom: 18px; }
     .prequal-call { font-size: 18px; }
-    .prequal-hold { flex-wrap: wrap; gap: 12px; }
+    .prequal-hold { flex-wrap: wrap; justify-content: center; text-align: center; gap: 12px; }
     .prequal-hold__note { flex-basis: 100%; }
 }
 

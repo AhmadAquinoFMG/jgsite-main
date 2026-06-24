@@ -1,5 +1,5 @@
 /* =========================================================================
-   JG Wentworth funnel — 9-step UI mechanics.
+   JG Wentworth funnel — 8-step UI mechanics.
 
    Single-page, JS-driven flow. THIRD-PARTY INTEGRATIONS ARE MOCKED (UI only):
      • Step 5 street uses a lazy-loaded Google Places STUB (mock suggestions).
@@ -7,7 +7,7 @@
 
    Steps: 1 debt · 2 employment · 3 income (auto-advance radios) ·
           4 name · 5 address · 6 dob · 7 email (Continue) ·
-          8 phone · 9 consent + Submit
+          8 phone + consent + Submit
    ========================================================================= */
 (function () {
     'use strict';
@@ -37,8 +37,7 @@
         btnBack.hidden = current === 1;
         // The back arrow shares the form-nav row with one primary button, chosen
         // per step via data-nav: 'next' (Continue, default) on the input steps,
-        // 'submit' (Submit) on the consent step, 'none' on the phone step (which
-        // drives itself with Send Code / Verify / Continue).
+        // 'submit' (Submit) on the final phone step, which carries the consent text.
         var nav = stepEl(current).dataset.nav || 'next';
         btnNext.hidden   = nav !== 'next';
         btnSubmit.hidden = nav !== 'submit';
@@ -356,7 +355,7 @@
     });
 
     // Enter advances manual steps (never submits early). Behaviour follows the
-    // step's nav: 'next' clicks Continue, 'submit' (consent step) allows the
+    // step's nav: 'next' clicks Continue, 'submit' (final phone step) allows the
     // native submit.
     form.addEventListener('keydown', function (ev) {
         if (ev.key !== 'Enter') return;

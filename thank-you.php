@@ -43,8 +43,8 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
             </svg>
         </div>
 
-        <h1 class="prequal-title">You&rsquo;re Pre-Qualified for<br>a Debt Relief Program</h1>
-        <p class="prequal-lede">Based on your profile, you could reduce your debt and lower your monthly payments.</p>
+        <h1 class="prequal-title">You&rsquo;re Pre-Qualified for <br>a Debt Relief Program</h1>
+        <p class="prequal-lede">You could reduce your debt and lower your monthly payments.</p>
 
         <!-- Assigned specialist -->
         <div class="prequal-assigned">
@@ -58,7 +58,7 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
             </span>
             <div class="prequal-assigned__body">
                 <h2 class="prequal-assigned__title">A Certified Debt Specialist Has Been Assigned to You</h2>
-                <p>Your specialist is reviewing your information and is ready to walk you through your best options for becoming debt free.</p>
+                <p>They&rsquo;re ready to walk you through your best options for becoming debt free.</p>
             </div>
         </div>
 
@@ -66,8 +66,8 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
 
         <!-- Call CTA card -->
         <section class="prequal-card" aria-label="Speak with your specialist">
-            <h2 class="prequal-card__title">Speak With Your Assigned Debt Specialist Now</h2>
-            <p class="prequal-card__sub">Your savings estimate is reserved, but availability is limited.</p>
+            <h2 class="prequal-card__title">Speak With Your Specialist Now</h2>
+            <p class="prequal-card__sub">Your estimate is reserved, but availability is limited.</p>
 
             <a class="prequal-call" href="tel:<?= $e($ctaTel) ?>">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
@@ -76,6 +76,22 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
                 </svg>
                 <span>CALL NOW: <?= $e($ctaPhone) ?></span>
             </a>
+
+            <!-- Hold timer -->
+            <div class="prequal-hold" data-hold-secs="<?= $e($holdSecs) ?>">
+                <span class="prequal-hold__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/>
+                    </svg>
+                </span>
+                <p class="prequal-hold__label">Your specialist is<br>holding your file for:</p>
+                <div class="prequal-hold__clock" role="timer" aria-live="off">
+                    <span class="prequal-hold__unit"><strong id="holdMin"><?= $e(sprintf('%02d', intdiv($holdSecs, 60))) ?></strong><small>MIN</small></span>
+                    <span class="prequal-hold__colon">:</span>
+                    <span class="prequal-hold__unit"><strong id="holdSec"><?= $e(sprintf('%02d', $holdSecs % 60)) ?></strong><small>SEC</small></span>
+                </div>
+                <p class="prequal-hold__note">After this, you may need to re-qualify.</p>
+            </div>
 
             <ul class="prequal-assurances">
                 <li>
@@ -97,22 +113,6 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
                     Free consultation
                 </li>
             </ul>
-
-            <!-- Hold timer -->
-            <div class="prequal-hold" data-hold-secs="<?= $e($holdSecs) ?>">
-                <span class="prequal-hold__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9 2h6"/>
-                    </svg>
-                </span>
-                <p class="prequal-hold__label">Your specialist is<br>holding your file for:</p>
-                <div class="prequal-hold__clock" role="timer" aria-live="off">
-                    <span class="prequal-hold__unit"><strong id="holdMin"><?= $e(sprintf('%02d', intdiv($holdSecs, 60))) ?></strong><small>MIN</small></span>
-                    <span class="prequal-hold__colon">:</span>
-                    <span class="prequal-hold__unit"><strong id="holdSec"><?= $e(sprintf('%02d', $holdSecs % 60)) ?></strong><small>SEC</small></span>
-                </div>
-                <p class="prequal-hold__note">After this time, you may need to re-qualify and wait for the next available specialist.</p>
-            </div>
         </section>
 
     </div>
