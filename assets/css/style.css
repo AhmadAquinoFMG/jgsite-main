@@ -526,6 +526,8 @@ a { color: var(--green-deep); }
     .prequal-title { font-size: 21px; line-height: 1.2; margin-bottom: 8px; }
     .prequal-title br { display: none; }   /* flow naturally instead of forcing 4 lines */
     .prequal-lede { font-size: 15px; margin-bottom: 18px; }
+    .prequal-assigned__title { font-size: 15px; }
+    .prequal-assigned__body p { font-size: 14px; }
     .prequal-divider { margin: 22px 0; }
     .prequal-card { padding: 26px 18px; }
     .prequal-card__title { font-size: 18px; }
