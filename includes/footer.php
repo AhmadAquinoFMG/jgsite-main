@@ -19,7 +19,7 @@ $brand   = $cfg['brand'];
                     <?= implode('<br>', array_map('htmlspecialchars', $brand['address'])) ?>
                 </address>
 
-                <a class="footer-link" href="#">Unsubscribe</a>
+                <a class="footer-link" href="https://www.markstringeight.com/o-vjcw-m54-fe375a527efe7818c485480d2b22d946" target="_blank" rel="noopener noreferrer">Unsubscribe</a>
 
                 <h3 class="footer-heading footer-heading--legal">Legal</h3>
                 <nav class="footer-legal" aria-label="Legal">
