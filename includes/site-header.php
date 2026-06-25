@@ -12,7 +12,7 @@ $e     = fn($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 <header class="main-header">
     <div class="main-header__inner">
 
-        <a class="main-header__logo" href="/" aria-label="<?= $e($brand['name']) ?>">
+        <a class="main-header__logo" href="index.php" aria-label="<?= $e($brand['name']) ?>">
             <img src="<?= $e($brand['logo_header']) ?>"
                  alt="<?= $e($brand['name']) ?>" width="200" height="44">
         </a>
