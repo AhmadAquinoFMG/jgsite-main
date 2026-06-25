@@ -22,6 +22,7 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
     <meta name="robots" content="noindex, nofollow">
     <title><?= $e($cfg['brand']['name']) ?> — You're Pre-Qualified</title>
+    <link rel="icon" type="image/png" href="assets/img/jg-icon.png?v=<?= $e($cfg['asset_version']) ?>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
