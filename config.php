@@ -11,7 +11,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '3',
+    'asset_version' => '5',
 
     // ---- Branding -------------------------------------------------------
     'brand' => [
@@ -22,6 +22,58 @@ return [
         'dept'         => 'Debt Solutions',
         'address'      => ['1200 Morris Drive', 'Chesterbrook, PA 19087'],
         'copyright'    => 'Copyright © 2026 The JG Wentworth Company. All rights reserved',
+    ],
+
+    // ====================================================================
+    //  Main site chrome — for NON-funnel pages (includes/site-header.php
+    //  and includes/site-footer.php). The funnel keeps its own stripped
+    //  header/footer in includes/header.php + includes/footer.php.
+    // ====================================================================
+
+    // ---- Primary navigation (site header) ------------------------------
+    // 'dropdown' => true renders a chevron for menus with sub-items.
+    'nav_links' => [
+        ['label' => 'Structured Settlements', 'href' => '#'],
+        ['label' => 'Debt Relief',            'href' => '#'],
+        ['label' => 'Home Equity Cashout',    'href' => '#', 'dropdown' => true],
+        ['label' => 'Other Products',         'href' => '#', 'dropdown' => true],
+        ['label' => 'About Us',               'href' => '#', 'dropdown' => true],
+        ['label' => 'Resources',              'href' => '#', 'dropdown' => true],
+    ],
+    'login_url' => '#',
+
+    // ---- Site footer: "Company" column ---------------------------------
+    'footer_company' => [
+        'Contact Us'        => '#',
+        'Affiliate Program' => '#',
+        'Careers'           => '#',
+        'Newsroom'          => '#',
+        'Shop'              => '#',
+    ],
+
+    // ---- Site footer: "Legal Information" column ------------------------
+    'footer_legal' => [
+        'Terms of Use'                                    => 'https://www.jgwentworth.com/terms-use',
+        'Legal Disclosures'                               => '#',
+        'Your Privacy Rights'                             => '#',
+        'Notice at Collection'                            => 'https://www.jgwentworth.com/notice-at-collection',
+        'Privacy Policy'                                  => 'https://www.jgwentworth.com/jg-wentworth-company-r-consumer-privacy-notice',
+        'Licenses'                                        => 'https://www.jgwentworth.com/licenses',
+        'Asset-Backed Securitization'                     => '#',
+        'Association for Consumer Debt Relief Disclosure' => '#',
+        'Do Not Sell My Personal Information'             => 'https://www.jgwentworth.com/jg-wentworth-company-r-consumer-privacy-notice',
+        'Debt Resolution Loan Disclosures'                => 'https://www.jgwentworth.com/debt-resolution-loan-disclosures',
+    ],
+
+    // ---- Site footer: social links (icons rendered in the include) -----
+    // Keys must match the icon set in includes/site-footer.php.
+    'social_links' => [
+        'facebook'  => '#',
+        'tiktok'    => '#',
+        'youtube'   => '#',
+        'instagram' => '#',
+        'x'         => '#',
+        'pinterest' => '#',
     ],
 
     // ---- Post-submit "pre-qualified" page (thank-you.php) ---------------
@@ -127,13 +179,13 @@ return [
 
     // ---- Footer legal links (left column, vertical) --------------------
     'legal_links' => [
-        'Terms of Use'                       => '#',
-        'Privacy policy'                     => '#',
-        'Licenses'                           => '#',
-        'Notice at Collection'               => '#',
-        'Do Not Sell My Personal Information' => '#',
-        'Loan Disclosures'                   => '#',
-        'Debt Resolution Loan Disclosures'   => '#',
+        'Terms of Use'                        => 'https://www.jgwentworth.com/terms-use',
+        'Privacy policy'                      => 'https://www.jgwentworth.com/jg-wentworth-company-r-consumer-privacy-notice',
+        'Licenses'                            => 'https://www.jgwentworth.com/licenses',
+        'Notice at Collection'                => 'https://www.jgwentworth.com/notice-at-collection',
+        'Do Not Sell My Personal Information' => 'https://www.jgwentworth.com/jg-wentworth-company-r-consumer-privacy-notice',
+        'Loan Disclosures'                    => 'https://www.jgwentworth.com/wp-content/uploads/2024/04/Loan-Disclosures-New.pdf',
+        'Debt Resolution Loan Disclosures'    => 'https://www.jgwentworth.com/debt-resolution-loan-disclosures',
     ],
 
     // ---- Long disclosure block (right column, paragraphs) --------------
@@ -148,6 +200,6 @@ return [
 
         'Client Grievance Procedure: If you are unable to resolve an issue with your Debt Specialist or Client Services Representative, please request to speak with a manager. If you cannot reach a resolution with a manager, please escalate communication via email at <a href="mailto:complaint@jgwentworth.com">complaint@jgwentworth.com</a> or direct mail to the business address listed on our contact page.',
 
-        'List of Licenses can be accessed here: <a href="#">Licenses &ndash; JG Wentworth</a>',
+        'List of Licenses can be accessed here: <a href="https://www.jgwentworth.com/licenses" target="_blank">Licenses &ndash; JG Wentworth</a>',
     ],
 ];

@@ -24,7 +24,8 @@ $brand   = $cfg['brand'];
                 <h3 class="footer-heading footer-heading--legal">Legal</h3>
                 <nav class="footer-legal" aria-label="Legal">
                     <?php foreach ($cfg['legal_links'] as $label => $href): ?>
-                        <a class="footer-link" href="<?= htmlspecialchars($href) ?>"><?= htmlspecialchars($label) ?></a>
+                        <?php $blank = $href !== '#' ? ' target="_blank" rel="noopener noreferrer"' : ''; ?>
+                        <a class="footer-link" href="<?= htmlspecialchars($href) ?>"<?= $blank ?>><?= htmlspecialchars($label) ?></a>
                     <?php endforeach; ?>
                 </nav>
             </div>

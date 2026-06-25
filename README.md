@@ -19,8 +19,10 @@ Requires PHP 8.0+. No Composer/dependencies.
 |------|---------|
 | `index.php` | Page markup + the 6-step form. Pulls all copy/options from `config.php`. |
 | `config.php` | Single source of content: brand, debt options, US states, consent/legal text, footer links. Edit here, not the markup. |
-| `includes/header.php` | Brand bar + logo + phone. |
-| `includes/footer.php` | Trust badges, social, address, legal links, disclosure. |
+| `includes/header.php` | **Funnel** header — centered logo only. |
+| `includes/footer.php` | **Funnel** footer — brand, address, legal links, disclosure. |
+| `includes/site-header.php` | **Main-site** header (non-funnel pages) — logo, primary nav, Log In. |
+| `includes/site-footer.php` | **Main-site** footer (non-funnel pages) — logo + social, Company/Legal columns, copyright. |
 | `assets/css/style.css` | All styling (Poppins, brand greens `#006846`/`#1B976A`, teal accent). |
 | `assets/js/funnel.js` | Multi-step navigation, client-side validation, progress bar, auto-advance. |
 | `assets/img/` | Logos, trust badges and icons pulled from the live site. |
