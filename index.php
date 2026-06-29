@@ -51,7 +51,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="choice-group" role="radiogroup" aria-label="Debt amount">
                     <?php foreach ($cfg['debt_options'] as $opt): ?>
                         <label class="choice">
-                            <input type="radio" name="debt_amount" value="<?= $e($opt) ?>" required>
+                            <input type="radio" name="debt_amount" value="<?= $e($opt) ?>" required
+                                   data-umami-event="choice-debt-amount" data-umami-event-choice="<?= $e($opt) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($opt) ?></span>
                         </label>
@@ -65,7 +66,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="choice-group" role="radiogroup" aria-label="Employment status">
                     <?php foreach ($cfg['employment_options'] as $opt): ?>
                         <label class="choice">
-                            <input type="radio" name="employment" value="<?= $e($opt) ?>" required>
+                            <input type="radio" name="employment" value="<?= $e($opt) ?>" required
+                                   data-umami-event="choice-employment" data-umami-event-choice="<?= $e($opt) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($opt) ?></span>
                         </label>
@@ -79,7 +81,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="choice-group" role="radiogroup" aria-label="Annual income">
                     <?php foreach ($cfg['income_options'] as $opt): ?>
                         <label class="choice">
-                            <input type="radio" name="income" value="<?= $e($opt) ?>" required>
+                            <input type="radio" name="income" value="<?= $e($opt) ?>" required
+                                   data-umami-event="choice-income" data-umami-event-choice="<?= $e($opt) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($opt) ?></span>
                         </label>
@@ -186,7 +189,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <!-- Navigation. The back arrow shares this row with whichever primary
                  button the step uses: Continue (steps 1–7) or Submit (step 8). -->
             <div class="form-nav">
-                <button type="button" class="btn-back" id="btnBack" aria-label="Back" hidden>
+                <button type="button" class="btn-back" id="btnBack" aria-label="Back" hidden
+                        data-umami-event="funnel-back">
                     <img src="assets/img/chevron-left-grey.svg" alt="" width="26" height="26">
                 </button>
                 <button type="button" class="btn btn-next" id="btnNext">Continue</button>

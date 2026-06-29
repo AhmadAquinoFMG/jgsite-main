@@ -41,19 +41,25 @@
             window.umami.track(event, data);
         }
     }
+    // Distinct, ordered event name per stage (e.g. "funnel-1-debt-amount") so
+    // each stage shows up as its own row in Umami's Events list and sorts in
+    // funnel order. The "-done" suffix marks the stage as completed.
+    function stageEvent(n, suffix) {
+        return 'funnel-' + n + '-' + (STEP_NAMES[n] || ('step-' + n)) + (suffix || '');
+    }
     function trackStep(n) {
         if (trackedSteps[n]) return;
         trackedSteps[n] = true;
-        track('funnel-step', { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+        track(stageEvent(n), { step: n, name: STEP_NAMES[n] || ('step-' + n) });
     }
     // Fired when a stage is validated and the visitor advances. Comparing
-    // "reached" (funnel-step) vs "completed" (funnel-step-complete) per stage
+    // "reached" (funnel-N-name) vs "completed" (funnel-N-name-done) per stage
     // shows exactly which stage visitors stall on before leaving.
     var completedSteps = {};
     function trackStepComplete(n) {
         if (completedSteps[n]) return;
         completedSteps[n] = true;
-        track('funnel-step-complete', { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+        track(stageEvent(n, '-done'), { step: n, name: STEP_NAMES[n] || ('step-' + n) });
     }
 
     // Abandonment: fire once when the visitor leaves before submitting (tab
