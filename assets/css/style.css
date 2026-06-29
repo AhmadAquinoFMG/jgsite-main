@@ -207,6 +207,19 @@ a { color: var(--green-deep); }
     line-height: 1.5;
     text-align: center;
 }
+.consent-note--left { text-align: left; }
+
+/* Step-specific disclosure rendered below the nav row. Hidden by default;
+   revealed only for the step whose data-for matches the form's data-current. */
+.step-disclosure {
+    display: none;
+    margin: 28px 0 0;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    text-align: left;
+}
+.funnel-form[data-current="6"] .step-disclosure[data-for="6"] { display: block; }
 
 /* navigation */
 .form-nav {

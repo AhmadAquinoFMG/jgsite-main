@@ -134,7 +134,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
             <!-- ===== Step 6: date of birth (auto-format MM/DD/YYYY) ===== -->
             <section class="step" data-step="6">
-                <h2 class="step-title">What is your date of birth?</h2>
+                <h2 class="step-title">What's your date of birth?</h2>
                 <div class="field">
                     <label for="dob">Date of Birth <span class="req">*</span></label>
                     <div class="dob-wrap">
@@ -152,6 +152,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                         <div class="dob-cal" id="dobCal" role="dialog" aria-label="Choose date of birth" hidden></div>
                     </div>
                 </div>
+                <p class="consent-note consent-note--left"><?= $e($cfg['consent']['credit']) ?></p>
             </section>
 
             <!-- ===== Step 7: email ===== -->
@@ -189,6 +190,11 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <button type="button" class="btn btn-next" id="btnNext">Continue</button>
                 <button type="submit" class="btn btn-submit" id="btnSubmit" hidden>Submit</button>
             </div>
+
+            <!-- Step-specific disclosure shown below the nav row. The DOB step's
+                 FCRA authorization appears here; visibility is driven by the
+                 form's data-current attribute (set in funnel.js). -->
+            <p class="step-disclosure" data-for="6"><?= $e($cfg['consent']['fcra']) ?></p>
         </form>
 
         <!-- On submit, funnel.js redirects to thank-you.php (pre-qualified page). -->

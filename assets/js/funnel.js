@@ -32,6 +32,10 @@
             s.classList.toggle('is-active', Number(s.dataset.step) === current);
         });
 
+        // Expose the active step so CSS can reveal step-specific disclosures
+        // (e.g. the FCRA notice below the nav on the DOB step).
+        form.setAttribute('data-current', current);
+
         fill.style.width = ((current / total) * 100) + '%';
 
         btnBack.hidden = current === 1;

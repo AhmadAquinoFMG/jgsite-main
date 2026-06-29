@@ -11,7 +11,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '5',
+    'asset_version' => '6',
 
     // ---- Branding -------------------------------------------------------
     'brand' => [
