@@ -11,7 +11,18 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '6',
+    'asset_version' => '9',
+
+    // ---- Analytics: Umami -----------------------------------------------
+    // Privacy-friendly analytics. Used to measure funnel drop-off (which step
+    // visitors leave from) via per-step events fired in assets/js/funnel.js.
+    // Leave 'website_id' empty to disable the script entirely.
+    //   • Umami Cloud:  src => 'https://cloud.umami.is/script.js'
+    //   • Self-hosted:  src => 'https://<your-host>/script.js'
+    'umami' => [
+        'src'        => 'https://cloud.umami.is/script.js',
+        'website_id' => '40f1f6d9-80c1-49cf-b6ef-0280ac052f83',
+    ],
 
     // ---- Branding -------------------------------------------------------
     'brand' => [

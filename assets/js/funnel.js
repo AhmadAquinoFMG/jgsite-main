@@ -26,6 +26,52 @@
 
     function stepEl(n)   { return steps[n - 1]; }
 
+    /* ----------------------------------------------------- analytics (Umami)
+       Funnel drop-off tracking. We fire one "funnel-step" event the first time
+       each step is reached (a Set guards against back/forward double-counting),
+       so an Umami Funnel report shows how many visitors hit each step and where
+       they exit. umami may be absent (script blocked / not configured) — guard. */
+    var STEP_NAMES = {
+        1: 'debt-amount', 2: 'employment', 3: 'income', 4: 'name',
+        5: 'address', 6: 'dob', 7: 'email', 8: 'phone'
+    };
+    var trackedSteps = {};
+    function track(event, data) {
+        if (window.umami && typeof window.umami.track === 'function') {
+            window.umami.track(event, data);
+        }
+    }
+    function trackStep(n) {
+        if (trackedSteps[n]) return;
+        trackedSteps[n] = true;
+        track('funnel-step', { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+    }
+    // Fired when a stage is validated and the visitor advances. Comparing
+    // "reached" (funnel-step) vs "completed" (funnel-step-complete) per stage
+    // shows exactly which stage visitors stall on before leaving.
+    var completedSteps = {};
+    function trackStepComplete(n) {
+        if (completedSteps[n]) return;
+        completedSteps[n] = true;
+        track('funnel-step-complete', { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+    }
+
+    // Abandonment: fire once when the visitor leaves before submitting (tab
+    // close, navigating away, or backgrounding on mobile), recording the step
+    // they left from. This is the explicit "where did they drop off" signal.
+    // We use 'visibilitychange' -> hidden rather than 'beforeunload' because it
+    // fires reliably across desktop and mobile and lets the request flush.
+    var submitted   = false;
+    var exitTracked = false;
+    function trackExit() {
+        if (exitTracked || submitted) return;
+        exitTracked = true;
+        track('funnel-exit', { step: current, name: STEP_NAMES[current] || ('step-' + current) });
+    }
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') trackExit();
+    });
+
     /* --------------------------------------------------------- rendering */
     function render() {
         steps.forEach(function (s) {
@@ -35,6 +81,8 @@
         // Expose the active step so CSS can reveal step-specific disclosures
         // (e.g. the FCRA notice below the nav on the DOB step).
         form.setAttribute('data-current', current);
+
+        trackStep(current);
 
         fill.style.width = ((current / total) * 100) + '%';
 
@@ -382,7 +430,7 @@
 
     /* ------------------------------------------------------------ events */
     btnNext.addEventListener('click', function () {
-        if (validateStep(current)) goNext();
+        if (validateStep(current)) { trackStepComplete(current); goNext(); }
     });
     btnBack.addEventListener('click', goBack);
 
@@ -407,11 +455,15 @@
 
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
+        submitted = true; // a completion, not an abandonment — suppress funnel-exit
 
         // ---- Backend submission goes here (not wired yet) ----
         var payload = {};
         new FormData(form).forEach(function (v, k) { payload[k] = v; });
         console.log('[funnel] lead captured (stub, not sent):', payload);
+
+        // Funnel completion — the conversion endpoint of the drop-off report.
+        track('funnel-submit', { step: current, name: STEP_NAMES[current] || 'submit' });
 
         // Advance to the "You're Pre-Qualified" confirmation page.
         // (A real backend would POST `payload` first, then redirect.)
