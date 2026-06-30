@@ -18,7 +18,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-    <meta name="robots" content="noindex, nofollow">
+    <meta name="robots" content="index, follow">
     <title><?= $e($cfg['brand']['name']) ?> — Debt Relief Program</title>
     <link rel="icon" type="image/png" href="assets/img/jg-icon.png?v=<?= $e($cfg['asset_version']) ?>">
 

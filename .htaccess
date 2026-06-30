@@ -1,0 +1,12 @@
+# ---------------------------------------------------------------------------
+# Search-engine indexing
+#
+# Some hosts inject a global "X-Robots-Tag: noindex, nofollow" response header
+# that blocks crawling regardless of the page's <meta name="robots"> tag.
+# Strip it here so indexing is governed per-page by the meta tag instead
+# (index.php = indexable, thank-you.php = noindex). Requires mod_headers.
+# ---------------------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header unset X-Robots-Tag
+    Header always unset X-Robots-Tag
+</IfModule>
