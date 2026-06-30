@@ -421,6 +421,110 @@ a { color: var(--green-deep); }
 .trust-badges img { height: 112px; width: auto; }
 
 /* =========================================================================
+   Social proof block (landing page, below the trust badges)
+   ========================================================================= */
+.social-proof { margin-top: 24px; }
+.sp-inner { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
+.sp-heading {
+    text-align: center;
+    margin: 0 0 36px;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+/* 1. Commitment trio */
+.commit-band { background: #EFF7F3; padding: 56px 0; }
+.commit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+.commit-card {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 36px 28px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(17, 35, 55, .05);
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.commit-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 34px rgba(17, 35, 55, .12);
+    border-color: var(--track);
+}
+.commit-card:hover .commit-icon { transform: scale(1.08); }
+.commit-icon { transition: transform .25s ease; }
+.commit-icon { display: inline-flex; color: var(--green); margin-bottom: 16px; }
+.commit-icon svg { width: 34px; height: 34px; }
+.commit-title { margin: 0 0 10px; font-size: 19px; font-weight: 700; color: var(--ink); }
+.commit-text { margin: 0; font-size: 15px; color: var(--muted); line-height: 1.6; }
+
+/* 2. Stats */
+.stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 24px;
+    padding-top: 48px;
+    padding-bottom: 48px;
+}
+.stat { flex: 1 1 200px; display: flex; align-items: center; justify-content: center; gap: 14px; }
+.stat-icon { display: inline-flex; color: var(--green); }
+.stat-icon svg { width: 30px; height: 30px; }
+.stat-body { display: flex; flex-direction: column; line-height: 1.2; }
+.stat-value { font-size: 26px; font-weight: 700; color: var(--ink); }
+.stat-label { font-size: 14px; color: var(--muted); }
+
+/* 3. Reviews — masonry via CSS columns */
+.reviews { padding-bottom: 72px; }
+.reviews-grid { columns: 3; column-gap: 22px; }
+.review-card {
+    break-inside: avoid;
+    margin: 0 0 22px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 22px 24px;
+    box-shadow: 0 1px 3px rgba(17, 35, 55, .05);
+    transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
+}
+.review-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 16px 34px rgba(17, 35, 55, .12);
+    border-color: var(--track);
+}
+.review-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+.review-avatar {
+    flex: 0 0 auto;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #EFF7F3;
+    color: var(--green);
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.review-avatar svg { width: 22px; height: 22px; }
+.review-id { display: flex; flex-direction: column; line-height: 1.25; margin-right: auto; }
+.review-name { font-weight: 700; color: var(--ink); font-size: 15px; }
+.review-product { font-size: 13px; color: var(--muted); }
+.review-stars { display: inline-flex; gap: 2px; color: var(--green); flex: 0 0 auto; }
+.review-stars svg { width: 15px; height: 15px; }
+.review-text { margin: 0; font-size: 14.5px; color: var(--ink-soft); line-height: 1.6; }
+
+/* Scroll-reveal: hidden until .is-visible is added by the observer in
+   includes/social-proof.php. Stagger delay is applied inline per element. */
+.sp-reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity .6s ease, transform .6s ease;
+    will-change: opacity, transform;
+}
+.sp-reveal.is-visible { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .sp-reveal { opacity: 1; transform: none; transition: none; }
+    .commit-card, .review-card, .commit-icon { transition: none; }
+    .commit-card:hover, .review-card:hover { transform: none; }
+}
+
+/* =========================================================================
    Pre-qualified confirmation page (thank-you.php)
    ========================================================================= */
 .prequal { padding-top: 40px; text-align: center; }
@@ -702,6 +806,9 @@ a { color: var(--green-deep); }
 @media (max-width: 860px) {
     .footer-cols { grid-template-columns: 1fr; gap: 8px; }
     .footer-right { margin-top: 18px; }
+    .commit-grid { grid-template-columns: 1fr; max-width: 460px; margin: 0 auto; }
+    .reviews-grid { columns: 2; }
+    .stat { flex-basis: 45%; }
 }
 
 @media (max-width: 560px) {
@@ -714,6 +821,12 @@ a { color: var(--green-deep); }
     .trust-badges img { height: 74px; }
     .site-footer { padding: 36px 22px 24px; }
     .footer-head { margin-bottom: 26px; }
+    .sp-heading { font-size: 24px; margin-bottom: 28px; }
+    .commit-band { padding: 40px 0; }
+    .reviews-grid { columns: 1; }
+    /* Stats as a 2-column grid (row/col) instead of one tall stack. */
+    .stats-row { gap: 24px 14px; padding-top: 36px; padding-bottom: 36px; }
+    .stat { flex: 0 1 calc(50% - 7px); justify-content: flex-start; }
 }
 
 /* =========================================================================

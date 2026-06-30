@@ -11,7 +11,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '11',
+    'asset_version' => '16',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which step
@@ -98,6 +98,43 @@ return [
         ['src' => 'assets/img/trustpilot-1-300x240.png',         'alt' => 'Trustpilot 4.8/5 Stars'],
         ['src' => 'assets/img/bbb-1-e1741985838229-300x240.png', 'alt' => 'BBB Accredited Business — A+ Rating'],
         ['src' => 'assets/img/google-300x240.png',               'alt' => 'Google 4.5/5 Stars'],
+    ],
+
+    // ====================================================================
+    //  Social proof block (landing page, below the trust badges).
+    //  Rendered by includes/social-proof.php. Icon keys map to the inline
+    //  SVG set defined in that include.
+    // ====================================================================
+
+    // ---- "Our commitment to you" cards ---------------------------------
+    'commitments' => [
+        ['icon' => 'search',  'title' => 'Transparency', 'text' => 'Clear terms, no jargon, and straightforward explanations at every step.'],
+        ['icon' => 'shield',  'title' => 'Expertise',    'text' => 'Over 30 years helping Americans move forward with confidence.'],
+        ['icon' => 'headset', 'title' => 'Support',      'text' => 'Dedicated specialists focused on your goals, not sales pressure.'],
+    ],
+
+    // ---- Headline stats ------------------------------------------------
+    'stats' => [
+        ['icon' => 'trophy', 'value' => '30+',   'label' => 'Years of experience'],
+        ['icon' => 'users',  'value' => '375K+', 'label' => 'JGW Customers'],
+        ['icon' => 'card',   'value' => '$2.2B', 'label' => 'Debt Consolidated'],
+        ['icon' => 'wallet', 'value' => '$6.5B', 'label' => 'Structured Payouts'],
+    ],
+
+    // ---- Customer reviews (all 5-star) ---------------------------------
+    'reviews' => [
+        ['icon' => 'piggy', 'name' => 'Yeavette', 'product' => 'Structured Settlement',
+         'text' => "The experience with their representatives was fantastic. They were not only engaging but also very helpful in addressing all my questions swiftly. It's evident they prioritize customer satisfaction. Overall, my interaction with JG Wentworth was extremely positive, which reflects why I would give such a high rating."],
+        ['icon' => 'bag', 'name' => 'David', 'product' => 'Debt Consolidation',
+         'text' => "I had bills piling up from every direction and couldn't keep up with minimum payments. One monthly payment, and my specialist handled all the negotiating. I'm on track to be debt-free in less than 3 years."],
+        ['icon' => 'home', 'name' => 'April', 'product' => 'Home Equity Cashout',
+         'text' => "There is a saying about first impressions… JGW totally exceeded mine! Couldn't ask for a better experience. I started the call almost in tears because of my situation and by the end of the call I was smiling. So excited about my financial future now and it's all thanks to JGW."],
+        ['icon' => 'home', 'name' => 'Purvis', 'product' => 'Home Equity Cashout',
+         'text' => "Working with J.G. Wentworth was a fantastic and stress-free experience from start to finish. The specialist I worked with was professional, supportive, and clearly explained every detail. The entire process was fast and seamless."],
+        ['icon' => 'piggy', 'name' => 'Tamiko', 'product' => 'Structured Settlement',
+         'text' => "We had worked with JG Wentworth before and they got things done. We worked with them again and they made everything easy for us. We communicate well together. We had called several people, but JG Wentworth is the one that we like the most. Getting our money was quick. We appreciate that and we'll be using them again if we need them."],
+        ['icon' => 'bag', 'name' => 'Sarah', 'product' => 'Debt Consolidation',
+         'text' => "I was drowning in credit card debt and didn't know where to turn. My JG Wentworth specialist laid out a clear plan, and I saved over \$14,000. I wish I'd called sooner."],
     ],
 
     // ---- Debt amount options (step 1) ----------------------------------

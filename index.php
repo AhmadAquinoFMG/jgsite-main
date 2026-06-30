@@ -214,6 +214,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     </div>
 </main>
 
+<?php include __DIR__ . '/includes/social-proof.php'; ?>
+
 <?php include __DIR__ . '/includes/footer.php'; ?>
 
 <script src="assets/js/funnel.js?v=<?= $e($cfg['asset_version']) ?>"></script>
