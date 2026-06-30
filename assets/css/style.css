@@ -425,16 +425,25 @@ a { color: var(--green-deep); }
    ========================================================================= */
 .social-proof { margin-top: 24px; }
 .sp-inner { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
+.sp-head { text-align: center; margin: 0 0 36px; }
 .sp-heading {
     text-align: center;
-    margin: 0 0 36px;
+    margin: 0 0 10px;
     font-size: 30px;
     font-weight: 700;
     color: var(--ink);
 }
+.sp-subheading {
+    margin: 0;
+    font-size: 16px;
+    color: var(--muted);
+    line-height: 1.5;
+}
 
 /* 1. Commitment trio */
-.commit-band { background: #EFF7F3; padding: 56px 0; }
+.commit-band { background: var(--green); padding: 56px 0; }
+.commit-band .sp-heading { color: var(--white); }
+.commit-band .sp-subheading { color: rgba(255, 255, 255, .85); }
 .commit-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
 .commit-card {
     background: var(--white);
@@ -821,7 +830,9 @@ a { color: var(--green-deep); }
     .trust-badges img { height: 74px; }
     .site-footer { padding: 36px 22px 24px; }
     .footer-head { margin-bottom: 26px; }
-    .sp-heading { font-size: 24px; margin-bottom: 28px; }
+    .sp-head { margin-bottom: 28px; }
+    .sp-heading { font-size: 24px; margin-bottom: 8px; }
+    .sp-subheading { font-size: 15px; }
     .commit-band { padding: 40px 0; }
     .reviews-grid { columns: 1; }
     /* Stats as a 2-column grid (row/col) instead of one tall stack. */

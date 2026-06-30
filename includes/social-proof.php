@@ -42,7 +42,10 @@ $starRow = '<span class="review-stars" aria-label="Rated 5 out of 5">'
     <!-- 1. Commitment trio -->
     <div class="commit-band">
         <div class="sp-inner">
-            <h2 class="sp-heading sp-reveal">Our commitment to you</h2>
+            <div class="sp-head sp-reveal">
+                <h2 class="sp-heading">Our commitment to you</h2>
+                <p class="sp-subheading">What you can count on at every step of your journey.</p>
+            </div>
             <div class="commit-grid">
                 <?php foreach ($cfg['commitments'] as $c): ?>
                     <div class="commit-card sp-reveal">
@@ -70,7 +73,10 @@ $starRow = '<span class="review-stars" aria-label="Rated 5 out of 5">'
 
     <!-- 3. Reviews -->
     <div class="sp-inner reviews">
-        <h2 class="sp-heading sp-reveal">Real customers, real reviews</h2>
+        <div class="sp-head sp-reveal">
+            <h2 class="sp-heading">Real customers, real reviews</h2>
+            <p class="sp-subheading">Real stories from people we've helped move forward.</p>
+        </div>
         <div class="reviews-grid">
             <?php foreach ($cfg['reviews'] as $r): ?>
                 <article class="review-card sp-reveal">
