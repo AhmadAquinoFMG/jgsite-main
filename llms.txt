@@ -1,0 +1,31 @@
+# JG Wentworth — Debt Relief
+
+> A lead-generation landing page for The JG Wentworth Company's debt relief
+> program. Visitors complete a short multi-step form to check whether they
+> pre-qualify for help reducing and consolidating their debt. JG Wentworth has
+> over 30 years of experience and has served 375K+ customers.
+
+The site is a single funnel, not a content site. Its purpose is to collect a
+qualified lead and route the visitor to a confirmation page where a debt
+specialist follows up. Form submission is the primary conversion.
+
+## Pages
+- [Debt Relief application](/index.php): The main page. An 8-step form — debt amount, employment status, annual income, name, street address, date of birth (with FCRA/credit consent), email, and phone (with TCPA contact consent). Includes trust badges and customer reviews.
+- [You're Pre-Qualified](/thank-you.php): Post-submission confirmation page (noindex). Shows assigned-specialist messaging and a click-to-call CTA. Reached only after the form is submitted.
+
+## What the program is
+- Debt resolution program provided by JGW Debt Settlement, LLC. Program length typically 24–60 months.
+- Not available in every state, and not all debts are eligible. Results vary by individual situation.
+- JG Wentworth does not provide legal, financial, tax, or credit-repair advice.
+
+## Legal & policies
+- [Terms of Use](https://www.jgwentworth.com/terms-use)
+- [Privacy Policy](https://www.jgwentworth.com/jg-wentworth-company-r-consumer-privacy-notice)
+- [Licenses](https://www.jgwentworth.com/licenses)
+- [Notice at Collection](https://www.jgwentworth.com/notice-at-collection)
+- [Debt Resolution Loan Disclosures](https://www.jgwentworth.com/debt-resolution-loan-disclosures)
+
+## Contact
+- Phone: 1-888-510-3795 (Debt Solutions)
+- Address: 1200 Morris Drive, Chesterbrook, PA 19087
+- Complaints: complaint@jgwentworth.com
