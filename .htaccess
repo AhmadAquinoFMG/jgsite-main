@@ -10,3 +10,10 @@
     Header unset X-Robots-Tag
     Header always unset X-Robots-Tag
 </IfModule>
+
+# ---------------------------------------------------------------------------
+# Block direct web access to dotenv files (secrets like GOOGLE_PLACES_KEY).
+# ---------------------------------------------------------------------------
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>

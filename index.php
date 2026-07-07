@@ -107,34 +107,17 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
             <!-- ===== Step 5: address (Google Places autocomplete on street — lazy-loaded) ===== -->
             <section class="step" data-step="5" data-lazy="places">
-                <h2 class="step-title">What is your street address?</h2>
+                <h2 class="step-title">What is your address?</h2>
                 <div class="field places-wrap">
-                    <label for="street">Street address <span class="req">*</span></label>
+                    <label for="street">Address <span class="req">*</span></label>
                     <input type="text" id="street" name="street" autocomplete="off"
                            data-validate="street" placeholder="Start typing your address&hellip;" required>
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
                 </div>
-                <div class="field-row">
-                    <div class="field">
-                        <label for="city">City <span class="req">*</span></label>
-                        <input type="text" id="city" name="city" autocomplete="address-level2"
-                               data-validate="city" required>
-                    </div>
-                    <div class="field">
-                        <label for="state">State <span class="req">*</span></label>
-                        <select id="state" name="state" autocomplete="address-level1" required>
-                            <option value="">Select State</option>
-                            <?php foreach ($cfg['states'] as $abbr => $name): ?>
-                                <option value="<?= $e($abbr) ?>"><?= $e($name) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                </div>
-                <div class="field field--zip">
-                    <label for="zip">Zip code <span class="req">*</span></label>
-                    <input type="text" id="zip" name="zip" autocomplete="postal-code"
-                           inputmode="numeric" data-validate="zip" maxlength="5" required>
-                </div>
+                <!-- structured components, filled from the chosen suggestion so the lead payload keeps city/state/zip -->
+                <input type="hidden" id="city"  name="city">
+                <input type="hidden" id="state" name="state">
+                <input type="hidden" id="zip"   name="zip">
             </section>
 
             <!-- ===== Step 6: date of birth (auto-format MM/DD/YYYY) ===== -->
@@ -222,6 +205,9 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
 <?php include __DIR__ . '/includes/footer.php'; ?>
 
+<script>
+    window.FUNNEL = { googlePlacesKey: <?= json_encode($cfg['google_places_key'] ?? '', JSON_UNESCAPED_SLASHES) ?> };
+</script>
 <script src="assets/js/funnel.js?v=<?= $e($cfg['asset_version']) ?>"></script>
 </body>
 </html>

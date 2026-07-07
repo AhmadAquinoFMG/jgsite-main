@@ -1,9 +1,9 @@
 /* =========================================================================
    JG Wentworth funnel — 8-step UI mechanics.
 
-   Single-page, JS-driven flow. THIRD-PARTY INTEGRATIONS ARE MOCKED (UI only):
-     • Step 5 street uses a lazy-loaded Google Places STUB (mock suggestions).
-   Swap the marked stub functions for real SDK calls to go live.
+   Single-page, JS-driven flow.
+     • Step 5 address uses the lazy-loaded Google Places (New) SDK, keyed from
+       window.FUNNEL.googlePlacesKey; falls back to mock suggestions if unset.
 
    Steps: 1 debt · 2 employment · 3 income (auto-advance radios) ·
           4 name · 5 address · 6 dob · 7 email (Continue) ·
@@ -391,47 +391,162 @@
         if (key === 'places')   loadGooglePlaces();
     }
 
-    /* ---- Google Places STUB (step 5) ----------------------------------
-       Real impl: inject https://maps.googleapis.com/maps/api/js?key=...&libraries=places
-       then `new google.maps.places.Autocomplete(streetInput)`. Here we mock a
-       suggestions dropdown so the UI/UX is fully wired. ------------------ */
+    /* ---- Google Places (step 5) ---------------------------------------
+       Uses the Places API (New) JS SDK and renders predictions into our own
+       styled #placesSuggestions list (not Google's .pac-container). The key
+       comes from window.FUNNEL.googlePlacesKey (config.php -> .env). With no
+       key we fall back to a small mock list so the funnel still works in
+       local/dev without billing. ---------------------------------------- */
     function loadGooglePlaces() {
-        console.log('[funnel] lazy-load Google Places (stub)');
         var street = document.getElementById('street');
         var list   = document.getElementById('placesSuggestions');
         if (!street || !list) return;
 
-        var MOCK = [
-            { street: '1600 Amphitheatre Pkwy', city: 'Mountain View', state: 'CA', zip: '94043' },
-            { street: '350 Fifth Ave',           city: 'New York',       state: 'NY', zip: '10118' },
-            { street: '233 S Wacker Dr',         city: 'Chicago',        state: 'IL', zip: '60606' },
-            { street: '1 Apple Park Way',        city: 'Cupertino',      state: 'CA', zip: '95014' }
-        ];
-
         function close() { list.hidden = true; list.innerHTML = ''; }
-        function pick(s) {
-            street.value = s.street;
-            document.getElementById('city').value  = s.city;
-            document.getElementById('state').value = s.state;
-            document.getElementById('zip').value   = s.zip;
+
+        function debounce(fn, ms) {
+            var t;
+            return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+        }
+
+        // full address into the visible field; parts into hidden inputs for the payload
+        function fill(p) {
+            var line = [p.street, p.city, ((p.state || '') + ' ' + (p.zip || '')).trim()]
+                .map(function (x) { return (x || '').trim(); })
+                .filter(Boolean).join(', ');
+            street.value = line || p.street || '';
+            document.getElementById('city').value  = p.city  || '';
+            document.getElementById('state').value = p.state || '';
+            document.getElementById('zip').value   = p.zip   || '';
             close();
         }
 
-        street.addEventListener('input', function () {
-            var q = street.value.trim().toLowerCase();
-            if (q.length < 3) return close();
+        // render [{label, onPick}] rows into the styled list
+        function render(rows) {
             list.innerHTML = '';
-            MOCK.forEach(function (s) {
+            if (!rows.length) return close();
+            rows.forEach(function (r) {
                 var li = document.createElement('li');
                 li.className = 'places-item';
                 li.setAttribute('role', 'option');
-                li.textContent = s.street + ', ' + s.city + ', ' + s.state + ' ' + s.zip;
-                li.addEventListener('mousedown', function (ev) { ev.preventDefault(); pick(s); });
+                li.textContent = r.label;
+                li.addEventListener('mousedown', function (ev) { ev.preventDefault(); r.onPick(); });
                 list.appendChild(li);
             });
             list.hidden = false;
-        });
+        }
+
         street.addEventListener('blur', function () { setTimeout(close, 120); });
+
+        var key = (window.FUNNEL && window.FUNNEL.googlePlacesKey) || '';
+        if (key) initReal(key); else initMock();
+
+        /* ----- real Google Places (New) ----- */
+        function initReal(apiKey) {
+            loadSdk(apiKey)
+                .then(function () { return google.maps.importLibrary('places'); })
+                .then(function (places) {
+                    var Suggestion = places.AutocompleteSuggestion;
+                    var Token      = places.AutocompleteSessionToken;
+                    var token      = new Token();
+                    var seq        = 0;
+
+                    street.addEventListener('input', debounce(function () {
+                        var input = street.value.trim();
+                        if (input.length < 3) return close();
+                        var mine = ++seq;
+                        Suggestion.fetchAutocompleteSuggestions({
+                            input: input,
+                            sessionToken: token,
+                            includedRegionCodes: ['us']
+                        }).then(function (res) {
+                            if (mine !== seq) return; // a newer keystroke already fired
+                            var rows = (res.suggestions || []).map(function (sg) {
+                                var pred = sg.placePrediction;
+                                return {
+                                    label: (pred.text && pred.text.text) || String(pred.text || ''),
+                                    onPick: function () { selectPlace(pred); }
+                                };
+                            });
+                            render(rows);
+                        }).catch(function (err) { console.error('[funnel] places fetch failed', err); close(); });
+                    }, 200));
+
+                    function selectPlace(pred) {
+                        var place = pred.toPlace();
+                        place.fetchFields({ fields: ['addressComponents', 'formattedAddress'] })
+                            .then(function () {
+                                fill(parseComponents(place.addressComponents, place.formattedAddress));
+                                token = new Token(); // close the billing session, start a fresh one
+                            })
+                            .catch(function (err) { console.error('[funnel] place details failed', err); });
+                    }
+                })
+                .catch(function (err) {
+                    console.error('[funnel] Google Places failed to load — using mock', err);
+                    initMock();
+                });
+        }
+
+        // Google addressComponents -> our {street, city, state, zip}
+        function parseComponents(comps, formatted) {
+            var g = { num: '', route: '', locality: '', sublocality: '', admin1: '', zip: '' };
+            (comps || []).forEach(function (c) {
+                var t = c.types || [];
+                var long  = c.longText != null ? c.longText : c.long_name;
+                var short = c.shortText != null ? c.shortText : c.short_name;
+                if (t.indexOf('street_number') > -1) g.num = long;
+                else if (t.indexOf('route') > -1) g.route = long;
+                else if (t.indexOf('locality') > -1) g.locality = long;
+                else if (t.indexOf('sublocality') > -1 || t.indexOf('sublocality_level_1') > -1) g.sublocality = long;
+                else if (t.indexOf('administrative_area_level_1') > -1) g.admin1 = short;
+                else if (t.indexOf('postal_code') > -1) g.zip = long;
+            });
+            var streetLine = (g.num + ' ' + g.route).trim();
+            return {
+                street: streetLine || (formatted ? formatted.split(',')[0] : ''),
+                city:   g.locality || g.sublocality || '',
+                state:  g.admin1 || '',
+                zip:    g.zip || ''
+            };
+        }
+
+        /* ----- one-shot SDK loader ----- */
+        function loadSdk(apiKey) {
+            if (window.google && window.google.maps && window.google.maps.importLibrary) {
+                return Promise.resolve();
+            }
+            if (window.__gmapsPromise) return window.__gmapsPromise;
+            window.__gmapsPromise = new Promise(function (resolve, reject) {
+                var s = document.createElement('script');
+                s.src = 'https://maps.googleapis.com/maps/api/js?key=' +
+                        encodeURIComponent(apiKey) + '&libraries=places&loading=async&v=weekly';
+                s.async = true;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+            return window.__gmapsPromise;
+        }
+
+        /* ----- mock fallback (no key configured) ----- */
+        function initMock() {
+            var MOCK = [
+                { street: '1600 Amphitheatre Pkwy', city: 'Mountain View', state: 'CA', zip: '94043' },
+                { street: '350 Fifth Ave',           city: 'New York',       state: 'NY', zip: '10118' },
+                { street: '233 S Wacker Dr',         city: 'Chicago',        state: 'IL', zip: '60606' },
+                { street: '1 Apple Park Way',        city: 'Cupertino',      state: 'CA', zip: '95014' }
+            ];
+            street.addEventListener('input', function () {
+                if (street.value.trim().length < 3) return close();
+                render(MOCK.map(function (s) {
+                    return {
+                        label: s.street + ', ' + s.city + ', ' + s.state + ' ' + s.zip,
+                        onPick: function () { fill(s); }
+                    };
+                }));
+            });
+        }
     }
 
     /* ------------------------------------------------------------ events */

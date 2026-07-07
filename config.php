@@ -7,11 +7,46 @@
  * stays clean. Swap branding, steps, options or copy without touching layout.
  */
 
+/**
+ * Minimal .env reader — no Composer/dotenv dependency.
+ * Parses KEY=VALUE lines from the project-root .env once, caches them, and
+ * lets a real environment variable of the same name win. Keeps secrets (e.g.
+ * the Google Places key) out of version control — see .env.example.
+ */
+if (!function_exists('env')) {
+    function env(string $key, ?string $default = null): ?string
+    {
+        static $vars = null;
+        if ($vars === null) {
+            $vars = [];
+            $path = __DIR__ . '/.env';
+            if (is_readable($path)) {
+                foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+                    $line = trim($line);
+                    if ($line === '' || $line[0] === '#') continue;
+                    $pos = strpos($line, '=');
+                    if ($pos === false) continue;
+                    $k = trim(substr($line, 0, $pos));
+                    $v = trim(substr($line, $pos + 1));
+                    // strip one layer of surrounding quotes, if present
+                    if (strlen($v) >= 2 && ($v[0] === '"' || $v[0] === "'") && $v[strlen($v) - 1] === $v[0]) {
+                        $v = substr($v, 1, -1);
+                    }
+                    $vars[$k] = $v;
+                }
+            }
+        }
+        $live = getenv($key);
+        if ($live !== false && $live !== '') return $live;
+        return array_key_exists($key, $vars) ? $vars[$key] : $default;
+    }
+}
+
 return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '20',
+    'asset_version' => '22',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which step
@@ -23,6 +58,12 @@ return [
         'src'        => 'https://cloud.umami.is/script.js',
         'website_id' => '40f1f6d9-80c1-49cf-b6ef-0280ac052f83',
     ],
+
+    // ---- Google Places (address autocomplete, step 5) ------------------
+    // Loaded lazily in assets/js/funnel.js. Set GOOGLE_PLACES_KEY in .env
+    // (see .env.example). Leave empty to fall back to the built-in mock
+    // suggestion list so the funnel still works locally without billing.
+    'google_places_key' => env('GOOGLE_PLACES_KEY', ''),
 
     // ---- Branding -------------------------------------------------------
     'brand' => [
