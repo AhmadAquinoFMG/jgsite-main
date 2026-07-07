@@ -11,7 +11,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '18',
+    'asset_version' => '19',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which step
@@ -123,18 +123,42 @@ return [
 
     // ---- Customer reviews (all 5-star) ---------------------------------
     'reviews' => [
-        ['icon' => 'piggy', 'name' => 'Yeavette', 'product' => 'Structured Settlement',
-         'text' => "The experience with their representatives was fantastic. They were not only engaging but also very helpful in addressing all my questions swiftly. It's evident they prioritize customer satisfaction. Overall, my interaction with JG Wentworth was extremely positive, which reflects why I would give such a high rating."],
-        ['icon' => 'bag', 'name' => 'David', 'product' => 'Debt Consolidation',
-         'text' => "I had bills piling up from every direction and couldn't keep up with minimum payments. One monthly payment, and my specialist handled all the negotiating. I'm on track to be debt-free in less than 3 years."],
-        ['icon' => 'home', 'name' => 'April', 'product' => 'Home Equity Cashout',
-         'text' => "There is a saying about first impressions… JGW totally exceeded mine! Couldn't ask for a better experience. I started the call almost in tears because of my situation and by the end of the call I was smiling. So excited about my financial future now and it's all thanks to JGW."],
-        ['icon' => 'home', 'name' => 'Purvis', 'product' => 'Home Equity Cashout',
-         'text' => "Working with J.G. Wentworth was a fantastic and stress-free experience from start to finish. The specialist I worked with was professional, supportive, and clearly explained every detail. The entire process was fast and seamless."],
-        ['icon' => 'piggy', 'name' => 'Tamiko', 'product' => 'Structured Settlement',
-         'text' => "We had worked with JG Wentworth before and they got things done. We worked with them again and they made everything easy for us. We communicate well together. We had called several people, but JG Wentworth is the one that we like the most. Getting our money was quick. We appreciate that and we'll be using them again if we need them."],
-        ['icon' => 'bag', 'name' => 'Sarah', 'product' => 'Debt Consolidation',
-         'text' => "I was drowning in credit card debt and didn't know where to turn. My JG Wentworth specialist laid out a clear plan, and I saved over \$14,000. I wish I'd called sooner."],
+        [
+            'icon' => 'piggy',
+            'name' => 'Yeavette',
+            'product' => 'Structured Settlement',
+            'text' => "The experience with their representatives was fantastic. They were not only engaging but also very helpful in addressing all my questions swiftly. It's evident they prioritize customer satisfaction. Overall, my interaction with JG Wentworth was extremely positive, which reflects why I would give such a high rating."
+        ],
+        [
+            'icon' => 'bag',
+            'name' => 'David',
+            'product' => 'Debt Consolidation',
+            'text' => "I had bills piling up from every direction and couldn't keep up with minimum payments. One monthly payment, and my specialist handled all the negotiating. I'm on track to be debt-free in less than 3 years."
+        ],
+        [
+            'icon' => 'home',
+            'name' => 'April',
+            'product' => 'Home Equity Cashout',
+            'text' => "There is a saying about first impressions… JGW totally exceeded mine! Couldn't ask for a better experience. I started the call almost in tears because of my situation and by the end of the call I was smiling. So excited about my financial future now and it's all thanks to JGW."
+        ],
+        [
+            'icon' => 'home',
+            'name' => 'Purvis',
+            'product' => 'Home Equity Cashout',
+            'text' => "Working with J.G. Wentworth was a fantastic and stress-free experience from start to finish. The specialist I worked with was professional, supportive, and clearly explained every detail. The entire process was fast and seamless."
+        ],
+        [
+            'icon' => 'piggy',
+            'name' => 'Tamiko',
+            'product' => 'Structured Settlement',
+            'text' => "We had worked with JG Wentworth before and they got things done. We worked with them again and they made everything easy for us. We communicate well together. We had called several people, but JG Wentworth is the one that we like the most. Getting our money was quick. We appreciate that and we'll be using them again if we need them."
+        ],
+        [
+            'icon' => 'bag',
+            'name' => 'Sarah',
+            'product' => 'Debt Consolidation',
+            'text' => "I was drowning in credit card debt and didn't know where to turn. My JG Wentworth specialist laid out a clear plan, and I saved over \$14,000. I wish I'd called sooner."
+        ],
     ],
 
     // ---- Debt amount options (step 1) ----------------------------------
@@ -220,9 +244,9 @@ return [
     // ---- Consent / legal copy ------------------------------------------
     'consent' => [
         'contact' => 'By clicking “Submit” you consent to allowing JG Wentworth to contact you as described below.',
-        'credit'  => 'By clicking “Submit” you consent to allow JG Wentworth to access your credit report as described below. This will not impact your credit score.',
-        'tcpa'    => 'By submitting this form, I am providing JG Wentworth with express written consent to contact me regarding product offerings by SMS/text messages or by using an auto dialer (or automated means) at the phone number(s) provided and such consent is not a condition of a purchase. I further consent to initial contact outside of permissible state and federal call times if made within approximately one hour of submission. Message and data rates may apply. You can opt-out of this service at any time by replying to our last message with STOP. For assistance, please call any number listed on this website. I also consent and agree to JG Wentworth’s Privacy Policy and Terms of Use.',
-        'fcra'    => 'Pursuant to the Fair Credit Reporting Act (FCRA), I hereby provide my written instructions and authorization for J.G. Wentworth to obtain a consumer report on me. I understand that J.G. Wentworth has a permissible purpose under the FCRA to request and review my consumer report in connection with a financial transaction. I acknowledge that this request for a consumer report is being made in accordance with my explicit consent and instructions as required under the FCRA.',
+        'credit'  => 'Above button: By clicking "Submit" you consent to allow JG Wentworth to access your credit report as described below. This will not impact your credit score.',
+        'tcpa'    => 'By submitting this form, I am providing The J.G. Wentworth Company, together with its subsidiaries and affiliates (collectively, “JGW”), with express written consent to contact me through calls and text messages at the number entered or listed above, including for marketing purposes Such calls and texts may be made using automated means, including autodialers, selection systems, robocalls, and prerecorded or artificial voice recordings, even if my number is listed on any company-specific, state, or federal Do-Not-Call list. Consent is not required as a condition of any purchase or service. Message and data rates may apply. Messaging frequency varies. Text “STOP” to cancel. I further consent to initial contact outside of permissible state and federal call times if made within approximately one hour of submission. I also consent and agree to JG Wentworth’s <a href="https://staging.jgwentworth.com/jg-wentworth-company-r-consumer-privacy-notice" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="https://staging.jgwentworth.com/terms-use" target="_blank" rel="noopener noreferrer">Terms of Use</a>. For details on how to opt out, which you may do at any time, please see JGW’s Revocation of Consent Instructions.<a href="https://jgwentworth.monday.com/boards/441186566/pulses/12396852828#_msocom_1" target="_blank" rel="noopener noreferrer">[LC1]</a>',
+        'fcra'    => 'Pursuant to the Fair Credit Reporting Act (FCRA), I authorize JGW to obtain and use consumer credit reports and other information from consumer reporting agencies for the purpose of evaluating my application, verifying information, providing me with personalized offers for financial products and services, and conducting ongoing account review, servicing, or collection activities as permitted under the Fair Credit Reporting Act (“FCRA”). I direct JGW to share my information with its their subsidiaries and affiliates, as necessary to process my application, evaluate credit available options, provide related services, or to provide me with personalized offers. I acknowledge that this authorization shall remain in effect until I revoke it in writing.',
     ],
 
     // ---- Footer legal links (left column, vertical) --------------------
@@ -240,14 +264,14 @@ return [
     // Static, self-authored legal copy; the two link-bearing paragraphs are
     // trusted HTML rendered verbatim in the footer.
     'disclosures' => [
-        '*Program length varies depending on individual situation. Programs are between 24 and 60 months in length. Average graduated clients realize approximate savings of 46% before our program fee and 21% after program fee. This is a Debt resolution program provided by JGW Debt Settlement, LLC (“JGW” or “Us”). JGW offers this program in the following states: AL, AK, AZ, AR, CA, CO, FL, ID, IN, IA, KY, LA, MD, MA, MI, MS, MO, NE, NM, NV, NY, NC, OK, PA, PR, SD, TN, TX, UT, VA, DC. If a consumer residing in any other state contacts Us we may connect them with a law firm that provides debt resolution services in their state. JGW is licensed/registered to provide debt resolution services in states where licensing/registration is required.',
+        'Program length varies depending on individual situation. Programs are between approximately 24 and 60 months in length. Clients who are able to stay with the program and get all their debt settled have realized approximate average savings of 44% of their originally enrolled balance, before our 26% program fee. These savings are based on JGW client data from June 2025 through April 2026, reflect historical results, and are not guaranteed. JGW’s fees are calculated based on a percentage of the debt enrolled in the program. Read and understand the program agreement prior to enrollment.',
 
-        'Debt resolution program results will vary by individual situation. As such, debt resolution services are not appropriate for everyone. Not all debts are eligible for enrollment. Not all individuals who enroll complete our program for various reasons, including their ability to save sufficient funds. Savings resulting from successful negotiations may result in tax consequences, please consult with a tax professional regarding these consequences. The use of the debt settlement services and the failure to make payments to creditors: (1) Will likely adversely affect your creditworthiness (credit rating/credit score) and make it harder to obtain credit; (2) May result in your being subject to collections or being sued by creditors or debt collectors; and (3) May increase the amount of money you owe due to the accrual of fees and interest by creditors or debt collectors. Failure to pay your monthly bills in a timely manner will result in increased balances and will harm your credit rating. Not all creditors will agree to reduce principal balance, and they may pursue collection, including lawsuits. JGW’s fees are calculated based on a percentage of the debt enrolled in the program. Read and understand the program agreement prior to enrollment.',
+        'This is a Debt resolution program provided by JGW Debt Settlement, LLC (“JGW” or “Us”). JGW offers this program in the following states: AL, AK, AZ, AR, CA, CO, FL, ID, IN, KY, LA, MD, MA, MI, MS, MO, MT, NE, NM, NV, NY, NC, OK, PA, PR, SD, TN, TX, UT, VA, DC. If a consumer residing in any other state contacts Us we may connect them with a law firm that provides debt resolution services in their state. JGW is licensed/registered to provide debt resolution services in states where licensing/registration is required.',
 
-        'JG Wentworth does not pay or assume any debts or provide legal, financial, tax advice, or credit repair services. You should consult with independent professionals for such advice or services. Please consult with a bankruptcy attorney for information on bankruptcy.',
+        'Debt resolution program results will vary by individual situation. As such, debt resolution services are not appropriate for everyone. Not all debts are eligible for enrollment. Not all individuals who enroll complete our program for various reasons, including their ability to save sufficient funds. Savings resulting from successful negotiations may result in tax consequences, please consult with a tax professional regarding these consequences. The use of the debt settlement services and the failure to make payments to creditors: (1) Will likely adversely affect your creditworthiness (credit rating/credit score) and make it harder to obtain credit; (2) May result in your being subject to collections or being sued by creditors or debt collectors; and (3) May increase the amount of money you owe due to the accrual of fees and interest by creditors or debt collectors. Failure to pay your monthly bills in a timely manner will result in increased balances and will harm your credit rating. Not all creditors will agree to reduce principal balance, and they may pursue collection, including lawsuits.',
 
-        'Client Grievance Procedure: If you are unable to resolve an issue with your Debt Specialist or Client Services Representative, please request to speak with a manager. If you cannot reach a resolution with a manager, please escalate communication via email at <a href="mailto:complaint@jgwentworth.com">complaint@jgwentworth.com</a> or direct mail to the business address listed on our contact page.',
+        'JG Wentworth does not pay or assume any debts or provide legal advice, financial advice, tax advice, or credit repair services. You should consult with independent professionals for such advice or services. Please consult with a bankruptcy attorney for information on bankruptcy.',
 
-        'List of Licenses can be accessed here: <a href="https://www.jgwentworth.com/licenses" target="_blank">Licenses &ndash; JG Wentworth</a>',
+        'List of Licenses can be accessed here: <a href="https://www.jgwentworth.com/licenses" target="_blank" rel="noopener noreferrer">Licenses &ndash; JG Wentworth</a>',
     ],
 ];
