@@ -183,7 +183,6 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                            data-validate="phone" required>
                 </div>
                 <p class="consent-note"><?= $e($cfg['consent']['contact']) ?></p>
-                <p class="consent-note tcpa"><?= $cfg['consent']['tcpa'] /* trusted static HTML (contains legal links) */ ?></p>
             </section>
 
             <!-- Navigation. The back arrow shares this row with whichever primary
@@ -201,6 +200,11 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                  FCRA authorization appears here; visibility is driven by the
                  form's data-current attribute (set in funnel.js). -->
             <p class="step-disclosure" data-for="6"><?= $e($cfg['consent']['fcra']) ?></p>
+
+            <!-- Phone step's TCPA consent. Sits below the Submit button (and above
+                 the reviews section) rather than above it; the short contact note
+                 stays above Submit inside the step. Trusted static HTML (legal links). -->
+            <p class="step-disclosure tcpa" data-for="8"><?= $cfg['consent']['tcpa'] ?></p>
         </form>
 
         <!-- On submit, funnel.js redirects to thank-you.php (pre-qualified page). -->

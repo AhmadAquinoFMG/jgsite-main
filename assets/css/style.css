@@ -220,6 +220,7 @@ a { color: var(--green-deep); }
     text-align: left;
 }
 .funnel-form[data-current="6"] .step-disclosure[data-for="6"] { display: block; }
+.funnel-form[data-current="8"] .step-disclosure[data-for="8"] { display: block; }
 
 /* navigation */
 .form-nav {

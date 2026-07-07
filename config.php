@@ -11,7 +11,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '19',
+    'asset_version' => '20',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which step
@@ -244,7 +244,7 @@ return [
     // ---- Consent / legal copy ------------------------------------------
     'consent' => [
         'contact' => 'By clicking “Submit” you consent to allowing JG Wentworth to contact you as described below.',
-        'credit'  => 'Above button: By clicking "Submit" you consent to allow JG Wentworth to access your credit report as described below. This will not impact your credit score.',
+        'credit'  => 'By clicking "Continue" you consent to allow JG Wentworth to access your credit report as described below. This will not impact your credit score.',
         'tcpa'    => 'By submitting this form, I am providing The J.G. Wentworth Company, together with its subsidiaries and affiliates (collectively, “JGW”), with express written consent to contact me through calls and text messages at the number entered or listed above, including for marketing purposes Such calls and texts may be made using automated means, including autodialers, selection systems, robocalls, and prerecorded or artificial voice recordings, even if my number is listed on any company-specific, state, or federal Do-Not-Call list. Consent is not required as a condition of any purchase or service. Message and data rates may apply. Messaging frequency varies. Text “STOP” to cancel. I further consent to initial contact outside of permissible state and federal call times if made within approximately one hour of submission. I also consent and agree to JG Wentworth’s <a href="https://staging.jgwentworth.com/jg-wentworth-company-r-consumer-privacy-notice" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="https://staging.jgwentworth.com/terms-use" target="_blank" rel="noopener noreferrer">Terms of Use</a>. For details on how to opt out, which you may do at any time, please see JGW’s Revocation of Consent Instructions.<a href="https://jgwentworth.monday.com/boards/441186566/pulses/12396852828#_msocom_1" target="_blank" rel="noopener noreferrer">[LC1]</a>',
         'fcra'    => 'Pursuant to the Fair Credit Reporting Act (FCRA), I authorize JGW to obtain and use consumer credit reports and other information from consumer reporting agencies for the purpose of evaluating my application, verifying information, providing me with personalized offers for financial products and services, and conducting ongoing account review, servicing, or collection activities as permitted under the Fair Credit Reporting Act (“FCRA”). I direct JGW to share my information with its their subsidiaries and affiliates, as necessary to process my application, evaluate credit available options, provide related services, or to provide me with personalized offers. I acknowledge that this authorization shall remain in effect until I revoke it in writing.',
     ],
