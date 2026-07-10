@@ -43,7 +43,11 @@ if (!function_exists('verify_firebase_token')) {
     function fb_google_certs(?string &$err = null): array
     {
         $err   = null;
-        $url   = 'https://www.googleapis.com/robots/v1/metadata/x509/securetoken@system.gserviceaccount.com';
+        // NB: the '@' is percent-encoded (%40). The literal '@' works with
+        // well-behaved clients but some curl/proxy stacks mishandle it in the
+        // path (truncating at '@' → a 404 on .../x509/securetoken). %40 is the
+        // same resource and avoids that.
+        $url   = 'https://www.googleapis.com/robots/v1/metadata/x509/securetoken%40system.gserviceaccount.com';
         $cache = sys_get_temp_dir() . '/fb_securetoken_certs.json';
 
         if (is_readable($cache) && (time() - filemtime($cache) < 3600)) {
