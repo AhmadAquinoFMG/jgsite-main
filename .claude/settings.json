@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root -e 'CREATE DATABASE IF NOT EXISTS jgw_leads_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;')",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test)",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test -e 'SHOW TABLES; DESCRIBE leads;')",
+      "Bash(php -S 127.0.0.1:8123)",
+      "Bash(curl -s -o /dev/null -w \"index.php HTTP %{http_code}\\\\n\" http://127.0.0.1:8123/index.php)",
+      "Bash(curl -s http://127.0.0.1:8123/index.php)",
+      "Bash(php -S 127.0.0.1:8124)",
+      "Bash(curl -s \"http://127.0.0.1:8124/index.php\")",
+      "Bash(curl -s -o /tmp/a.json -w 'HTTP %{http_code}\\\\n' -X POST http://127.0.0.1:8124/submit.php --data-urlencode 'debt_amount=$25,000 - $49,999' --data-urlencode employment=Full-time --data-urlencode 'income=Over $100,000' --data-urlencode first_name=Jane --data-urlencode last_name=Roe --data-urlencode 'street=1 Apple Park Way' --data-urlencode city=Cupertino --data-urlencode state=CA --data-urlencode zip=95014 --data-urlencode dob=07/04/1988 --data-urlencode email=jane.roe@yahoo.com --data-urlencode 'phone=\\(408\\) 555-9900' --data-urlencode ssn=123-45)",
+      "Bash(curl -s -o /tmp/b.json -w 'HTTP %{http_code}\\\\n' -X POST http://127.0.0.1:8124/submit.php --data-urlencode 'debt_amount=$25,000 - $49,999' --data-urlencode employment=Full-time --data-urlencode 'income=Over $100,000' --data-urlencode first_name=Jane --data-urlencode last_name=Roe --data-urlencode 'street=1 Apple Park Way' --data-urlencode city=Cupertino --data-urlencode state=CA --data-urlencode zip=95014 --data-urlencode dob=07/04/1988 --data-urlencode email=jane.roe@yahoo.com --data-urlencode 'phone=\\(408\\) 555-9900' --data-urlencode ssn=123-45-6789)",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test -e 'SELECT id, lead_id, mode, request_url, response_status, score, decision, error, duration_ms FROM equifax_logs ORDER BY id DESC LIMIT 1\\\\G')",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test -e 'SELECT request_body FROM equifax_logs ORDER BY id DESC LIMIT 1\\\\G')",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test -e 'SELECT LEFT\\(response_body,120\\) AS resp FROM equifax_logs ORDER BY id DESC LIMIT 1\\\\G')",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test -e 'SHOW COLUMNS FROM leads LIKE '\\\\''%ssn%'\\\\'';')",
+      "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test -e 'SELECT \\(SELECT MAX\\(id\\) FROM leads\\) AS newest_lead, \\(SELECT lead_id FROM equifax_logs ORDER BY id DESC LIMIT 1\\) AS logged_lead;')",
+      "Bash(sed -i 's/^EQUIFAX_MODE=mock/EQUIFAX_MODE=off/; s/^EQUIFAX_REDACT=1/EQUIFAX_REDACT=0/' .env)",
+      "Bash(pkill -f \"php -S 127.0.0.1:8124\")",
+      "Bash(pkill -f \"php -S 127.0.0.1:8123\")"
+    ]
+  }
+}

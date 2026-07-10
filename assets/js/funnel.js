@@ -1,5 +1,5 @@
 /* =========================================================================
-   JG Wentworth funnel — 8-step UI mechanics.
+   JG Wentworth funnel — 9-step UI mechanics.
 
    Single-page, JS-driven flow.
      • Step 5 is a SINGLE free-form "Home Address" field that still submits a
@@ -9,8 +9,8 @@
        Rollback to the legacy multi-field UI with ?address_classic=1.
 
    Steps: 1 debt · 2 employment · 3 income (auto-advance radios) ·
-          4 name · 5 address · 6 dob · 7 email (Continue) ·
-          8 phone + consent + Submit
+          4 name · 5 address · 6 dob · 7 ssn · 8 email (Continue) ·
+          9 phone + consent + Submit
    ========================================================================= */
 (function () {
     'use strict';
@@ -36,7 +36,7 @@
        they exit. umami may be absent (script blocked / not configured) — guard. */
     var STEP_NAMES = {
         1: 'debt-amount', 2: 'employment', 3: 'income', 4: 'name',
-        5: 'address', 6: 'dob', 7: 'email', 8: 'phone'
+        5: 'address', 6: 'dob', 7: 'ssn', 8: 'email', 9: 'phone'
     };
     var trackedSteps = {};
     function track(event, data) {
@@ -192,6 +192,7 @@
             case 'zip':    return RX.zip.test(v)   ? { ok: true } : { ok: false, code: 'invalid_format' };
             case 'email':  return checkEmail(v);
             case 'dob':    return checkDob(v);
+            case 'ssn':    return ssnDigits(v).length === 9 ? { ok: true } : { ok: false, code: 'invalid_ssn' };
             case 'phone':  return phoneDigits(v).length === 10 ? { ok: true } : { ok: false, code: 'invalid_length' };
         }
         return { ok: true };
@@ -205,6 +206,7 @@
         out_of_range:   'Please enter a valid calendar date.',
         underage:       'You must be at least 18 years old.',
         invalid_length: 'Please enter a valid 10-digit phone number.',
+        invalid_ssn:    'Please enter a valid 9-digit Social Security number.',
         invalid_email:  'Please enter a valid email address.',
         untrusted_domain: 'Please use an email from a common provider (e.g. gmail.com, outlook.com, yahoo.com).'
     };
@@ -386,6 +388,19 @@
         phone.addEventListener('input', function () { phone.value = formatPhone(phone.value); });
     }
 
+    /* ---- SSN formatting (###-##-####) --------------------------------- */
+    function ssnDigits(v) { return (v || '').replace(/\D/g, '').slice(0, 9); }
+    function formatSsn(v) {
+        var d = ssnDigits(v);
+        if (d.length > 5) return d.slice(0, 3) + '-' + d.slice(3, 5) + '-' + d.slice(5);
+        if (d.length > 3) return d.slice(0, 3) + '-' + d.slice(3);
+        return d;
+    }
+    var ssn = document.getElementById('ssn');
+    if (ssn) {
+        ssn.addEventListener('input', function () { ssn.value = formatSsn(ssn.value); });
+    }
+
     /* ===================================================================
        LAZY-LOADED INTEGRATIONS
        =================================================================== */
@@ -395,7 +410,185 @@
         if (!key || lazyLoaded[key]) return;
         lazyLoaded[key] = true;
         if (key === 'places' && address.present) address.init();
+        if (key === 'firebase') phoneAuth.init();
     }
+
+    /* ---- Phone verification (step 9) ----------------------------------
+       Real SMS OTP via Firebase Phone Auth. The visitor enters a phone,
+       taps "Send code", Firebase texts a 6-digit code (guarded by an
+       invisible reCAPTCHA), and confirming it yields a Firebase ID token we
+       drop into the hidden #id_token — submit.php verifies that token server-
+       side (includes/firebase.php). Submit stays disabled until verified.
+
+       DEV BYPASS: when window.FUNNEL.appEnv === 'local' or no firebase
+       projectId is configured, verification isn't required — the OTP UI stays
+       hidden and Submit is enabled, matching submit.php's local bypass. */
+    var phoneAuth = buildPhoneAuth();
+    function buildPhoneAuth() {
+        var fb       = (window.FUNNEL && window.FUNNEL.firebase) || {};
+        var appEnv   = (window.FUNNEL && window.FUNNEL.appEnv) || 'production';
+        var required = appEnv !== 'local' && !!fb.projectId && !!fb.apiKey;
+
+        var verified   = false;
+        var confirmationResult = null;
+        var verifier   = null;      // RecaptchaVerifier
+        var auth       = null;
+        var sdkPromise = null;
+
+        var wrap    = document.getElementById('otpVerify');
+        var btnSend = document.getElementById('btnSendCode');
+        var btnVer  = document.getElementById('btnVerifyCode');
+        var btnRes  = document.getElementById('btnResendCode');
+        var statusEl = document.getElementById('otpStatus');
+        var idField = document.getElementById('id_token');
+        var vField  = document.getElementById('phone_verified');
+        var boxes   = [].slice.call(document.querySelectorAll('.otp-box'));
+
+        function status(msg, kind) {
+            if (!statusEl) return;
+            statusEl.textContent = msg || '';
+            statusEl.className = 'otp-status' + (kind ? ' is-' + kind : '');
+        }
+
+        // Load the Firebase compat SDK (app + auth) once, on demand.
+        function loadSdk() {
+            if (window.firebase && window.firebase.auth) return Promise.resolve();
+            if (sdkPromise) return sdkPromise;
+            var base = 'https://www.gstatic.com/firebasejs/10.12.2/';
+            sdkPromise = loadScript(base + 'firebase-app-compat.js')
+                .then(function () { return loadScript(base + 'firebase-auth-compat.js'); });
+            return sdkPromise;
+        }
+        function loadScript(src) {
+            return new Promise(function (resolve, reject) {
+                var s = document.createElement('script');
+                s.src = src; s.async = true;
+                s.onload = resolve;
+                s.onerror = function () { reject(new Error('load failed: ' + src)); };
+                document.head.appendChild(s);
+            });
+        }
+
+        function ensureAuth() {
+            return loadSdk().then(function () {
+                if (!auth) {
+                    if (!window.firebase.apps || !window.firebase.apps.length) {
+                        window.firebase.initializeApp({
+                            apiKey: fb.apiKey, authDomain: fb.authDomain, projectId: fb.projectId
+                        });
+                    }
+                    auth = window.firebase.auth();
+                }
+                if (!verifier) {
+                    verifier = new window.firebase.auth.RecaptchaVerifier('recaptchaContainer', {
+                        size: 'invisible'
+                    }, auth);
+                }
+                return auth;
+            });
+        }
+
+        function currentPhoneE164() {
+            var d = phoneDigits(phone.value);
+            return d.length === 10 ? '+1' + d : null;
+        }
+
+        function sendCode() {
+            var e164 = currentPhoneE164();
+            if (!e164) { fail(stepEl(current), phone, MSG.invalid_length); return; }
+            btnSend.disabled = true;
+            status('Sending code…');
+            ensureAuth()
+                .then(function () { return auth.signInWithPhoneNumber(e164, verifier); })
+                .then(function (res) {
+                    confirmationResult = res;
+                    if (wrap) wrap.hidden = false;
+                    status('We texted a code to ' + phone.value + '.', 'ok');
+                    btnSend.textContent = 'Resend code';
+                    btnSend.disabled = false;
+                    if (boxes[0]) boxes[0].focus();
+                })
+                .catch(function (err) {
+                    console.error('[funnel] send code failed', err);
+                    status('Could not send a code. Check the number and try again.', 'err');
+                    btnSend.disabled = false;
+                    if (verifier && verifier.clear) { try { verifier.clear(); } catch (e) {} verifier = null; }
+                });
+        }
+
+        function verifyCode() {
+            if (!confirmationResult) { status('Tap “Send code” first.', 'err'); return; }
+            var code = boxes.map(function (b) { return b.value; }).join('');
+            if (code.length !== 6) { status('Enter all 6 digits.', 'err'); return; }
+            btnVer.disabled = true;
+            status('Verifying…');
+            confirmationResult.confirm(code)
+                .then(function (cred) { return cred.user.getIdToken(); })
+                .then(function (token) {
+                    idField.value = token;
+                    vField.value = '1';
+                    verified = true;
+                    status('Phone verified ✓', 'ok');
+                    phone.readOnly = true;
+                    btnSend.disabled = true;
+                    setSubmitEnabled(true);
+                })
+                .catch(function (err) {
+                    console.error('[funnel] verify failed', err);
+                    status('That code didn’t match. Please try again.', 'err');
+                    btnVer.disabled = false;
+                });
+        }
+
+        // ----- OTP box UX: auto-advance, backspace, paste -----
+        function wireBoxes() {
+            boxes.forEach(function (box, i) {
+                box.addEventListener('input', function () {
+                    box.value = box.value.replace(/\D/g, '').slice(0, 1);
+                    if (box.value && boxes[i + 1]) boxes[i + 1].focus();
+                });
+                box.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Backspace' && !box.value && boxes[i - 1]) boxes[i - 1].focus();
+                });
+                box.addEventListener('paste', function (ev) {
+                    var text = (ev.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+                    if (!text) return;
+                    ev.preventDefault();
+                    boxes.forEach(function (b, j) { b.value = text[j] || ''; });
+                    (boxes[Math.min(text.length, 6) - 1] || box).focus();
+                });
+            });
+        }
+
+        function init() {
+            // Not required (dev / no Firebase config): hide OTP UI, allow submit.
+            if (!required) {
+                if (btnSend) btnSend.hidden = true;
+                setSubmitEnabled(true);
+                return;
+            }
+            setSubmitEnabled(false);
+            if (btnSend) btnSend.addEventListener('click', sendCode);
+            if (btnVer)  btnVer.addEventListener('click', verifyCode);
+            if (btnRes)  btnRes.addEventListener('click', sendCode);
+            wireBoxes();
+        }
+
+        return {
+            init: init,
+            required: required,
+            ok: function () { return !required || verified; },
+            nudge: function () {
+                if (!confirmationResult) status('Please verify your phone number — tap “Send code”.', 'err');
+                else status('Enter the 6-digit code to verify your phone.', 'err');
+                if (btnSend && !btnSend.hidden) btnSend.focus();
+            }
+        };
+    }
+
+    // Submit is enabled by default; the phone-auth gate disables it on step 9
+    // until verification succeeds (production only).
+    function setSubmitEnabled(on) { btnSubmit.disabled = !on; }
 
     /* ---- Address controller (step 5) ----------------------------------
        Default (single mode): the visitor types in ONE field (#address, no name),
@@ -669,22 +862,86 @@
         if (nav === 'next') btnNext.click();
     });
 
+    // Map each server-validated field to the step that collects it, so a 422
+    // can bounce the visitor back to fix it.
+    var FIELD_STEP = {
+        debt_amount: 1, employment: 2, income: 3,
+        first_name: 4, last_name: 4,
+        street: 5, city: 5, state: 5, zip: 5,
+        dob: 6, ssn: 7, email: 8, phone: 9
+    };
+
+    // Surface server-side {field: code} errors: jump to the earliest offending
+    // step and mark the field, reusing the client's error styling/messages.
+    function showServerErrors(errors) {
+        var fields = Object.keys(errors || {});
+        if (!fields.length) return;
+        fields.sort(function (a, b) { return (FIELD_STEP[a] || 99) - (FIELD_STEP[b] || 99); });
+        var first = fields[0];
+        var step  = FIELD_STEP[first] || current;
+        current = step; render();
+        var scope = stepEl(step);
+        var field = scope.querySelector('[name="' + first + '"]') ||
+                    scope.querySelector('[data-validate]');
+        fail(scope, field, MSG[errors[first]] || MSG.invalid_format);
+    }
+
+    var submitting = false;
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
-        submitted = true; // a completion, not an abandonment — suppress funnel-exit
+        if (submitting) return;
 
-        // ---- Backend submission goes here (not wired yet) ----
-        var payload = {};
-        new FormData(form).forEach(function (v, k) { payload[k] = v; });
-        console.log('[funnel] lead captured (stub, not sent):', payload);
+        // Gate on phone verification (production only; no-op in dev).
+        if (!phoneAuth.ok()) { phoneAuth.nudge(); return; }
+
+        submitting = true;
+        submitted  = true; // a completion, not an abandonment — suppress funnel-exit
+        btnSubmit.disabled = true;
 
         // Funnel completion — the conversion endpoint of the drop-off report.
         track('funnel-submit', { step: current, name: STEP_NAMES[current] || 'submit' });
 
-        // Advance to the "You're Pre-Qualified" confirmation page.
-        // (A real backend would POST `payload` first, then redirect.)
-        window.location.assign('thank-you.php');
+        fetch('submit.php', {
+            method: 'POST',
+            body: new FormData(form),
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        })
+            .then(function (r) {
+                return r.json().catch(function () { return {}; })
+                    .then(function (j) { return { status: r.status, body: j }; });
+            })
+            .then(function (res) {
+                if (res.body && res.body.ok) {
+                    window.location.assign('thank-you.php');
+                    return;
+                }
+                submitting = false;
+                setSubmitEnabled(true);
+                if (res.status === 422 && res.body && res.body.errors) {
+                    showServerErrors(res.body.errors);
+                } else {
+                    fail(stepEl(current), null, 'Something went wrong. Please try again.');
+                }
+            })
+            .catch(function () {
+                submitting = false;
+                submitted  = false;
+                setSubmitEnabled(true);
+                fail(stepEl(current), null, 'Network error — please check your connection and try again.');
+            });
     });
+
+    // Attribution: copy UTM / gclid params from the URL into their hidden fields
+    // on load so submit.php can store them with the lead.
+    (function captureAttribution() {
+        var qs = new URLSearchParams(location.search);
+        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid']
+            .forEach(function (k) {
+                var v = qs.get(k), el = document.getElementById(k);
+                if (v && el) el.value = v;
+            });
+    })();
 
     render();
 })();

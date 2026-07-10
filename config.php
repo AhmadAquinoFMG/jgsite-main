@@ -46,7 +46,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '24',
+    'asset_version' => '25',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which step
@@ -64,6 +64,75 @@ return [
     // (see .env.example). Leave empty to fall back to the built-in mock
     // suggestion list so the funnel still works locally without billing.
     'google_places_key' => env('GOOGLE_PLACES_KEY', ''),
+
+    // ---- Runtime environment -------------------------------------------
+    // 'local' relaxes production-only checks so the funnel can be exercised
+    // without live third-party services: submit.php skips Firebase ID-token
+    // verification (there's no real OTP session in dev). Set APP_ENV=production
+    // on staging/live so tokens are actually verified.
+    'app_env' => env('APP_ENV', 'production'),
+
+    // ---- Database (lead storage) ---------------------------------------
+    // MySQL/MariaDB on Cloudways, reached through PDO in includes/db.php.
+    // Creds come from .env (see .env.example); nothing is committed.
+    'db' => [
+        'host'    => env('DB_HOST', '127.0.0.1'),
+        'port'    => env('DB_PORT', '3306'),
+        'name'    => env('DB_NAME', ''),
+        'user'    => env('DB_USER', ''),
+        'pass'    => env('DB_PASS', ''),
+        'charset' => 'utf8mb4',
+    ],
+
+    // ---- Firebase Phone Auth (step 8 OTP) ------------------------------
+    // Client-side SMS verification (assets/js/funnel.js). The browser obtains a
+    // Firebase ID token after the code is confirmed; submit.php verifies that
+    // token server-side (includes/firebase.php) against 'project_id'. The web
+    // apiKey/authDomain are NOT secrets — they ship to the client — but live in
+    // .env so they can differ per environment. Leave 'project_id' empty to
+    // disable the OTP gate (dev only).
+    'firebase' => [
+        'api_key'     => env('FIREBASE_API_KEY', ''),
+        'auth_domain' => env('FIREBASE_AUTH_DOMAIN', ''),
+        'project_id'  => env('FIREBASE_PROJECT_ID', ''),
+    ],
+
+    // ---- Compliance capture (TCPA proof-of-consent) --------------------
+    // TrustedForm needs no key — the script (includes/compliance.php) injects a
+    // hidden xxTrustedFormCertUrl the backend stores. Jornaya (LeadiD) needs a
+    // campaign+account id. Leave a value empty to omit that tag entirely.
+    'compliance' => [
+        'trustedform'       => (env('TRUSTEDFORM_ENABLED', '1') === '1'),
+        'jornaya_campaign'  => env('JORNAYA_CAMPAIGN_ID', ''),
+        'jornaya_account'   => env('JORNAYA_ACCOUNT_ID', ''),
+    ],
+
+    // ---- Equifax Consumer Credit Report --------------------------------
+    // submit.php pulls a credit report after storing the lead and logs the
+    // request/response to the equifax_logs table (includes/equifax.php).
+    // The call is best-effort — a failure is logged but never blocks the lead.
+    //
+    //   mode:  'off'  → skip entirely, write no log row (default; local/dev).
+    //          'mock' → synthetic response, DOES write a log row (test the
+    //                   logging pipeline without live credentials).
+    //          'live' → real OAuth2 + credit-report HTTP call.
+    //
+    // Equifax's developer API uses OAuth2 client-credentials; member_number +
+    // security_code identify the requesting subscriber on the report call.
+    // Confirm base_url + exact endpoint paths/body against your Equifax contract.
+    'equifax' => [
+        'mode'          => env('EQUIFAX_MODE', 'off'),
+        'base_url'      => rtrim(env('EQUIFAX_BASE_URL', 'https://api.equifax.com'), '/'),
+        'client_id'     => env('EQUIFAX_CLIENT_ID', ''),
+        'client_secret' => env('EQUIFAX_CLIENT_SECRET', ''),
+        'member_number' => env('EQUIFAX_MEMBER_NUMBER', ''),
+        'security_code' => env('EQUIFAX_SECURITY_CODE', ''),
+        'scope'         => env('EQUIFAX_SCOPE', 'https://api.equifax.com/business/consumer-credit/v1'),
+        'timeout'       => (int) env('EQUIFAX_TIMEOUT', '15'),
+        // Redact SSN in the stored request_body. Off by default per current
+        // requirement to retain full bodies; turn on to mask before writing.
+        'redact'        => (env('EQUIFAX_REDACT', '0') === '1'),
+    ],
 
     // ---- Branding -------------------------------------------------------
     'brand' => [

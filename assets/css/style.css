@@ -199,6 +199,7 @@ a { color: var(--green-deep); }
 .field select.invalid { border-color: #c0392b; box-shadow: 0 0 0 3px rgba(192, 57, 43, .12); }
 
 .field-error { margin: 12px 0 0; color: #c0392b; font-size: 13px; font-weight: 500; text-align: center; }
+.field-help { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
 
 .consent-note {
     margin: 18px 0 0;
@@ -992,3 +993,67 @@ a { color: var(--green-deep); }
     .main-footer__cols { grid-template-columns: 1fr; gap: 36px; }
     .main-footer__col:not(.main-footer__col--legal) .main-footer__links { max-width: none; }
 }
+
+/* ===== Phone OTP verification (step 8) ============================== */
+/* Phone input + "Send code" button share a row. */
+.otp-phone-row { display: flex; gap: 10px; align-items: stretch; }
+.otp-phone-row input { flex: 1; }
+
+/* Compact secondary button for Send/Resend/Verify (distinct from the big CTA). */
+.btn-otp {
+    flex: 0 0 auto;
+    padding: 0 18px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--green-deep);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s;
+}
+.btn-otp:hover { background: var(--green-dark); }
+.btn-otp:disabled { opacity: .55; cursor: not-allowed; }
+
+.otp-verify { margin: 4px 0 18px; }
+.otp-verify > label { display: block; margin-bottom: 10px; font-size: 14px; font-weight: 500; color: var(--muted); }
+
+/* Six single-character code inputs. */
+.otp-boxes { display: flex; gap: 8px; }
+.otp-box {
+    width: 100%;
+    max-width: 52px;
+    padding: 14px 0;
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: var(--white);
+    border: 1px solid #C6C8C8;
+    border-radius: 10px;
+    appearance: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+.otp-box:focus {
+    outline: none;
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(27, 151, 106, .15);
+}
+
+.otp-actions { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
+.otp-resend {
+    background: none; border: none; padding: 0;
+    color: var(--green-deep); font: inherit; font-size: 14px;
+    text-decoration: underline; cursor: pointer;
+}
+.otp-resend:hover { color: var(--green-dark); }
+
+.otp-status { margin: 12px 0 0; font-size: 13px; font-weight: 500; }
+.otp-status.is-ok  { color: var(--green-deep); }
+.otp-status.is-err { color: #c0392b; }
+
+/* Submit stays visibly disabled until the phone is verified. */
+.btn-submit:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+.btn-submit:disabled:hover { background: var(--green); }

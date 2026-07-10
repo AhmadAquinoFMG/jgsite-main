@@ -28,6 +28,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php include __DIR__ . '/includes/compliance.php'; ?>
 </head>
 <body>
 
@@ -41,8 +42,23 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <div class="progress-fill" id="progressFill" style="width:11.11%"></div>
         </div>
 
-        <form id="funnelForm" class="funnel-form" novalidate
-              data-product="Debt Relief" data-name="DRMultiStep_PHP" action="#">
+        <form id="funnelForm" class="funnel-form" novalidate method="post" action="submit.php"
+              data-product="Debt Relief" data-name="DRMultiStep_PHP">
+
+            <!-- Product context + attribution/compliance. funnel.js fills utm_*/gclid
+                 from the query string on load; the TrustedForm and Jornaya scripts
+                 (includes/compliance.php) populate the two consent fields. All are
+                 stored by submit.php. -->
+            <input type="hidden" name="product"   value="Debt Relief">
+            <input type="hidden" name="form_name" value="DRMultiStep_PHP">
+            <input type="hidden" name="xxTrustedFormCertUrl" id="xxTrustedFormCertUrl">
+            <input type="hidden" name="universal_leadid"     id="universal_leadid">
+            <input type="hidden" name="utm_source"   id="utm_source">
+            <input type="hidden" name="utm_medium"   id="utm_medium">
+            <input type="hidden" name="utm_campaign" id="utm_campaign">
+            <input type="hidden" name="utm_term"     id="utm_term">
+            <input type="hidden" name="utm_content"  id="utm_content">
+            <input type="hidden" name="gclid"        id="gclid">
 
             <!-- ===== Step 1: debt amount (radio, auto-advance) ===== -->
             <section class="step is-active" data-step="1" data-advance="auto">
@@ -183,8 +199,25 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <p class="consent-note consent-note--left"><?= $e($cfg['consent']['credit']) ?></p>
             </section>
 
-            <!-- ===== Step 7: email ===== -->
+            <!-- ===== Step 7: SSN (required for the Equifax credit report) =====
+                 Masked ###-##-#### input. Sent to Equifax at submit time and
+                 logged in equifax_logs; intentionally NOT stored on the lead. -->
             <section class="step" data-step="7">
+                <h2 class="step-title">What is your Social Security number?</h2>
+                <div class="field">
+                    <label for="ssn">Social Security number <span class="req">*</span></label>
+                    <input type="text" id="ssn" name="ssn" autocomplete="off"
+                           inputmode="numeric" placeholder="###-##-####" maxlength="11"
+                           data-validate="ssn" required
+                           aria-describedby="ssnHelp">
+                    <p class="field-help" id="ssnHelp">
+                        Used only to verify your identity and check your eligibility. We do not store it with your contact record.
+                    </p>
+                </div>
+            </section>
+
+            <!-- ===== Step 8: email ===== -->
+            <section class="step" data-step="8">
                 <h2 class="step-title">What is your email address?</h2>
                 <div class="field">
                     <label for="email">Email address <span class="req">*</span></label>
@@ -193,18 +226,49 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 8: phone + consent + submit =====
+            <!-- ===== Step 9: phone + consent + submit =====
                  The TCPA consent text lives here, below the fold under the
                  compliance note, instead of on its own page. This is the final
                  step, so it submits. -->
-            <section class="step" data-step="8" data-nav="submit">
+            <section class="step" data-step="9" data-nav="submit" data-lazy="firebase">
                 <h2 class="step-title">What is your phone number?</h2>
                 <div class="field">
                     <label for="phone">Phone <span class="req">*</span></label>
-                    <input type="tel" id="phone" name="phone" autocomplete="tel"
-                           inputmode="tel" placeholder="(555) 555-5555" maxlength="14"
-                           data-validate="phone" required>
+                    <div class="otp-phone-row">
+                        <input type="tel" id="phone" name="phone" autocomplete="tel"
+                               inputmode="tel" placeholder="(555) 555-5555" maxlength="14"
+                               data-validate="phone" required>
+                        <button type="button" class="btn btn-otp" id="btnSendCode">Send code</button>
+                    </div>
                 </div>
+
+                <!-- OTP verification — revealed after a code is sent. funnel.js
+                     runs Firebase Phone Auth; on success it fills #id_token +
+                     #phone_verified and unlocks Submit. -->
+                <div class="otp-verify" id="otpVerify" hidden>
+                    <label id="otpLabel" for="otp1">Enter the 6-digit code we texted you</label>
+                    <div class="otp-boxes" role="group" aria-labelledby="otpLabel">
+                        <?php for ($i = 1; $i <= 6; $i++): ?>
+                            <input type="text" class="otp-box" id="otp<?= $i ?>"
+                                   inputmode="numeric" autocomplete="one-time-code"
+                                   maxlength="1" aria-label="Digit <?= $i ?>">
+                        <?php endfor; ?>
+                    </div>
+                    <div class="otp-actions">
+                        <button type="button" class="btn btn-otp" id="btnVerifyCode">Verify</button>
+                        <button type="button" class="otp-resend" id="btnResendCode">Resend code</button>
+                    </div>
+                    <p class="otp-status" id="otpStatus" role="status" aria-live="polite"></p>
+                </div>
+
+                <!-- reCAPTCHA anchor for Firebase Phone Auth (invisible). -->
+                <div id="recaptchaContainer"></div>
+
+                <!-- Populated by funnel.js after the OTP is confirmed; verified by
+                     submit.php server-side. Empty in classic/dev (app_env=local). -->
+                <input type="hidden" id="id_token"       name="id_token">
+                <input type="hidden" id="phone_verified" name="phone_verified" value="0">
+
                 <p class="consent-note"><?= $e($cfg['consent']['contact']) ?></p>
             </section>
 
@@ -227,7 +291,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <!-- Phone step's TCPA consent. Sits below the Submit button (and above
                  the reviews section) rather than above it; the short contact note
                  stays above Submit inside the step. Trusted static HTML (legal links). -->
-            <p class="step-disclosure tcpa" data-for="8"><?= $cfg['consent']['tcpa'] ?></p>
+            <p class="step-disclosure tcpa" data-for="9"><?= $cfg['consent']['tcpa'] ?></p>
         </form>
 
         <!-- On submit, funnel.js redirects to thank-you.php (pre-qualified page). -->
@@ -246,7 +310,15 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 <?php include __DIR__ . '/includes/footer.php'; ?>
 
 <script>
-    window.FUNNEL = { googlePlacesKey: <?= json_encode($cfg['google_places_key'] ?? '', JSON_UNESCAPED_SLASHES) ?> };
+    window.FUNNEL = {
+        googlePlacesKey: <?= json_encode($cfg['google_places_key'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
+        appEnv: <?= json_encode($cfg['app_env'] ?? 'production', JSON_UNESCAPED_SLASHES) ?>,
+        firebase: {
+            apiKey:     <?= json_encode($cfg['firebase']['api_key'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
+            authDomain: <?= json_encode($cfg['firebase']['auth_domain'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
+            projectId:  <?= json_encode($cfg['firebase']['project_id'] ?? '', JSON_UNESCAPED_SLASHES) ?>
+        }
+    };
 </script>
 <script src="assets/js/funnel.js?v=<?= $e($cfg['asset_version']) ?>"></script>
 </body>
