@@ -34,9 +34,15 @@ if (!function_exists('verify_firebase_token')) {
         return base64_decode($s, true) ?: '';
     }
 
-    /** Fetch Google's securetoken x509 certs ({kid => PEM}), cached ~1h. */
-    function fb_google_certs(): array
+    /**
+     * Fetch Google's securetoken x509 certs ({kid => PEM}), cached ~1h.
+     * @param string|null $err Out-param: set to a short diagnostic when the
+     *                         fetch yields no certs (curl error, HTTP status,
+     *                         empty body, or bad JSON).
+     */
+    function fb_google_certs(?string &$err = null): array
     {
+        $err   = null;
         $url   = 'https://www.googleapis.com/robots/v1/metadata/x509/securetoken@system.gserviceaccount.com';
         $cache = sys_get_temp_dir() . '/fb_securetoken_certs.json';
 
@@ -52,20 +58,41 @@ if (!function_exists('verify_firebase_token')) {
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT        => 5,
+                CURLOPT_TIMEOUT        => 8,
                 CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_FOLLOWLOCATION => true,
             ]);
-            $body = (string) curl_exec($ch);
+            // Use a bundled CA file when the host has none configured (a common
+            // cause of an empty fetch → unknown_key on managed hosts).
+            $ca = defined('FB_CA_BUNDLE') ? FB_CA_BUNDLE : (__DIR__ . '/cacert.pem');
+            if (is_readable($ca)) {
+                curl_setopt($ch, CURLOPT_CAINFO, $ca);
+            }
+            $body   = (string) curl_exec($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            $cerr   = curl_errno($ch) ? ('curl_' . curl_errno($ch) . ':' . curl_error($ch)) : '';
             curl_close($ch);
+            if ($body === '' && $err === null) {
+                $err = $cerr ?: ('http_' . $status);
+            }
+        } else {
+            $err = 'no_curl';
         }
         if ($body === '' && ini_get('allow_url_fopen')) {
             $body = (string) @file_get_contents($url, false, stream_context_create([
-                'http' => ['timeout' => 5],
+                'http'  => ['timeout' => 8],
+                'https' => ['timeout' => 8],
             ]));
+            if ($body !== '') {
+                $err = null;
+            }
         }
 
         $certs = json_decode($body, true);
         if (!is_array($certs) || !$certs) {
+            if ($err === null) {
+                $err = ($body === '') ? 'empty_body' : 'bad_json';
+            }
             // fall back to a stale cache if the fetch failed
             if (is_readable($cache)) {
                 $stale = json_decode((string) file_get_contents($cache), true);
@@ -108,8 +135,14 @@ if (!function_exists('verify_firebase_token')) {
         }
 
         // ---- signature ----
-        $certs = fb_google_certs();
-        $pem   = $certs[$header['kid']] ?? null;
+        $certErr = null;
+        $certs = fb_google_certs($certErr);
+        if (!$certs) {
+            // Couldn't fetch Google's certs at all — distinct from a token whose
+            // key id simply isn't in a valid set. The reason pinpoints the host issue.
+            return ['ok' => false, 'error' => 'certs_unavailable:' . ($certErr ?: 'unknown')];
+        }
+        $pem = $certs[$header['kid']] ?? null;
         if (!$pem) {
             return ['ok' => false, 'error' => 'unknown_key'];
         }

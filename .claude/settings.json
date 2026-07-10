@@ -38,7 +38,9 @@
       "Bash(cd e:/projects/jlr/jg-main && echo \"=== our project .env FIREBASE lines ===\" && grep -iE \"FIREBASE|APP_ENV\" .env || echo \"\\(no FIREBASE_* in e:/projects/jlr/jg-main/.env\\)\" *)",
       "Read(//c/xampp/chatbot-site/tdo/jg-site/**)",
       "Bash(git --no-pager diff HEAD -- assets/js/funnel.js config.php)",
-      "Bash(git --no-pager diff HEAD -- submit.php)"
+      "Bash(git --no-pager diff HEAD -- submit.php)",
+      "Bash(php -l includes/firebase.php)",
+      "Bash(git --no-pager diff HEAD -- includes/firebase.php submit.php)"
     ]
   }
 }
