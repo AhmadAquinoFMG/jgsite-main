@@ -1,5 +1,5 @@
 /* =========================================================================
-   JG Wentworth funnel — 9-step UI mechanics.
+   JG Wentworth funnel — 8-step UI mechanics.
 
    Single-page, JS-driven flow.
      • Step 5 is a SINGLE free-form "Home Address" field that still submits a
@@ -9,8 +9,8 @@
        Rollback to the legacy multi-field UI with ?address_classic=1.
 
    Steps: 1 debt · 2 employment · 3 income (auto-advance radios) ·
-          4 name · 5 address · 6 dob · 7 ssn · 8 email (Continue) ·
-          9 phone + consent + Submit
+          4 name · 5 address · 6 dob · 7 email (Continue) ·
+          8 phone + consent + Submit
    ========================================================================= */
 (function () {
     'use strict';
@@ -36,7 +36,7 @@
        they exit. umami may be absent (script blocked / not configured) — guard. */
     var STEP_NAMES = {
         1: 'debt-amount', 2: 'employment', 3: 'income', 4: 'name',
-        5: 'address', 6: 'dob', 7: 'ssn', 8: 'email', 9: 'phone'
+        5: 'address', 6: 'dob', 7: 'email', 8: 'phone'
     };
     var trackedSteps = {};
     function track(event, data) {
@@ -192,7 +192,6 @@
             case 'zip':    return RX.zip.test(v)   ? { ok: true } : { ok: false, code: 'invalid_format' };
             case 'email':  return checkEmail(v);
             case 'dob':    return checkDob(v);
-            case 'ssn':    return ssnDigits(v).length === 9 ? { ok: true } : { ok: false, code: 'invalid_ssn' };
             case 'phone':  return phoneDigits(v).length === 10 ? { ok: true } : { ok: false, code: 'invalid_length' };
         }
         return { ok: true };
@@ -206,7 +205,6 @@
         out_of_range:   'Please enter a valid calendar date.',
         underage:       'You must be at least 18 years old.',
         invalid_length: 'Please enter a valid 10-digit phone number.',
-        invalid_ssn:    'Please enter a valid 9-digit Social Security number.',
         invalid_email:  'Please enter a valid email address.',
         untrusted_domain: 'Please use an email from a common provider (e.g. gmail.com, outlook.com, yahoo.com).'
     };
@@ -388,19 +386,6 @@
         phone.addEventListener('input', function () { phone.value = formatPhone(phone.value); });
     }
 
-    /* ---- SSN formatting (###-##-####) --------------------------------- */
-    function ssnDigits(v) { return (v || '').replace(/\D/g, '').slice(0, 9); }
-    function formatSsn(v) {
-        var d = ssnDigits(v);
-        if (d.length > 5) return d.slice(0, 3) + '-' + d.slice(3, 5) + '-' + d.slice(5);
-        if (d.length > 3) return d.slice(0, 3) + '-' + d.slice(3);
-        return d;
-    }
-    var ssn = document.getElementById('ssn');
-    if (ssn) {
-        ssn.addEventListener('input', function () { ssn.value = formatSsn(ssn.value); });
-    }
-
     /* ===================================================================
        LAZY-LOADED INTEGRATIONS
        =================================================================== */
@@ -413,7 +398,7 @@
         if (key === 'firebase') phoneAuth.init();
     }
 
-    /* ---- Phone verification (step 9) ----------------------------------
+    /* ---- Phone verification (step 8) ----------------------------------
        Real SMS OTP via Firebase Phone Auth. The visitor enters a phone,
        taps "Send code", Firebase texts a 6-digit code (guarded by an
        invisible reCAPTCHA), and confirming it yields a Firebase ID token we
@@ -586,7 +571,7 @@
         };
     }
 
-    // Submit is enabled by default; the phone-auth gate disables it on step 9
+    // Submit is enabled by default; the phone-auth gate disables it on step 8
     // until verification succeeds (production only).
     function setSubmitEnabled(on) { btnSubmit.disabled = !on; }
 
@@ -868,7 +853,7 @@
         debt_amount: 1, employment: 2, income: 3,
         first_name: 4, last_name: 4,
         street: 5, city: 5, state: 5, zip: 5,
-        dob: 6, ssn: 7, email: 8, phone: 9
+        dob: 6, email: 7, phone: 8
     };
 
     // Surface server-side {field: code} errors: jump to the earliest offending

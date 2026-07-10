@@ -199,25 +199,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <p class="consent-note consent-note--left"><?= $e($cfg['consent']['credit']) ?></p>
             </section>
 
-            <!-- ===== Step 7: SSN (required for the Equifax credit report) =====
-                 Masked ###-##-#### input. Sent to Equifax at submit time and
-                 logged in equifax_logs; intentionally NOT stored on the lead. -->
+            <!-- ===== Step 7: email ===== -->
             <section class="step" data-step="7">
-                <h2 class="step-title">What is your Social Security number?</h2>
-                <div class="field">
-                    <label for="ssn">Social Security number <span class="req">*</span></label>
-                    <input type="text" id="ssn" name="ssn" autocomplete="off"
-                           inputmode="numeric" placeholder="###-##-####" maxlength="11"
-                           data-validate="ssn" required
-                           aria-describedby="ssnHelp">
-                    <p class="field-help" id="ssnHelp">
-                        Used only to verify your identity and check your eligibility. We do not store it with your contact record.
-                    </p>
-                </div>
-            </section>
-
-            <!-- ===== Step 8: email ===== -->
-            <section class="step" data-step="8">
                 <h2 class="step-title">What is your email address?</h2>
                 <div class="field">
                     <label for="email">Email address <span class="req">*</span></label>
@@ -226,11 +209,11 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 9: phone + consent + submit =====
+            <!-- ===== Step 8: phone + consent + submit =====
                  The TCPA consent text lives here, below the fold under the
                  compliance note, instead of on its own page. This is the final
                  step, so it submits. -->
-            <section class="step" data-step="9" data-nav="submit" data-lazy="firebase">
+            <section class="step" data-step="8" data-nav="submit" data-lazy="firebase">
                 <h2 class="step-title">What is your phone number?</h2>
                 <div class="field">
                     <label for="phone">Phone <span class="req">*</span></label>
@@ -291,7 +274,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <!-- Phone step's TCPA consent. Sits below the Submit button (and above
                  the reviews section) rather than above it; the short contact note
                  stays above Submit inside the step. Trusted static HTML (legal links). -->
-            <p class="step-disclosure tcpa" data-for="9"><?= $cfg['consent']['tcpa'] ?></p>
+            <p class="step-disclosure tcpa" data-for="8"><?= $cfg['consent']['tcpa'] ?></p>
         </form>
 
         <!-- On submit, funnel.js redirects to thank-you.php (pre-qualified page). -->

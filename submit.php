@@ -158,14 +158,10 @@ if ($phoneRaw === '') {
     $phoneE164 = '+1' . $phoneDigits;
 }
 
-// SSN — 9 digits (for the Equifax credit pull). Used transiently; never stored
-// on the lead. Only its digits are kept, in $ssnDigits.
+// SSN is no longer collected in the funnel. If a value is ever posted (e.g. a
+// future re-add), pass its digits through to Equifax; otherwise this is empty
+// and the credit pull runs without an SSN. Never validated or stored on the lead.
 $ssnDigits = preg_replace('/\D/', '', $post('ssn'));
-if ($post('ssn') === '') {
-    $errors['ssn'] = 'required';
-} elseif (strlen($ssnDigits) !== 9) {
-    $errors['ssn'] = 'invalid_ssn';
-}
 
 // Radio answers must match a configured option.
 if (!in_array($debtAmount, $cfg['debt_options'], true))       $errors['debt_amount'] = 'invalid_option';
