@@ -2,8 +2,11 @@
    JG Wentworth funnel — 8-step UI mechanics.
 
    Single-page, JS-driven flow.
-     • Step 5 address uses the lazy-loaded Google Places (New) SDK, keyed from
-       window.FUNNEL.googlePlacesKey; falls back to mock suggestions if unset.
+     • Step 5 is a SINGLE free-form "Home Address" field that still submits a
+       segregated street/city/state/zip. It uses the lazy-loaded Google Places
+       (New) SDK (keyed from window.FUNNEL.googlePlacesKey) for autocomplete, with
+       a submit-time Geocoder fallback; mock suggestions when no key is set.
+       Rollback to the legacy multi-field UI with ?address_classic=1.
 
    Steps: 1 debt · 2 employment · 3 income (auto-advance radios) ·
           4 name · 5 address · 6 dob · 7 email (Continue) ·
@@ -180,6 +183,9 @@
         if (!v) return { ok: true };
 
         switch (kind) {
+            // single free-form address field: only non-empty required (checked
+            // above); street/city/state/zip are resolved + validated at submit time.
+            case 'address': return { ok: true };
             case 'name':   return RX.name.test(v)  ? { ok: true } : { ok: false, code: 'invalid_format' };
             case 'street': return v.length >= 4    ? { ok: true } : { ok: false, code: 'too_short' };
             case 'city':   return v.length >= 2    ? { ok: true } : { ok: false, code: 'too_short' };
@@ -381,48 +387,55 @@
     }
 
     /* ===================================================================
-       LAZY-LOADED INTEGRATIONS (STUBBED — UI ONLY)
+       LAZY-LOADED INTEGRATIONS
        =================================================================== */
     var lazyLoaded = {};
     function runLazyLoad(n) {
         var key = stepEl(n).dataset.lazy;
         if (!key || lazyLoaded[key]) return;
         lazyLoaded[key] = true;
-        if (key === 'places')   loadGooglePlaces();
+        if (key === 'places' && address.present) address.init();
     }
 
-    /* ---- Google Places (step 5) ---------------------------------------
-       Uses the Places API (New) JS SDK and renders predictions into our own
-       styled #placesSuggestions list (not Google's .pac-container). The key
-       comes from window.FUNNEL.googlePlacesKey (config.php -> .env). With no
-       key we fall back to a small mock list so the funnel still works in
-       local/dev without billing. ---------------------------------------- */
-    function loadGooglePlaces() {
-        var street = document.getElementById('street');
-        var list   = document.getElementById('placesSuggestions');
-        if (!street || !list) return;
+    /* ---- Address controller (step 5) ----------------------------------
+       Default (single mode): the visitor types in ONE field (#address, no name),
+       and we always populate the four hidden inputs street/city/state/zip from
+       either a picked Google suggestion (trusted only while the field is unchanged)
+       or a submit-time geocode, with a raw-text fallback so the funnel never traps
+       the visitor. Classic mode (?address_classic=1 → no #address element): the
+       legacy multi-field UI, where each visible field validates on its own.
+       Autocomplete uses the Places API (New) JS SDK, rendering into our styled
+       #placesSuggestions list; the key comes from window.FUNNEL.googlePlacesKey
+       (config.php -> .env). No key → a small mock list keeps local/dev working. */
+    var address = buildAddress();
+    function buildAddress() {
+        var single  = !!document.getElementById('address');
+        var visible = document.getElementById(single ? 'address' : 'street'); // the field the user types in
+        if (!visible) return { present: false, single: false };
 
-        function close() { list.hidden = true; list.innerHTML = ''; }
+        var streetEl = document.getElementById('street');
+        var cityEl   = document.getElementById('city');
+        var stateEl  = document.getElementById('state');
+        var zipEl    = document.getElementById('zip');
+        var list     = document.getElementById('placesSuggestions');
+        var key      = (window.FUNNEL && window.FUNNEL.googlePlacesKey) || '';
 
-        function debounce(fn, ms) {
-            var t;
-            return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+        var picked    = null;   // trusted {street,city,state,zip} from a chosen suggestion
+        var pickedFor = '';     // visible.value at the moment of that pick
+
+        function close() { if (list) { list.hidden = true; list.innerHTML = ''; } }
+        function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+
+        function setParts(p) {
+            if (streetEl) streetEl.value = p.street || '';
+            if (cityEl)   cityEl.value   = p.city   || '';
+            if (stateEl)  stateEl.value  = p.state  || '';
+            if (zipEl)    zipEl.value    = p.zip    || '';
         }
 
-        // full address into the visible field; parts into hidden inputs for the payload
-        function fill(p) {
-            var line = [p.street, p.city, ((p.state || '') + ' ' + (p.zip || '')).trim()]
-                .map(function (x) { return (x || '').trim(); })
-                .filter(Boolean).join(', ');
-            street.value = line || p.street || '';
-            document.getElementById('city').value  = p.city  || '';
-            document.getElementById('state').value = p.state || '';
-            document.getElementById('zip').value   = p.zip   || '';
-            close();
-        }
-
-        // render [{label, onPick}] rows into the styled list
+        // render [{label, onPick}] rows into the styled suggestion list
         function render(rows) {
+            if (!list) return;
             list.innerHTML = '';
             if (!rows.length) return close();
             rows.forEach(function (r) {
@@ -436,14 +449,69 @@
             list.hidden = false;
         }
 
-        street.addEventListener('blur', function () { setTimeout(close, 120); });
+        // Google addressComponents (New: longText/shortText; legacy geocoder:
+        // long_name/short_name) -> our {street, city, state(2-letter), zip(5-digit)}.
+        function parseComponents(comps, formatted) {
+            var g = { num: '', route: '', locality: '', sublocality: '', admin1: '', zip: '' };
+            (comps || []).forEach(function (c) {
+                var t = c.types || [];
+                var long  = c.longText  != null ? c.longText  : c.long_name;
+                var short = c.shortText != null ? c.shortText : c.short_name;
+                if (t.indexOf('street_number') > -1) g.num = long;
+                else if (t.indexOf('route') > -1) g.route = long;
+                else if (t.indexOf('locality') > -1) g.locality = long;
+                else if (t.indexOf('sublocality') > -1 || t.indexOf('sublocality_level_1') > -1) g.sublocality = long;
+                else if (t.indexOf('administrative_area_level_1') > -1) g.admin1 = short;
+                else if (t.indexOf('postal_code') > -1) g.zip = long;
+            });
+            var streetLine = (g.num + ' ' + g.route).trim();
+            return {
+                street: streetLine || (formatted ? String(formatted).split(',')[0] : ''),
+                city:   g.locality || g.sublocality || '',
+                state:  g.admin1 || '',
+                zip:    (g.zip || '').slice(0, 5)
+            };
+        }
 
-        var key = (window.FUNNEL && window.FUNNEL.googlePlacesKey) || '';
-        if (key) initReal(key); else initMock();
+        // A suggestion was chosen.
+        //   single : show the formatted address in the one field, stash the parsed
+        //            parts, and trust them ONLY while the field equals that string.
+        //   classic: put the street line in #street, parts in the visible fields.
+        function onPick(p, formatted) {
+            if (single) {
+                var shown = formatted ||
+                    [p.street, p.city, ((p.state || '') + ' ' + (p.zip || '')).trim()]
+                        .filter(Boolean).join(', ');
+                visible.value = shown;
+                picked = p; pickedFor = shown;
+                setParts(p);
+            } else {
+                visible.value = p.street || '';
+                setParts(p);
+            }
+            close();
+        }
 
-        /* ----- real Google Places (New) ----- */
-        function initReal(apiKey) {
-            loadSdk(apiKey)
+        // Hand-editing after a pick discards the trusted parts (single mode) so we
+        // re-resolve from the edited text at submit time.
+        visible.addEventListener('input', function () {
+            if (single && picked && visible.value !== pickedFor) { picked = null; pickedFor = ''; }
+        });
+        visible.addEventListener('blur', function () { setTimeout(close, 120); });
+
+        /* ----- SDK loader (defines google.maps.importLibrary) ----- */
+        function loadSdk() {
+            if (window.google && window.google.maps && window.google.maps.importLibrary) {
+                return Promise.resolve();
+            }
+            (g => { var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window; b = b[c] || (b[c] = {}); var d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => { await (a = m.createElement("script")); e.set("libraries", [...r] + ""); for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]); e.set("callback", c + ".maps." + q); a.src = `https://maps.${c}apis.com/maps/api/js?` + e; d[q] = f; a.onerror = () => h = n(Error(p + " could not load.")); a.nonce = m.querySelector("script[nonce]")?.nonce || ""; m.head.append(a); })); d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)); })({ key: key, v: "weekly" });
+            return Promise.resolve();
+        }
+
+        /* ----- autocomplete wiring (Places New) ----- */
+        function initAutocomplete() {
+            if (!key) { initMock(); return; }
+            loadSdk()
                 .then(function () { return google.maps.importLibrary('places'); })
                 .then(function (places) {
                     var Suggestion = places.AutocompleteSuggestion;
@@ -451,14 +519,12 @@
                     var token      = new Token();
                     var seq        = 0;
 
-                    street.addEventListener('input', debounce(function () {
-                        var input = street.value.trim();
+                    visible.addEventListener('input', debounce(function () {
+                        var input = visible.value.trim();
                         if (input.length < 3) return close();
                         var mine = ++seq;
                         Suggestion.fetchAutocompleteSuggestions({
-                            input: input,
-                            sessionToken: token,
-                            includedRegionCodes: ['us']
+                            input: input, sessionToken: token, includedRegionCodes: ['us']
                         }).then(function (res) {
                             if (mine !== seq) return; // a newer keystroke already fired
                             var rows = (res.suggestions || []).map(function (sg) {
@@ -476,7 +542,7 @@
                         var place = pred.toPlace();
                         place.fetchFields({ fields: ['addressComponents', 'formattedAddress'] })
                             .then(function () {
-                                fill(parseComponents(place.addressComponents, place.formattedAddress));
+                                onPick(parseComponents(place.addressComponents, place.formattedAddress), place.formattedAddress);
                                 token = new Token(); // close the billing session, start a fresh one
                             })
                             .catch(function (err) { console.error('[funnel] place details failed', err); });
@@ -488,41 +554,6 @@
                 });
         }
 
-        // Google addressComponents -> our {street, city, state, zip}
-        function parseComponents(comps, formatted) {
-            var g = { num: '', route: '', locality: '', sublocality: '', admin1: '', zip: '' };
-            (comps || []).forEach(function (c) {
-                var t = c.types || [];
-                var long  = c.longText != null ? c.longText : c.long_name;
-                var short = c.shortText != null ? c.shortText : c.short_name;
-                if (t.indexOf('street_number') > -1) g.num = long;
-                else if (t.indexOf('route') > -1) g.route = long;
-                else if (t.indexOf('locality') > -1) g.locality = long;
-                else if (t.indexOf('sublocality') > -1 || t.indexOf('sublocality_level_1') > -1) g.sublocality = long;
-                else if (t.indexOf('administrative_area_level_1') > -1) g.admin1 = short;
-                else if (t.indexOf('postal_code') > -1) g.zip = long;
-            });
-            var streetLine = (g.num + ' ' + g.route).trim();
-            return {
-                street: streetLine || (formatted ? formatted.split(',')[0] : ''),
-                city:   g.locality || g.sublocality || '',
-                state:  g.admin1 || '',
-                zip:    g.zip || ''
-            };
-        }
-
-        /* ----- SDK loader -----
-           Uses Google's official dynamic-library bootstrap, which defines
-           google.maps.importLibrary. A plain <script src=…/maps/api/js> tag
-           does NOT define importLibrary, hence the loader snippet below. */
-        function loadSdk(apiKey) {
-            if (window.google && window.google.maps && window.google.maps.importLibrary) {
-                return Promise.resolve();
-            }
-            (g => { var h, a, k, p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__", m = document, b = window; b = b[c] || (b[c] = {}); var d = b.maps || (b.maps = {}), r = new Set, e = new URLSearchParams, u = () => h || (h = new Promise(async (f, n) => { await (a = m.createElement("script")); e.set("libraries", [...r] + ""); for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]); e.set("callback", c + ".maps." + q); a.src = `https://maps.${c}apis.com/maps/api/js?` + e; d[q] = f; a.onerror = () => h = n(Error(p + " could not load.")); a.nonce = m.querySelector("script[nonce]")?.nonce || ""; m.head.append(a); })); d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n)); })({ key: apiKey, v: "weekly" });
-            return Promise.resolve();
-        }
-
         /* ----- mock fallback (no key configured) ----- */
         function initMock() {
             var MOCK = [
@@ -531,21 +562,91 @@
                 { street: '233 S Wacker Dr',         city: 'Chicago',        state: 'IL', zip: '60606' },
                 { street: '1 Apple Park Way',        city: 'Cupertino',      state: 'CA', zip: '95014' }
             ];
-            street.addEventListener('input', function () {
-                if (street.value.trim().length < 3) return close();
+            visible.addEventListener('input', function () {
+                if (visible.value.trim().length < 3) return close();
                 render(MOCK.map(function (s) {
-                    return {
-                        label: s.street + ', ' + s.city + ', ' + s.state + ' ' + s.zip,
-                        onPick: function () { fill(s); }
-                    };
+                    var line = s.street + ', ' + s.city + ', ' + s.state + ' ' + s.zip;
+                    return { label: line, onPick: function () { onPick(s, line); } };
                 }));
             });
         }
+
+        /* ----- submit-time geocode (single mode), hard ~4s timeout ----- */
+        function geocode(text, cb) {
+            var done = false;
+            var timer = setTimeout(function () { if (!done) { done = true; cb(null); } }, 4000);
+            function finish(parts) { if (done) return; done = true; clearTimeout(timer); cb(parts); }
+            if (!key || !text) return finish(null);
+            loadSdk()
+                .then(function () { return google.maps.importLibrary('geocoding'); })
+                .then(function (geo) {
+                    var gc = new geo.Geocoder();
+                    gc.geocode({ address: text, componentRestrictions: { country: 'us' } }, function (results, status) {
+                        if (status === 'OK' && results && results[0]) {
+                            finish(parseComponents(results[0].address_components, results[0].formatted_address));
+                        } else { finish(null); }
+                    });
+                })
+                .catch(function () { finish(null); });
+        }
+
+        function finalize(parts, cb) {
+            setParts(parts);
+            var hasCity = !!parts.city, hasState = !!parts.state, hasZip = !!parts.zip;
+            // Two distinct event names so a drop-off report (which counts by event
+            // name) can measure how often the single field yields a partial address.
+            track(hasCity && hasState && hasZip ? 'address_resolved_complete' : 'address_resolved_incomplete', {
+                step: 5, name: 'address',
+                has_city: hasCity, has_state: hasState, has_zip: hasZip
+            });
+            cb();
+        }
+
+        // Resolve the four components, populate the hidden inputs, emit analytics,
+        // then cb(). Synchronous when we already hold trusted picked parts; async
+        // (≤4s) when we must geocode the typed text.
+        function resolveForSubmit(cb) {
+            // classic mode: visible fields are separate and already validated
+            if (!single) { cb(); return; }
+
+            var text = (visible.value || '').trim();
+
+            // (a) trusted picked parts, field unchanged since the pick
+            if (picked && visible.value === pickedFor) { finalize(picked, cb); return; }
+
+            // (b) submit-time geocode of the typed text
+            geocode(text, function (parts) {
+                if (parts && (parts.street || parts.city || parts.state || parts.zip)) {
+                    if (!parts.street) parts.street = text; // keep the typed line if the geocoder had no street
+                    finalize(parts, cb);
+                } else {
+                    // (c) fallback: raw typed string as street, blanks elsewhere — never trap the visitor
+                    finalize({ street: text, city: '', state: '', zip: '' }, cb);
+                }
+            });
+        }
+
+        return { present: true, single: single, init: initAutocomplete, resolveForSubmit: resolveForSubmit };
     }
 
     /* ------------------------------------------------------------ events */
     btnNext.addEventListener('click', function () {
-        if (validateStep(current)) { trackStepComplete(current); goNext(); }
+        if (!validateStep(current)) return;
+
+        // Step 5 single-field: resolve the segregated address (may geocode) before
+        // advancing. Disable Continue ONLY while that async resolution is in flight.
+        if (current === 5 && address.present && address.single) {
+            btnNext.disabled = true;
+            address.resolveForSubmit(function () {
+                btnNext.disabled = false;
+                trackStepComplete(5);
+                goNext();
+            });
+            return;
+        }
+
+        trackStepComplete(current);
+        goNext();
     });
     btnBack.addEventListener('click', goBack);
 
