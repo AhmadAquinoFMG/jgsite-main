@@ -110,6 +110,7 @@ if (!function_exists('equifax_pull')) {
                 'response_body'   => $mockResponse,
                 'score'           => 742,
                 'decision'        => 'mock',
+                'total_debt'      => 34500, // synthetic verified total for local testing
                 'error'           => null,
                 'duration_ms'     => 0,
             ];
@@ -123,6 +124,7 @@ if (!function_exists('equifax_pull')) {
                 'response_body'   => null,
                 'score'           => null,
                 'decision'        => null,
+                'total_debt'      => null,
                 'error'           => 'auth_failed: ' . $err,
                 'duration_ms'     => 0,
             ];
@@ -136,11 +138,13 @@ if (!function_exists('equifax_pull')) {
         ], (int) ($eq['timeout'] ?? 15));
         $duration = (int) round((microtime(true) - $t0) * 1000);
 
-        $score    = null;
-        $decision = null;
+        $score     = null;
+        $decision  = null;
+        $totalDebt = null;
         if ($http['status'] >= 200 && $http['status'] < 300 && $http['body']) {
-            $parsed = json_decode($http['body'], true);
-            $score  = equifax_extract_score($parsed);
+            $parsed    = json_decode($http['body'], true);
+            $score     = equifax_extract_score($parsed);
+            $totalDebt = equifax_extract_total_debt($parsed, (string) ($eq['total_debt_path'] ?? ''));
         }
 
         return $result + [
@@ -148,9 +152,74 @@ if (!function_exists('equifax_pull')) {
             'response_body'   => $http['body'],
             'score'           => $score,
             'decision'        => $decision,
+            'total_debt'      => $totalDebt,
             'error'           => $http['error'] ?: ($http['status'] >= 400 ? 'http_' . $http['status'] : null),
             'duration_ms'     => $duration,
         ];
+    }
+
+    /**
+     * Verified total debt from a decoded report. Uses a configured dot-path
+     * (equifax.total_debt_path) if the product returns a precomputed total;
+     * otherwise sums trade-line balances across the whole report. null if none.
+     * Ported from the tdo reference implementation.
+     */
+    function equifax_extract_total_debt($decoded, string $path = ''): ?int
+    {
+        if (!is_array($decoded)) {
+            return null;
+        }
+        if ($path !== '') {
+            $node = $decoded;
+            foreach (explode('.', $path) as $seg) {
+                if (is_array($node) && array_key_exists($seg, $node)) {
+                    $node = $node[$seg];
+                } else {
+                    $node = null;
+                    break;
+                }
+            }
+            if (is_numeric($node)) {
+                return (int) round((float) $node);
+            }
+        }
+        [$sum, $found] = equifax_sum_trade_balances($decoded);
+        return $found ? (int) round($sum) : null;
+    }
+
+    /**
+     * Recursively sum trade-line balances anywhere in the report (under any
+     * trades/tradelines/accounts list). Returns [sum, foundAny].
+     * @return array{0:float,1:bool}
+     */
+    function equifax_sum_trade_balances($node): array
+    {
+        $sum = 0.0;
+        $found = false;
+        if (!is_array($node)) {
+            return [$sum, $found];
+        }
+        foreach ($node as $key => $value) {
+            if (is_string($key)
+                && in_array(strtolower($key), ['trades', 'tradelines', 'accounts'], true)
+                && is_array($value)) {
+                foreach ($value as $trade) {
+                    if (!is_array($trade)) {
+                        continue;
+                    }
+                    $balance = $trade['balanceAmount'] ?? ($trade['balance'] ?? ($trade['currentBalance'] ?? null));
+                    if (is_numeric($balance)) {
+                        $sum += (float) $balance;
+                        $found = true;
+                    }
+                }
+            } elseif (is_array($value)) {
+                [$childSum, $childFound] = equifax_sum_trade_balances($value);
+                $sum += $childSum;
+                $found = $found || $childFound;
+            }
+        }
+        return [$sum, $found];
     }
 
     /** OAuth2 client-credentials token. Returns access token or null (sets $err). */

@@ -139,6 +139,9 @@ return [
         'security_code' => env('EQUIFAX_SECURITY_CODE', ''),
         'scope'         => env('EQUIFAX_SCOPE', 'https://api.equifax.com/business/consumer-credit/v1'),
         'timeout'       => (int) env('EQUIFAX_TIMEOUT', '15'),
+        // Optional dot-path to a precomputed total-debt figure in the report
+        // JSON (e.g. 'summary.totalDebt'). Empty → sum trade-line balances.
+        'total_debt_path' => env('EQUIFAX_TOTAL_DEBT_PATH', ''),
         // Redact SSN in the stored request_body. Off by default per current
         // requirement to retain full bodies; turn on to mask before writing.
         'redact'        => (env('EQUIFAX_REDACT', '0') === '1'),

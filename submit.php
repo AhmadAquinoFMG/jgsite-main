@@ -214,7 +214,8 @@ $ip  = $xff !== '' ? trim(explode(',', $xff)[0]) : ($_SERVER['REMOTE_ADDR'] ?? '
 $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
 
 $row = [
-    'debt_amount'     => $debtAmount,
+    'debt_amount'        => $debtAmount,
+    'self_assessed_debt' => $debtAmount, // the visitor's self-reported figure
     'employment'      => $employment,
     'income'          => $income,
     'first_name'      => $firstName,
@@ -292,6 +293,25 @@ try {
         $sql  = 'INSERT INTO equifax_logs (' . implode(', ', $cols) . ') VALUES (:'
               . implode(', :', $cols) . ')';
         db($cfg)->prepare($sql)->execute($log);
+
+        // Denormalize the outcome onto the lead row for quick per-lead visibility
+        // (the full request/response bodies stay in equifax_logs). No SSN here.
+        db($cfg)->prepare(
+            'UPDATE leads SET equifax_mode = :mode, equifax_status = :status,
+                    equifax_score = :score, equifax_decision = :decision,
+                    equifax_error = :error, equifax_pulled_at = :pulled_at,
+                    total_debt = :total_debt
+             WHERE id = :id'
+        )->execute([
+            'mode'       => $eq['mode'],
+            'status'     => $eq['response_status'],
+            'score'      => $eq['score'],
+            'decision'   => $eq['decision'],
+            'error'      => $eq['error'],
+            'pulled_at'  => date('Y-m-d H:i:s'),
+            'total_debt' => $eq['total_debt'] ?? null,
+            'id'         => $leadId,
+        ]);
 
         // Ops log: outcome only — no SSN, no request/response bodies (those live
         // in equifax_logs). Correlated to the lead via rid + lead_id.

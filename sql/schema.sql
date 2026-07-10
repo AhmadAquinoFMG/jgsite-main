@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 
     -- ---- Qualifying answers (steps 1-3) ----
-    `debt_amount`     VARCHAR(64)  NOT NULL,
+    `debt_amount`        VARCHAR(64) NOT NULL,   -- self-reported bucket (step 1)
+    `self_assessed_debt` VARCHAR(64) DEFAULT NULL, -- same self-reported figure, clearly named
     `employment`      VARCHAR(64)  NOT NULL,
     `income`          VARCHAR(64)  NOT NULL,
 
@@ -33,6 +34,16 @@ CREATE TABLE IF NOT EXISTS `leads` (
     -- ---- Phone verification (Firebase Phone Auth) ----
     `phone_verified`  TINYINT(1)   NOT NULL DEFAULT 0,
     `firebase_uid`    VARCHAR(128) DEFAULT NULL,
+
+    -- ---- Equifax pull outcome (denormalized from equifax_logs for quick
+    --      per-lead visibility; NULL when mode=off / no pull happened) ----
+    `equifax_mode`    VARCHAR(10)  DEFAULT NULL,   -- 'mock' | 'live'
+    `equifax_status`  SMALLINT     DEFAULT NULL,   -- HTTP status (0 = no response)
+    `equifax_score`   SMALLINT     DEFAULT NULL,   -- parsed credit score, if any
+    `equifax_decision` VARCHAR(64) DEFAULT NULL,
+    `equifax_error`   VARCHAR(255) DEFAULT NULL,   -- NULL = success
+    `equifax_pulled_at` DATETIME   DEFAULT NULL,
+    `total_debt`      INT UNSIGNED DEFAULT NULL,    -- Equifax-verified total debt
 
     -- ---- Compliance / proof-of-consent (TCPA) ----
     `trustedform_url` VARCHAR(255) DEFAULT NULL,
