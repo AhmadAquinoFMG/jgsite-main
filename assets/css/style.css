@@ -1017,11 +1017,11 @@ a { color: var(--green-deep); }
 .btn-otp:hover { background: var(--green-dark); }
 .btn-otp:disabled { opacity: .55; cursor: not-allowed; }
 
-.otp-verify { margin: 4px 0 18px; }
+.otp-verify { margin: 4px 0 18px; text-align: center; }
 .otp-verify > label { display: block; margin-bottom: 10px; font-size: 14px; font-weight: 500; color: var(--muted); }
 
 /* Six single-character code inputs. */
-.otp-boxes { display: flex; gap: 8px; }
+.otp-boxes { display: flex; gap: 8px; justify-content: center; }
 .otp-box {
     width: 100%;
     max-width: 52px;
@@ -1042,7 +1042,7 @@ a { color: var(--green-deep); }
     box-shadow: 0 0 0 3px rgba(27, 151, 106, .15);
 }
 
-.otp-actions { display: flex; align-items: center; gap: 16px; margin-top: 14px; }
+.otp-actions { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 14px; }
 .otp-resend {
     background: none; border: none; padding: 0;
     color: var(--green-deep); font: inherit; font-size: 14px;
