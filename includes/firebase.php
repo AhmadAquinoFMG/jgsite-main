@@ -54,6 +54,7 @@ if (!function_exists('verify_firebase_token')) {
         }
 
         $body = '';
+        $status = 0;
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
             curl_setopt_array($ch, [
@@ -61,6 +62,10 @@ if (!function_exists('verify_firebase_token')) {
                 CURLOPT_TIMEOUT        => 8,
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_FOLLOWLOCATION => true,
+                // Advertise + transparently decode gzip/deflate. A compressed
+                // response left undecoded is a common cause of "bad_json".
+                CURLOPT_ENCODING       => '',
+                CURLOPT_HTTPHEADER     => ['Accept: application/json'],
             ]);
             // Use a bundled CA file when the host has none configured (a common
             // cause of an empty fetch → unknown_key on managed hosts).
@@ -80,8 +85,8 @@ if (!function_exists('verify_firebase_token')) {
         }
         if ($body === '' && ini_get('allow_url_fopen')) {
             $body = (string) @file_get_contents($url, false, stream_context_create([
-                'http'  => ['timeout' => 8],
-                'https' => ['timeout' => 8],
+                'http'  => ['timeout' => 8, 'header' => 'Accept: application/json'],
+                'https' => ['timeout' => 8, 'header' => 'Accept: application/json'],
             ]));
             if ($body !== '') {
                 $err = null;
@@ -91,7 +96,13 @@ if (!function_exists('verify_firebase_token')) {
         $certs = json_decode($body, true);
         if (!is_array($certs) || !$certs) {
             if ($err === null) {
-                $err = ($body === '') ? 'empty_body' : 'bad_json';
+                // Include HTTP status + a short, whitespace-collapsed snippet of
+                // the body so a non-JSON response (WAF/proxy page, error text) is
+                // identifiable. The endpoint is public, so the snippet is not secret.
+                $snip = substr(trim(preg_replace('/\s+/', ' ', $body)), 0, 80);
+                $err = ($body === '')
+                    ? 'empty_body:http_' . $status
+                    : 'bad_json:http_' . $status . ':' . $snip;
             }
             // fall back to a stale cache if the fetch failed
             if (is_readable($cache)) {
