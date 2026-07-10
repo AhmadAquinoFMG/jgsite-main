@@ -34,7 +34,10 @@
       "Bash(sed 's/^/#ssn occurrences: /')",
       "Bash(curl -s -o /tmp/n.json -w 'HTTP %{http_code}\\\\n' -X POST http://127.0.0.1:8126/submit.php --data-urlencode 'debt_amount=$25,000 - $49,999' --data-urlencode employment=Full-time --data-urlencode 'income=Over $100,000' --data-urlencode first_name=Alex --data-urlencode last_name=Stone --data-urlencode 'street=233 S Wacker Dr' --data-urlencode city=Chicago --data-urlencode state=IL --data-urlencode zip=60606 --data-urlencode dob=06/06/1986 --data-urlencode email=alex.stone@gmail.com --data-urlencode 'phone=\\(312\\) 555-8080')",
       "Bash(pkill -f \"php -S 127.0.0.1:8126\")",
-      "Bash(git --no-pager diff HEAD -- .env.production.example)"
+      "Bash(git --no-pager diff HEAD -- .env.production.example)",
+      "Bash(cd e:/projects/jlr/jg-main && echo \"=== our project .env FIREBASE lines ===\" && grep -iE \"FIREBASE|APP_ENV\" .env || echo \"\\(no FIREBASE_* in e:/projects/jlr/jg-main/.env\\)\" *)",
+      "Read(//c/xampp/chatbot-site/tdo/jg-site/**)",
+      "Bash(git --no-pager diff HEAD -- assets/js/funnel.js config.php)"
     ]
   }
 }

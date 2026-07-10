@@ -465,9 +465,13 @@
                     auth = window.firebase.auth();
                 }
                 if (!verifier) {
+                    // Compat SDK: RecaptchaVerifier(container, parameters). It binds to
+                    // the default app's auth automatically — do NOT pass the Auth instance
+                    // as a 3rd arg (that slot is an App; an Auth there yields
+                    // auth/invalid-api-key because it has no .options.apiKey).
                     verifier = new window.firebase.auth.RecaptchaVerifier('recaptchaContainer', {
                         size: 'invisible'
-                    }, auth);
+                    });
                 }
                 return auth;
             });
