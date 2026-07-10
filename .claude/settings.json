@@ -37,7 +37,8 @@
       "Bash(git --no-pager diff HEAD -- .env.production.example)",
       "Bash(cd e:/projects/jlr/jg-main && echo \"=== our project .env FIREBASE lines ===\" && grep -iE \"FIREBASE|APP_ENV\" .env || echo \"\\(no FIREBASE_* in e:/projects/jlr/jg-main/.env\\)\" *)",
       "Read(//c/xampp/chatbot-site/tdo/jg-site/**)",
-      "Bash(git --no-pager diff HEAD -- assets/js/funnel.js config.php)"
+      "Bash(git --no-pager diff HEAD -- assets/js/funnel.js config.php)",
+      "Bash(git --no-pager diff HEAD -- submit.php)"
     ]
   }
 }

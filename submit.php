@@ -188,7 +188,9 @@ if ($verifyReqd) {
     if (!$res['ok']) {
         app_log('warning', 'firebase', 'verify_failed', ['rid' => $rid, 'reason' => $res['error'] ?? 'unknown']);
         http_response_code(422);
-        echo json_encode(['ok' => false, 'errors' => ['phone' => 'not_verified']]);
+        // `detail` names the exact verification failure (non-sensitive) to aid
+        // debugging; visible in the Network response. Safe to remove later.
+        echo json_encode(['ok' => false, 'errors' => ['phone' => 'not_verified'], 'detail' => $res['error'] ?? 'unknown']);
         exit;
     }
     // The verified token's phone must match the submitted number.
