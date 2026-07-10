@@ -11,7 +11,7 @@
  *   1. Header: alg must be RS256 and carry a `kid`.
  *   2. Signature: RS256 over "header.payload", checked against Google's public
  *      x509 certificate for that `kid`
- *      (https://www.googleapis.com/robots/v1/metadata/x509/securetoken@system.gserviceaccount.com).
+ *      (https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com).
  *   3. Claims: `aud` == project id, `iss` == https://securetoken.google.com/<project>,
  *      `exp` in the future, `iat`/`auth_time` in the past, `sub` non-empty.
  *
@@ -43,11 +43,10 @@ if (!function_exists('verify_firebase_token')) {
     function fb_google_certs(?string &$err = null): array
     {
         $err   = null;
-        // NB: the '@' is percent-encoded (%40). The literal '@' works with
-        // well-behaved clients but some curl/proxy stacks mishandle it in the
-        // path (truncating at '@' → a 404 on .../x509/securetoken). %40 is the
-        // same resource and avoids that.
-        $url   = 'https://www.googleapis.com/robots/v1/metadata/x509/securetoken%40system.gserviceaccount.com';
+        // Google's secure-token x509 certs. NOTE the path is 'robot' (singular);
+        // 'robots' (plural) 404s — that was the certs_unavailable:bad_json:http_404
+        // root cause. The literal '@' is fine (this exact URL is what works).
+        $url   = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com';
         $cache = sys_get_temp_dir() . '/fb_securetoken_certs.json';
 
         if (is_readable($cache) && (time() - filemtime($cache) < 3600)) {

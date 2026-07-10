@@ -40,7 +40,9 @@
       "Bash(git --no-pager diff HEAD -- assets/js/funnel.js config.php)",
       "Bash(git --no-pager diff HEAD -- submit.php)",
       "Bash(php -l includes/firebase.php)",
-      "Bash(git --no-pager diff HEAD -- includes/firebase.php submit.php)"
+      "Bash(git --no-pager diff HEAD -- includes/firebase.php submit.php)",
+      "Read(//e/projects/jlr/tdo/**)",
+      "Read(//e/projects/jlr/tdo/includes/**)"
     ]
   }
 }
