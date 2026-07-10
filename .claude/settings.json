@@ -18,7 +18,16 @@
       "Bash(/c/xampp/mysql/bin/mysql.exe -u root jgw_leads_test -e 'SELECT \\(SELECT MAX\\(id\\) FROM leads\\) AS newest_lead, \\(SELECT lead_id FROM equifax_logs ORDER BY id DESC LIMIT 1\\) AS logged_lead;')",
       "Bash(sed -i 's/^EQUIFAX_MODE=mock/EQUIFAX_MODE=off/; s/^EQUIFAX_REDACT=1/EQUIFAX_REDACT=0/' .env)",
       "Bash(pkill -f \"php -S 127.0.0.1:8124\")",
-      "Bash(pkill -f \"php -S 127.0.0.1:8123\")"
+      "Bash(pkill -f \"php -S 127.0.0.1:8123\")",
+      "Bash(php -S 127.0.0.1:8125)",
+      "Bash(curl -s -o /dev/null -w 'valid submit HTTP %{http_code}\\\\n' -X POST http://127.0.0.1:8125/submit.php --data-urlencode 'debt_amount=$25,000 - $49,999' --data-urlencode employment=Full-time --data-urlencode 'income=Over $100,000' --data-urlencode first_name=Dana --data-urlencode last_name=Wells --data-urlencode 'street=233 S Wacker Dr' --data-urlencode city=Chicago --data-urlencode state=IL --data-urlencode zip=60606 --data-urlencode dob=02/02/1979 --data-urlencode email=dana.wells@gmail.com --data-urlencode 'phone=\\(312\\) 555-4242' --data-urlencode ssn=444-55-6666 --data-urlencode utm_source=google)",
+      "Bash(curl -s -o /dev/null -w 'invalid submit HTTP %{http_code}\\\\n' -X POST http://127.0.0.1:8125/submit.php --data-urlencode 'debt_amount=$25,000 - $49,999' --data-urlencode employment=Full-time --data-urlencode 'income=Over $100,000' --data-urlencode first_name=Dana --data-urlencode last_name=Wells --data-urlencode 'street=233 S Wacker Dr' --data-urlencode city=Chicago --data-urlencode state=IL --data-urlencode zip=60606 --data-urlencode dob=02/02/1979 --data-urlencode email=dana@sketchy.xyz --data-urlencode 'phone=\\(312\\) 555-4242' --data-urlencode ssn=12345)",
+      "Bash(pkill -f \"php -S 127.0.0.1:8125\")",
+      "Bash(sed -i 's/^EQUIFAX_MODE=mock/EQUIFAX_MODE=off/' .env)",
+      "Bash(php -l submit.php)",
+      "Bash(git --no-pager diff --stat HEAD)",
+      "Bash(git --no-pager diff HEAD -- .claude/settings.json)",
+      "Bash(git --no-pager log -4 --pretty='%h %s')"
     ]
   }
 }

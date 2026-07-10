@@ -19,9 +19,20 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 $cfg = require __DIR__ . '/config.php';
+require __DIR__ . '/includes/logger.php';
 require __DIR__ . '/includes/db.php';
 require __DIR__ . '/includes/firebase.php';
 require __DIR__ . '/includes/equifax.php';
+
+logger($cfg); // initialise the operational file logger
+
+// Correlate every log line for this submission. random_bytes keeps it unique
+// without leaking anything; falls back gracefully if the CSPRNG is unavailable.
+try {
+    $rid = bin2hex(random_bytes(6));
+} catch (Throwable $e) {
+    $rid = substr(md5((string) ($_SERVER['REQUEST_TIME_FLOAT'] ?? '') . ($_SERVER['REMOTE_ADDR'] ?? '')), 0, 12);
+}
 
 /* --------------------------------------------------------- method guard */
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
@@ -33,6 +44,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 
 /* --------------------------------------------------------------- helpers */
 $post = fn(string $k): string => trim((string) ($_POST[$k] ?? ''));
+
+app_log('info', 'lead', 'received', ['rid' => $rid]);
 
 // Trusted consumer email domains — mirrors TRUSTED_EMAIL_DOMAINS in funnel.js.
 $TRUSTED_EMAIL_DOMAINS = [
@@ -160,6 +173,8 @@ if (!in_array($employment, $cfg['employment_options'], true)) $errors['employmen
 if (!in_array($income, $cfg['income_options'], true))         $errors['income']      = 'invalid_option';
 
 if ($errors) {
+    // Log which fields failed (names + codes only, never the submitted values).
+    app_log('warning', 'lead', 'validation_failed', ['rid' => $rid, 'fields' => $errors]);
     http_response_code(422);
     echo json_encode(['ok' => false, 'errors' => $errors]);
     exit;
@@ -175,6 +190,7 @@ $verifyReqd = ($cfg['app_env'] ?? 'production') !== 'local' && $projectId !== ''
 if ($verifyReqd) {
     $res = verify_firebase_token($post('id_token'), $projectId);
     if (!$res['ok']) {
+        app_log('warning', 'firebase', 'verify_failed', ['rid' => $rid, 'reason' => $res['error'] ?? 'unknown']);
         http_response_code(422);
         echo json_encode(['ok' => false, 'errors' => ['phone' => 'not_verified']]);
         exit;
@@ -182,12 +198,16 @@ if ($verifyReqd) {
     // The verified token's phone must match the submitted number.
     $tokenDigits = preg_replace('/\D/', '', $res['phone_number']);
     if (substr($tokenDigits, -10) !== $phoneDigits) {
+        app_log('warning', 'firebase', 'phone_mismatch', ['rid' => $rid]);
         http_response_code(422);
         echo json_encode(['ok' => false, 'errors' => ['phone' => 'not_verified']]);
         exit;
     }
+    app_log('info', 'firebase', 'verified', ['rid' => $rid]);
     $phoneVerified = 1;
     $firebaseUid   = $res['uid'];
+} else {
+    app_log('debug', 'firebase', 'verify_skipped', ['rid' => $rid, 'env' => $cfg['app_env'] ?? 'production']);
 }
 
 /* --------------------------------------------------------- capture meta */
@@ -235,8 +255,12 @@ try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($row);
     $leadId = (int) $pdo->lastInsertId();
+    app_log('info', 'lead', 'stored', [
+        'rid' => $rid, 'lead_id' => $leadId,
+        'state' => $row['state'], 'phone_verified' => $phoneVerified,
+    ]);
 } catch (Throwable $ex) {
-    error_log('[submit] lead insert failed: ' . $ex->getMessage());
+    app_log('error', 'lead', 'insert_failed', ['rid' => $rid, 'error' => $ex->getMessage()]);
     http_response_code(500);
     echo json_encode(['ok' => false, 'error' => 'server_error']);
     exit;
@@ -270,9 +294,23 @@ try {
         $sql  = 'INSERT INTO equifax_logs (' . implode(', ', $cols) . ') VALUES (:'
               . implode(', :', $cols) . ')';
         db($cfg)->prepare($sql)->execute($log);
+
+        // Ops log: outcome only — no SSN, no request/response bodies (those live
+        // in equifax_logs). Correlated to the lead via rid + lead_id.
+        app_log($eq['error'] ? 'error' : 'info', 'equifax', 'pull', [
+            'rid'      => $rid,
+            'lead_id'  => $leadId,
+            'mode'     => $eq['mode'],
+            'status'   => $eq['response_status'],
+            'score'    => $eq['score'],
+            'duration' => $eq['duration_ms'],
+            'error'    => $eq['error'],
+        ]);
+    } else {
+        app_log('debug', 'equifax', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
     }
 } catch (Throwable $ex) {
-    error_log('[submit] equifax step failed (lead ' . $leadId . '): ' . $ex->getMessage());
+    app_log('error', 'equifax', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
 }
 
 // TODO(next phase): forward the lead to the CRM / LeadProsper here, then decide

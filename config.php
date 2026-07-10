@@ -72,6 +72,16 @@ return [
     // on staging/live so tokens are actually verified.
     'app_env' => env('APP_ENV', 'production'),
 
+    // ---- Operational logging -------------------------------------------
+    // File-based structured log (includes/logger.php) for the lead pipeline.
+    // Separate from the leads/equifax_logs DATA tables — this is the ops trail.
+    //   level: debug | info | warning | error (lines below it are dropped).
+    //   dir:   defaults to <project>/logs (gitignored); override with LOG_DIR.
+    'logging' => [
+        'dir'   => env('LOG_DIR') ?: __DIR__ . '/logs',
+        'level' => env('LOG_LEVEL', 'info'),
+    ],
+
     // ---- Database (lead storage) ---------------------------------------
     // MySQL/MariaDB on Cloudways, reached through PDO in includes/db.php.
     // Creds come from .env (see .env.example); nothing is committed.

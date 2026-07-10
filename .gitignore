@@ -1,6 +1,9 @@
 # Environment secrets
 .env
 
+# Operational logs (includes/logger.php)
+logs/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
