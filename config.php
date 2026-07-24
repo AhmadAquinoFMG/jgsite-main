@@ -117,35 +117,48 @@ return [
         'jornaya_account'   => env('JORNAYA_ACCOUNT_ID', ''),
     ],
 
-    // ---- Equifax Consumer Credit Report --------------------------------
+    // ---- Equifax Consumer Credit Report (OneView, OAuth2) --------------
     // submit.php pulls a credit report after storing the lead and logs the
-    // request/response to the equifax_logs table (includes/equifax.php).
-    // The call is best-effort — a failure is logged but never blocks the lead.
+    // request/response to equifax_logs (includes/equifax.php). Best-effort — a
+    // failure is logged but never blocks the lead. Aligned with the proven
+    // integration in the sibling `tdo` project.
     //
-    //   mode:  'off'  → skip entirely, write no log row (default; local/dev).
-    //          'mock' → synthetic response, DOES write a log row (test the
-    //                   logging pipeline without live credentials).
-    //          'live' → real OAuth2 + credit-report HTTP call.
+    //   mode:  'off'        → skip entirely, no log row (default).
+    //          'mock'       → synthetic response, DOES log (test the pipeline).
+    //          'sandbox'    → live call against api.sandbox.equifax.com.
+    //          'production' → live call against api.equifax.com.
     //
-    // Equifax's developer API uses OAuth2 client-credentials; member_number +
-    // security_code identify the requesting subscriber on the report call.
-    // Confirm base_url + exact endpoint paths/body against your Equifax contract.
-    'equifax' => [
-        'mode'          => env('EQUIFAX_MODE', 'off'),
-        'base_url'      => rtrim(env('EQUIFAX_BASE_URL', 'https://api.equifax.com'), '/'),
-        'client_id'     => env('EQUIFAX_CLIENT_ID', ''),
-        'client_secret' => env('EQUIFAX_CLIENT_SECRET', ''),
-        'member_number' => env('EQUIFAX_MEMBER_NUMBER', ''),
-        'security_code' => env('EQUIFAX_SECURITY_CODE', ''),
-        'scope'         => env('EQUIFAX_SCOPE', 'https://api.equifax.com/business/consumer-credit/v1'),
-        'timeout'       => (int) env('EQUIFAX_TIMEOUT', '15'),
-        // Optional dot-path to a precomputed total-debt figure in the report
-        // JSON (e.g. 'summary.totalDebt'). Empty → sum trade-line balances.
-        'total_debt_path' => env('EQUIFAX_TOTAL_DEBT_PATH', ''),
-        // Redact SSN in the stored request_body. Off by default per current
-        // requirement to retain full bodies; turn on to mask before writing.
-        'redact'        => (env('EQUIFAX_REDACT', '0') === '1'),
-    ],
+    // Credentials are chosen by mode: production uses EQUIFAX_PRODUCTION_*,
+    // sandbox uses EQUIFAX_SANDBOX_* (the API key/secret are the OAuth
+    // client-credentials). NOTE: 'scope' defaults EMPTY — this account's token
+    // endpoint rejects an explicit scope (400 invalid_scope) and only issues a
+    // token when scope is omitted. Only set EQUIFAX_SCOPE if your account needs one.
+    'equifax' => (function () {
+        $mode   = strtolower(env('EQUIFAX_MODE', 'off'));
+        $isProd = $mode === 'production';
+        return [
+            'mode'          => $mode,
+            'is_prod'       => $isProd,
+            'api_key'       => env($isProd ? 'EQUIFAX_PRODUCTION_API_KEY'    : 'EQUIFAX_SANDBOX_API_KEY', ''),
+            'api_secret'    => env($isProd ? 'EQUIFAX_PRODUCTION_API_SECRET' : 'EQUIFAX_SANDBOX_API_SECRET', ''),
+            'base_url'      => rtrim(env('EQUIFAX_API_BASE', $isProd ? 'https://api.equifax.com' : 'https://api.sandbox.equifax.com'), '/'),
+            'scope'         => env('EQUIFAX_SCOPE', ''), // empty by design — see note above
+            'token_path'    => env('EQUIFAX_TOKEN_PATH', '/v2/oauth/token'),
+            'product_path'  => env('EQUIFAX_PRODUCT_PATH', '/business/oneview/consumer-credit/v1/reports/credit-report'),
+            'model_id'      => env('EQUIFAX_MODEL_ID', '05734'),
+            'member_number' => env('EQUIFAX_MEMBER_NUMBER', ''),
+            'security_code' => env('EQUIFAX_SECURITY_CODE', ''),
+            'customer_code' => env('EQUIFAX_CUSTOMER_CODE', ''),
+            'ecoa_inquiry_type'         => env('EQUIFAX_ECOA_INQUIRY_TYPE', 'Individual'),
+            'multiple_report_indicator' => env('EQUIFAX_MULTIPLE_REPORT_INDICATOR', '1'),
+            'timeout'       => (int) env('EQUIFAX_TIMEOUT', '20'),
+            // Optional dot-path to a precomputed total-debt figure in the report
+            // JSON (e.g. 'summary.totalDebt'). Empty → sum trade-line balances.
+            'total_debt_path' => env('EQUIFAX_TOTAL_DEBT_PATH', ''),
+            // Redact SSN + account secrets in the stored request_body.
+            'redact'        => (env('EQUIFAX_REDACT', '0') === '1'),
+        ];
+    })(),
 
     // ---- Branding -------------------------------------------------------
     'brand' => [

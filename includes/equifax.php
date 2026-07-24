@@ -34,6 +34,22 @@ if (!function_exists('equifax_pull')) {
     }
 
     /**
+     * Mask the account identifiers (member/security/customer codes) in a stored
+     * request body — they identify our Equifax account and must never be
+     * persisted with the lead. Always applied (independent of the SSN toggle).
+     */
+    function equifax_redact_secrets(string $json, array $eq): string
+    {
+        foreach (['member_number', 'security_code', 'customer_code'] as $k) {
+            $v = (string) ($eq[$k] ?? '');
+            if ($v !== '') {
+                $json = str_replace($v, '***', $json);
+            }
+        }
+        return $json;
+    }
+
+    /**
      * @param array  $cfg  Full config array.
      * @param array  $lead The validated lead (first_name, last_name, street,
      *                     city, state, zip, dob [Y-m-d]).
@@ -50,44 +66,60 @@ if (!function_exists('equifax_pull')) {
             return ['skip' => true];
         }
 
-        // ---- build the credit-report request (contract-specific shape) ----
-        $url = ($eq['base_url'] ?? '') . '/business/consumer-credit/v1/reports';
-        [$y, $m, $d] = array_pad(explode('-', (string) ($lead['dob'] ?? '')), 3, '');
+        // ---- build the OneView credit-report request (matches tdo) ----
+        $url = ($eq['base_url'] ?? '') . ($eq['product_path'] ?? '/business/oneview/consumer-credit/v1/reports/credit-report');
+
+        // OneView wants DOB as MMDDYYYY; the funnel provides it as YYYY-MM-DD.
+        $dobRaw = (string) ($lead['dob'] ?? '');
+        $dobTs  = $dobRaw !== '' ? strtotime($dobRaw) : false;
+        $consumers = [
+            'name' => [[
+                'identifier' => 'current',
+                'firstName'  => (string) ($lead['first_name'] ?? ''),
+                'lastName'   => (string) ($lead['last_name'] ?? ''),
+            ]],
+            'addresses' => [[
+                'identifier' => 'current',
+                'streetName' => trim((string) ($lead['street'] ?? '')),
+                'city'       => (string) ($lead['city'] ?? ''),
+                'state'      => strtoupper((string) ($lead['state'] ?? '')),
+                'zip'        => (string) ($lead['zip'] ?? ''),
+            ]],
+            'dateOfBirth' => $dobTs !== false ? date('mdY', $dobTs) : '',
+        ];
+        // SSN is optional for this funnel; include only when present.
+        if ($ssn !== '') {
+            $consumers['socialNum'] = [['identifier' => 'current', 'number' => $ssn]];
+        }
+
+        $creditReportConfig = array_filter([
+            'memberNumber'            => $eq['member_number'] ?? '',
+            'securityCode'            => $eq['security_code'] ?? '',
+            'customerCode'            => $eq['customer_code'] ?? '',
+            'ECOAInquiryType'         => $eq['ecoa_inquiry_type'] ?? 'Individual',
+            'multipleReportIndicator' => $eq['multiple_report_indicator'] ?? '1',
+            'codeDescriptionRequired' => true,
+        ], static fn($v) => $v !== '' && $v !== null);
+        if (($eq['model_id'] ?? '') !== '') {
+            $creditReportConfig['models'] = [['identifier' => $eq['model_id']]];
+        }
+
         $requestArr = [
-            'consumers' => [
-                'name' => [[
-                    'identifier' => 'current',
-                    'firstName'  => $lead['first_name'] ?? '',
-                    'lastName'   => $lead['last_name'] ?? '',
-                ]],
-                'socialNum' => [[
-                    'identifier' => 'current',
-                    'number'     => $ssn,
-                ]],
-                'dateOfBirth' => sprintf('%s-%s-%s', $m, $d, $y), // MM-DD-YYYY
-                'addresses'   => [[
-                    'identifier'   => 'current',
-                    'houseNumber'  => '',
-                    'streetName'   => $lead['street'] ?? '',
-                    'city'         => $lead['city'] ?? '',
-                    'state'        => $lead['state'] ?? '',
-                    'zip'          => $lead['zip'] ?? '',
-                ]],
-            ],
+            'consumers' => $consumers,
+            'customerReferenceIdentifier' => (string) ($lead['email'] ?? ''),
             'customerConfiguration' => [
-                'equifaxUSConsumerCreditReport' => [
-                    'memberNumber' => $eq['member_number'] ?? '',
-                    'securityCode' => $eq['security_code'] ?? '',
-                    'models'       => [['identifier' => 'Score']],
-                ],
+                'equifaxUSConsumerCreditReport' => $creditReportConfig,
             ],
         ];
         $requestBody = json_encode($requestArr, JSON_UNESCAPED_SLASHES);
 
-        // Redact the SSN in what we STORE (the wire request still uses the real one).
-        $storedRequestBody = !empty($eq['redact'])
-            ? equifax_redact_ssn($requestBody, $ssn)
-            : $requestBody;
+        // What we STORE: redact SSN + account secrets (member/security/customer
+        // codes identify our Equifax account and must never be persisted).
+        $storedRequestBody = $requestBody;
+        if (!empty($eq['redact'])) {
+            $storedRequestBody = equifax_redact_ssn($storedRequestBody, $ssn);
+        }
+        $storedRequestBody = equifax_redact_secrets($storedRequestBody, $eq);
 
         $result = [
             'skip'         => false,
@@ -226,16 +258,19 @@ if (!function_exists('equifax_pull')) {
     function equifax_token(array $cfg, ?string &$err = null): ?string
     {
         $eq  = $cfg['equifax'] ?? [];
-        $url = ($eq['base_url'] ?? '') . '/v2/oauth/token';
-        $body = http_build_query([
-            'grant_type' => 'client_credentials',
-            'scope'      => $eq['scope'] ?? '',
-        ]);
+        $url = ($eq['base_url'] ?? '') . ($eq['token_path'] ?? '/v2/oauth/token');
+        // Send `scope` ONLY when configured — this account 400s on an explicit
+        // scope and issues a token only when it's omitted.
+        $params = ['grant_type' => 'client_credentials'];
+        if (($eq['scope'] ?? '') !== '') {
+            $params['scope'] = $eq['scope'];
+        }
+        $body = http_build_query($params);
         $http = equifax_http('POST', $url, $body, [
-            'Authorization: Basic ' . base64_encode(($eq['client_id'] ?? '') . ':' . ($eq['client_secret'] ?? '')),
+            'Authorization: Basic ' . base64_encode(($eq['api_key'] ?? '') . ':' . ($eq['api_secret'] ?? '')),
             'Content-Type: application/x-www-form-urlencoded',
             'Accept: application/json',
-        ], (int) ($eq['timeout'] ?? 15));
+        ], (int) ($eq['timeout'] ?? 20));
 
         if ($http['status'] < 200 || $http['status'] >= 300) {
             $err = $http['error'] ?: ('token_http_' . $http['status']);
@@ -263,6 +298,7 @@ if (!function_exists('equifax_pull')) {
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $timeout,
             CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_CAINFO         => '/home/master/applications/zxnrchfmfz/public_html/certs/equifax-ca-chain.pem',
         ]);
         $resp   = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);

@@ -271,7 +271,7 @@ try {
    so the lead — already stored — still succeeds. */
 try {
     $eqLead = array_intersect_key($row, array_flip(
-        ['first_name', 'last_name', 'street', 'city', 'state', 'zip']
+        ['first_name', 'last_name', 'street', 'city', 'state', 'zip', 'email']
     ));
     $eqLead['dob'] = $dobIso;
 
