@@ -44,7 +44,7 @@ if (!function_exists('app_log')) {
      * Append one structured line to logs/app-YYYY-MM-DD.log.
      *
      * @param string $level   debug|info|warning|error
-     * @param string $channel logical stream, e.g. 'lead', 'equifax', 'firebase'
+     * @param string $channel logical stream, e.g. 'lead', 'equifax'
      * @param string $message short event slug, e.g. 'received', 'stored'
      * @param array  $context extra non-PII fields (rid, ids, status, …)
      */

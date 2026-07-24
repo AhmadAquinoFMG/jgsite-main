@@ -140,22 +140,9 @@
         zip:   /^\d{5}$/
     };
 
-    // Only accept mail from these trusted/verified consumer providers. This
-    // blocks junk/typo domains and "random symbols on the end of the domain"
-    // by construction (anything not on the list is rejected). Add domains here
-    // as needed.
-    var TRUSTED_EMAIL_DOMAINS = [
-        'gmail.com', 'googlemail.com',
-        'yahoo.com', 'ymail.com', 'rocketmail.com',
-        'outlook.com', 'hotmail.com', 'live.com', 'msn.com',
-        'icloud.com', 'me.com', 'mac.com',
-        'aol.com',
-        'proton.me', 'protonmail.com',
-        'comcast.net', 'verizon.net', 'att.net', 'sbcglobal.net', 'cox.net'
-    ];
-
-    // Strict email check: well-formed local part (no leading/trailing dot, no
-    // consecutive dots, no stray symbols) AND a domain on the trusted list.
+    // Email check: well-formed local part (no leading/trailing dot, no
+    // consecutive dots, no stray symbols) AND a well-formed domain. Any domain
+    // is accepted — no trusted-domain restriction.
     function checkEmail(v) {
         var at = v.lastIndexOf('@');
         if (at < 1 || at !== v.indexOf('@')) return { ok: false, code: 'invalid_email' };
@@ -169,8 +156,9 @@
         }
         if (local.indexOf('..') !== -1) return { ok: false, code: 'invalid_email' };
 
-        if (TRUSTED_EMAIL_DOMAINS.indexOf(domain) === -1) {
-            return { ok: false, code: 'untrusted_domain' };
+        // domain: one or more dot-separated labels + a TLD of 2+ letters
+        if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/.test(domain)) {
+            return { ok: false, code: 'invalid_email' };
         }
         return { ok: true };
     }
@@ -205,8 +193,7 @@
         out_of_range:   'Please enter a valid calendar date.',
         underage:       'You must be at least 18 years old.',
         invalid_length: 'Please enter a valid 10-digit phone number.',
-        invalid_email:  'Please enter a valid email address.',
-        untrusted_domain: 'Please use an email from a common provider (e.g. gmail.com, outlook.com, yahoo.com).'
+        invalid_email:  'Please enter a valid email address.'
     };
 
     function validateStep(n) {
@@ -395,188 +382,9 @@
         if (!key || lazyLoaded[key]) return;
         lazyLoaded[key] = true;
         if (key === 'places' && address.present) address.init();
-        if (key === 'firebase') phoneAuth.init();
     }
 
-    /* ---- Phone verification (step 8) ----------------------------------
-       Real SMS OTP via Firebase Phone Auth. The visitor enters a phone,
-       taps "Send code", Firebase texts a 6-digit code (guarded by an
-       invisible reCAPTCHA), and confirming it yields a Firebase ID token we
-       drop into the hidden #id_token — submit.php verifies that token server-
-       side (includes/firebase.php). Submit stays disabled until verified.
-
-       DEV BYPASS: when window.FUNNEL.appEnv === 'local' or no firebase
-       projectId is configured, verification isn't required — the OTP UI stays
-       hidden and Submit is enabled, matching submit.php's local bypass. */
-    var phoneAuth = buildPhoneAuth();
-    function buildPhoneAuth() {
-        var fb       = (window.FUNNEL && window.FUNNEL.firebase) || {};
-        var appEnv   = (window.FUNNEL && window.FUNNEL.appEnv) || 'production';
-        var required = appEnv !== 'local' && !!fb.projectId && !!fb.apiKey;
-
-        var verified   = false;
-        var confirmationResult = null;
-        var verifier   = null;      // RecaptchaVerifier
-        var auth       = null;
-        var sdkPromise = null;
-
-        var wrap    = document.getElementById('otpVerify');
-        var btnSend = document.getElementById('btnSendCode');
-        var btnVer  = document.getElementById('btnVerifyCode');
-        var btnRes  = document.getElementById('btnResendCode');
-        var statusEl = document.getElementById('otpStatus');
-        var idField = document.getElementById('id_token');
-        var vField  = document.getElementById('phone_verified');
-        var boxes   = [].slice.call(document.querySelectorAll('.otp-box'));
-
-        function status(msg, kind) {
-            if (!statusEl) return;
-            statusEl.textContent = msg || '';
-            statusEl.className = 'otp-status' + (kind ? ' is-' + kind : '');
-        }
-
-        // Load the Firebase compat SDK (app + auth) once, on demand.
-        function loadSdk() {
-            if (window.firebase && window.firebase.auth) return Promise.resolve();
-            if (sdkPromise) return sdkPromise;
-            var base = 'https://www.gstatic.com/firebasejs/10.12.2/';
-            sdkPromise = loadScript(base + 'firebase-app-compat.js')
-                .then(function () { return loadScript(base + 'firebase-auth-compat.js'); });
-            return sdkPromise;
-        }
-        function loadScript(src) {
-            return new Promise(function (resolve, reject) {
-                var s = document.createElement('script');
-                s.src = src; s.async = true;
-                s.onload = resolve;
-                s.onerror = function () { reject(new Error('load failed: ' + src)); };
-                document.head.appendChild(s);
-            });
-        }
-
-        function ensureAuth() {
-            return loadSdk().then(function () {
-                if (!auth) {
-                    if (!window.firebase.apps || !window.firebase.apps.length) {
-                        window.firebase.initializeApp({
-                            apiKey: fb.apiKey, authDomain: fb.authDomain, projectId: fb.projectId
-                        });
-                    }
-                    auth = window.firebase.auth();
-                }
-                if (!verifier) {
-                    // Compat SDK: RecaptchaVerifier(container, parameters). It binds to
-                    // the default app's auth automatically — do NOT pass the Auth instance
-                    // as a 3rd arg (that slot is an App; an Auth there yields
-                    // auth/invalid-api-key because it has no .options.apiKey).
-                    verifier = new window.firebase.auth.RecaptchaVerifier('recaptchaContainer', {
-                        size: 'invisible'
-                    });
-                }
-                return auth;
-            });
-        }
-
-        function currentPhoneE164() {
-            var d = phoneDigits(phone.value);
-            return d.length === 10 ? '+1' + d : null;
-        }
-
-        function sendCode() {
-            var e164 = currentPhoneE164();
-            if (!e164) { fail(stepEl(current), phone, MSG.invalid_length); return; }
-            btnSend.disabled = true;
-            status('Sending code…');
-            ensureAuth()
-                .then(function () { return auth.signInWithPhoneNumber(e164, verifier); })
-                .then(function (res) {
-                    confirmationResult = res;
-                    if (wrap) wrap.hidden = false;
-                    status('We texted a code to ' + phone.value + '.', 'ok');
-                    btnSend.textContent = 'Resend code';
-                    btnSend.disabled = false;
-                    if (boxes[0]) boxes[0].focus();
-                })
-                .catch(function (err) {
-                    console.error('[funnel] send code failed', err);
-                    status('Could not send a code. Check the number and try again.', 'err');
-                    btnSend.disabled = false;
-                    if (verifier && verifier.clear) { try { verifier.clear(); } catch (e) {} verifier = null; }
-                });
-        }
-
-        function verifyCode() {
-            if (!confirmationResult) { status('Tap “Send code” first.', 'err'); return; }
-            var code = boxes.map(function (b) { return b.value; }).join('');
-            if (code.length !== 6) { status('Enter all 6 digits.', 'err'); return; }
-            btnVer.disabled = true;
-            status('Verifying…');
-            confirmationResult.confirm(code)
-                .then(function (cred) { return cred.user.getIdToken(); })
-                .then(function (token) {
-                    idField.value = token;
-                    vField.value = '1';
-                    verified = true;
-                    status('Phone verified ✓', 'ok');
-                    phone.readOnly = true;
-                    btnSend.disabled = true;
-                    setSubmitEnabled(true);
-                })
-                .catch(function (err) {
-                    console.error('[funnel] verify failed', err);
-                    status('That code didn’t match. Please try again.', 'err');
-                    btnVer.disabled = false;
-                });
-        }
-
-        // ----- OTP box UX: auto-advance, backspace, paste -----
-        function wireBoxes() {
-            boxes.forEach(function (box, i) {
-                box.addEventListener('input', function () {
-                    box.value = box.value.replace(/\D/g, '').slice(0, 1);
-                    if (box.value && boxes[i + 1]) boxes[i + 1].focus();
-                });
-                box.addEventListener('keydown', function (ev) {
-                    if (ev.key === 'Backspace' && !box.value && boxes[i - 1]) boxes[i - 1].focus();
-                });
-                box.addEventListener('paste', function (ev) {
-                    var text = (ev.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
-                    if (!text) return;
-                    ev.preventDefault();
-                    boxes.forEach(function (b, j) { b.value = text[j] || ''; });
-                    (boxes[Math.min(text.length, 6) - 1] || box).focus();
-                });
-            });
-        }
-
-        function init() {
-            // Not required (dev / no Firebase config): hide OTP UI, allow submit.
-            if (!required) {
-                if (btnSend) btnSend.hidden = true;
-                setSubmitEnabled(true);
-                return;
-            }
-            setSubmitEnabled(false);
-            if (btnSend) btnSend.addEventListener('click', sendCode);
-            if (btnVer)  btnVer.addEventListener('click', verifyCode);
-            if (btnRes)  btnRes.addEventListener('click', sendCode);
-            wireBoxes();
-        }
-
-        return {
-            init: init,
-            required: required,
-            ok: function () { return !required || verified; },
-            nudge: function () {
-                if (!confirmationResult) status('Please verify your phone number — tap “Send code”.', 'err');
-                else status('Enter the 6-digit code to verify your phone.', 'err');
-                if (btnSend && !btnSend.hidden) btnSend.focus();
-            }
-        };
-    }
-
-    // Submit is enabled by default; the phone-auth gate disables it on step 8
-    // until verification succeeds (production only).
+    // Toggles the Submit button; re-enabled after a failed submit attempt.
     function setSubmitEnabled(on) { btnSubmit.disabled = !on; }
 
     /* ---- Address controller (step 5) ----------------------------------
@@ -879,9 +687,6 @@
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         if (submitting) return;
-
-        // Gate on phone verification (production only; no-op in dev).
-        if (!phoneAuth.ok()) { phoneAuth.nudge(); return; }
 
         submitting = true;
         submitted  = true; // a completion, not an abandonment — suppress funnel-exit

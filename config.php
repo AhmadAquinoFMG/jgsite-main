@@ -46,7 +46,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '28',
+    'asset_version' => '29',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which step
@@ -67,9 +67,7 @@ return [
 
     // ---- Runtime environment -------------------------------------------
     // 'local' relaxes production-only checks so the funnel can be exercised
-    // without live third-party services: submit.php skips Firebase ID-token
-    // verification (there's no real OTP session in dev). Set APP_ENV=production
-    // on staging/live so tokens are actually verified.
+    // without live third-party services. Set APP_ENV=production on staging/live.
     'app_env' => env('APP_ENV', 'production'),
 
     // ---- Operational logging -------------------------------------------
@@ -92,19 +90,6 @@ return [
         'user'    => env('DB_USER', ''),
         'pass'    => env('DB_PASS', ''),
         'charset' => 'utf8mb4',
-    ],
-
-    // ---- Firebase Phone Auth (step 8 OTP) ------------------------------
-    // Client-side SMS verification (assets/js/funnel.js). The browser obtains a
-    // Firebase ID token after the code is confirmed; submit.php verifies that
-    // token server-side (includes/firebase.php) against 'project_id'. The web
-    // apiKey/authDomain are NOT secrets — they ship to the client — but live in
-    // .env so they can differ per environment. Leave 'project_id' empty to
-    // disable the OTP gate (dev only).
-    'firebase' => [
-        'api_key'     => env('FIREBASE_API_KEY', ''),
-        'auth_domain' => env('FIREBASE_AUTH_DOMAIN', ''),
-        'project_id'  => env('FIREBASE_PROJECT_ID', ''),
     ],
 
     // ---- Compliance capture (TCPA proof-of-consent) --------------------

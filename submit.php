@@ -5,11 +5,9 @@
  *
  * Receives the funnel POST (assets/js/funnel.js), then:
  *   1. Validates every field server-side (never trusts the client).
- *   2. Verifies the Firebase phone-auth ID token (skipped when app_env=local
- *      or no Firebase project is configured — dev convenience).
- *   3. Captures TCPA proof-of-consent + attribution meta.
- *   4. Inserts one row into `leads`.
- *   5. Returns JSON: {ok:true} or {ok:false, errors:{field:code}}.
+ *   2. Captures TCPA proof-of-consent + attribution meta.
+ *   3. Inserts one row into `leads`.
+ *   4. Returns JSON: {ok:true} or {ok:false, errors:{field:code}}.
  *
  * Next phase: forward the lead to the CRM / LeadProsper here (see TODO below).
  */
@@ -21,7 +19,6 @@ header('Content-Type: application/json; charset=utf-8');
 $cfg = require __DIR__ . '/config.php';
 require __DIR__ . '/includes/logger.php';
 require __DIR__ . '/includes/db.php';
-require __DIR__ . '/includes/firebase.php';
 require __DIR__ . '/includes/equifax.php';
 
 logger($cfg); // initialise the operational file logger
@@ -46,17 +43,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 $post = fn(string $k): string => trim((string) ($_POST[$k] ?? ''));
 
 app_log('info', 'lead', 'received', ['rid' => $rid]);
-
-// Trusted consumer email domains — mirrors TRUSTED_EMAIL_DOMAINS in funnel.js.
-$TRUSTED_EMAIL_DOMAINS = [
-    'gmail.com', 'googlemail.com',
-    'yahoo.com', 'ymail.com', 'rocketmail.com',
-    'outlook.com', 'hotmail.com', 'live.com', 'msn.com',
-    'icloud.com', 'me.com', 'mac.com',
-    'aol.com',
-    'proton.me', 'protonmail.com',
-    'comcast.net', 'verizon.net', 'att.net', 'sbcglobal.net', 'cox.net',
-];
 
 /**
  * Validate DOB (MM/DD/YYYY, real calendar date, age >= 18).
@@ -128,7 +114,8 @@ if ($dobRaw === '') {
     else                     $dobIso = $d['iso'];
 }
 
-// Email — well-formed local part + trusted domain (mirrors checkEmail in JS).
+// Email — well-formed local part + well-formed domain (mirrors checkEmail in JS).
+// Any domain is accepted (no trusted-domain restriction).
 if ($email === '') {
     $errors['email'] = 'required';
 } else {
@@ -141,8 +128,8 @@ if ($email === '') {
         if (!preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]*[A-Za-z0-9])?$/', $local)
             || strpos($local, '..') !== false) {
             $errors['email'] = 'invalid_email';
-        } elseif (!in_array($domain, $TRUSTED_EMAIL_DOMAINS, true)) {
-            $errors['email'] = 'untrusted_domain';
+        } elseif (!preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/', $domain)) {
+            $errors['email'] = 'invalid_email';
         }
     }
 }
@@ -176,38 +163,6 @@ if ($errors) {
     exit;
 }
 
-/* --------------------------------------------- Firebase phone verification */
-$phoneVerified = 0;
-$firebaseUid   = null;
-
-$projectId  = (string) ($cfg['firebase']['project_id'] ?? '');
-$verifyReqd = ($cfg['app_env'] ?? 'production') !== 'local' && $projectId !== '';
-
-if ($verifyReqd) {
-    $res = verify_firebase_token($post('id_token'), $projectId);
-    if (!$res['ok']) {
-        app_log('warning', 'firebase', 'verify_failed', ['rid' => $rid, 'reason' => $res['error'] ?? 'unknown']);
-        http_response_code(422);
-        // `detail` names the exact verification failure (non-sensitive) to aid
-        // debugging; visible in the Network response. Safe to remove later.
-        echo json_encode(['ok' => false, 'errors' => ['phone' => 'not_verified'], 'detail' => $res['error'] ?? 'unknown']);
-        exit;
-    }
-    // The verified token's phone must match the submitted number.
-    $tokenDigits = preg_replace('/\D/', '', $res['phone_number']);
-    if (substr($tokenDigits, -10) !== $phoneDigits) {
-        app_log('warning', 'firebase', 'phone_mismatch', ['rid' => $rid]);
-        http_response_code(422);
-        echo json_encode(['ok' => false, 'errors' => ['phone' => 'not_verified']]);
-        exit;
-    }
-    app_log('info', 'firebase', 'verified', ['rid' => $rid]);
-    $phoneVerified = 1;
-    $firebaseUid   = $res['uid'];
-} else {
-    app_log('debug', 'firebase', 'verify_skipped', ['rid' => $rid, 'env' => $cfg['app_env'] ?? 'production']);
-}
-
 /* --------------------------------------------------------- capture meta */
 $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';        // Cloudways sits behind a proxy
 $ip  = $xff !== '' ? trim(explode(',', $xff)[0]) : ($_SERVER['REMOTE_ADDR'] ?? '');
@@ -229,8 +184,6 @@ $row = [
     'phone'           => $phoneE164,
     'product'         => $post('product') ?: null,
     'form_name'       => $post('form_name') ?: null,
-    'phone_verified'  => $phoneVerified,
-    'firebase_uid'    => $firebaseUid,
     'trustedform_url' => $post('xxTrustedFormCertUrl') ?: null,
     'jornaya_token'   => $post('universal_leadid') ?: null,
     'consent_text'    => $cfg['consent']['tcpa'] ?? null,
@@ -256,7 +209,7 @@ try {
     $leadId = (int) $pdo->lastInsertId();
     app_log('info', 'lead', 'stored', [
         'rid' => $rid, 'lead_id' => $leadId,
-        'state' => $row['state'], 'phone_verified' => $phoneVerified,
+        'state' => $row['state'],
     ]);
 } catch (Throwable $ex) {
     app_log('error', 'lead', 'insert_failed', ['rid' => $rid, 'error' => $ex->getMessage()]);

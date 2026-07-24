@@ -70,11 +70,6 @@ Submit is gated on successful OTP verification (production only).
 - **Google Places (step 5)** — real Places API (New) autocomplete, keyed from
   `GOOGLE_PLACES_KEY`. Falls back to a mock suggestion list when unset so the
   funnel works locally without billing.
-- **Firebase Phone Auth (step 8)** — real SMS OTP. The browser confirms the code
-  and obtains a Firebase ID token (hidden `id_token`); `submit.php` verifies that
-  token server-side. Configured via `FIREBASE_API_KEY` / `FIREBASE_AUTH_DOMAIN` /
-  `FIREBASE_PROJECT_ID`. Leave `project_id` empty (or `APP_ENV=local`) to disable
-  the gate for dev.
 - **TrustedForm + Jornaya** — TCPA proof-of-consent scripts (`includes/compliance.php`),
   rendered only when configured; their hidden cert/token fields are stored with the lead.
 
@@ -86,16 +81,15 @@ POST if JS is unavailable). `submit.php`:
 1. **Validates** every field server-side (mirrors the client rules; radios checked
    against `config.php` options). Invalid → `422 {ok:false, errors:{field:code}}`,
    which the client maps back to the offending step.
-2. **Verifies** the Firebase ID token (skipped when `APP_ENV=local` / no project id).
-3. **Captures** TCPA artifacts (TrustedForm URL, Jornaya token, consent snapshot +
+2. **Captures** TCPA artifacts (TrustedForm URL, Jornaya token, consent snapshot +
    timestamp) and attribution (IP, user-agent, UTM params, gclid).
-4. **Inserts** the lead into the `leads` table.
-5. **Pulls an Equifax credit report** and logs the request/response to
+3. **Inserts** the lead into the `leads` table.
+4. **Pulls an Equifax credit report** and logs the request/response to
    `equifax_logs` — best-effort ("log & continue"): an Equifax failure is logged
    but never blocks the lead. **Note:** the funnel no longer collects an SSN, so
    the pull currently runs without one (it won't return a real report until an
    SSN — or another identifier the contract accepts — is supplied).
-6. Returns `{ok:true}`; the client then redirects to **`thank-you.php`**.
+5. Returns `{ok:true}`; the client then redirects to **`thank-you.php`**.
 
 > ⚠ **Compliance / PII.** With `EQUIFAX_REDACT=0`, `equifax_logs.request_body`
 > stores the full SSN and `response_body` stores the raw credit report in
@@ -116,5 +110,5 @@ The confirmation page's phone number and hold-timer length are configurable in
 ## Configuration (`.env`)
 
 See `.env.example` for the full list. Groups: `GOOGLE_PLACES_KEY`; `APP_ENV`;
-database (`DB_*`); Firebase (`FIREBASE_*`); compliance (`TRUSTEDFORM_ENABLED`,
-`JORNAYA_*`); Equifax (`EQUIFAX_*`). `.env` is gitignored.
+database (`DB_*`); compliance (`TRUSTEDFORM_ENABLED`, `JORNAYA_*`); Equifax
+(`EQUIFAX_*`). `.env` is gitignored.
