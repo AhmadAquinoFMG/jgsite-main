@@ -32,6 +32,16 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+
+    <?php /*
+      Everflow conversion trigger goes here once the offer is live.
+      Conversion is fired client-side by a campaign trigger snippet Everflow
+      generates in their dashboard for this specific offer/thank-you page — it
+      reads the Everflow tracking cookie set by assets/js/tracking/everflow.js
+      on the landing page, so there is no server-side postback to wire up.
+      Paste that snippet here verbatim once EVERFLOW_OFFER_ID is set (see
+      config.php ['everflow'] / .env.example).
+    */ ?>
 </head>
 
 <body>

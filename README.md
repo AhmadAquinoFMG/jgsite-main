@@ -32,13 +32,15 @@ complete. Set `APP_ENV=production` on staging/live so the phone gate is enforced
 | File | Purpose |
 |------|---------|
 | `index.php` | Page markup + the multi-step form. Pulls all copy/options from `config.php`. |
-| `config.php` | Single source of content **and** integration config (DB, Firebase, compliance, Equifax), all fed by a tiny built-in `.env` reader. |
-| `submit.php` | Lead endpoint: server-side validation → Firebase token verify → compliance/attribution capture → insert → Equifax pull. Returns JSON. |
+| `config.php` | Single source of content **and** integration config (DB, Firebase, compliance, Equifax, LeadProsper, Everflow), all fed by a tiny built-in `.env` reader. |
+| `submit.php` | Lead endpoint: server-side validation → Firebase token verify → compliance/attribution capture → insert → Equifax pull → LeadProsper post. Returns JSON. |
 | `includes/db.php` | Lazy PDO singleton (MySQL/MariaDB). |
 | `includes/firebase.php` | Verifies the Firebase phone-auth ID token (native openssl, no Admin SDK). |
 | `includes/compliance.php` | TrustedForm + Jornaya (LeadiD) tags, rendered into `<head>` when configured. |
 | `includes/equifax.php` | Equifax Consumer Credit Report client + logger (`off`/`mock`/`live` modes). |
-| `sql/schema.sql` | `leads` + `equifax_logs` table definitions. |
+| `includes/leadprosper.php` | LeadProsper direct-post client + logger (`off`/`test`/`live` modes). |
+| `assets/js/tracking/everflow.js` | Everflow click attribution (lazy-loaded SDK + cookie watcher); conversion fires client-side on `thank-you.php` via an Everflow campaign trigger. |
+| `sql/schema.sql` | `leads` + `equifax_logs` + `leadprosper_logs` table definitions. |
 | `includes/header.php` / `footer.php` | **Funnel** header/footer. |
 | `includes/site-header.php` / `site-footer.php` | **Main-site** header/footer (non-funnel pages). |
 | `assets/css/style.css` | All styling (Poppins, brand greens `#006846`/`#1B976A`, teal accent). |
@@ -72,6 +74,17 @@ Submit is gated on successful OTP verification (production only).
   funnel works locally without billing.
 - **TrustedForm + Jornaya** — TCPA proof-of-consent scripts (`includes/compliance.php`),
   rendered only when configured; their hidden cert/token fields are stored with the lead.
+- **LeadProsper** — direct-post lead distribution (`includes/leadprosper.php`), posted
+  after the lead is stored and after the Equifax pull so the verified total debt can
+  be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
+  mode — set `LEADPROSPER_MODE=test` to validate field mapping without billing/delivering,
+  `live` once you're ready.
+- **Everflow** — client-side click attribution (`assets/js/tracking/everflow.js`),
+  lazy-loaded on first interaction/4s timeout/form submit. Writes `affid` +
+  `ef_transaction_id` into hidden fields that ride along with the lead to
+  LeadProsper. Conversion fires separately, client-side, via an Everflow campaign
+  trigger configured for `thank-you.php` — no server-side postback. Disabled until
+  `EVERFLOW_OFFER_ID` is set.
 
 ## Backend
 
@@ -89,7 +102,9 @@ POST if JS is unavailable). `submit.php`:
    but never blocks the lead. **Note:** the funnel no longer collects an SSN, so
    the pull currently runs without one (it won't return a real report until an
    SSN — or another identifier the contract accepts — is supplied).
-5. Returns `{ok:true}`; the client then redirects to **`thank-you.php`**.
+5. **Posts to LeadProsper** and logs the request/response to `leadprosper_logs` —
+   best-effort, same "log & continue" contract as Equifax. Ships in `off` mode.
+6. Returns `{ok:true}`; the client then redirects to **`thank-you.php`**.
 
 > ⚠ **Compliance / PII.** With `EQUIFAX_REDACT=0`, `equifax_logs.request_body`
 > stores the full SSN and `response_body` stores the raw credit report in
@@ -101,9 +116,6 @@ the logging pipeline without credentials, or `live` for the real OAuth2 +
 credit-report call — **confirm the endpoint paths and request schema in
 `includes/equifax.php` against your Equifax contract first.**
 
-Lead forwarding to a CRM / LeadProsper is **not wired yet** — there's a marked
-`TODO` seam in `submit.php` after the insert.
-
 The confirmation page's phone number and hold-timer length are configurable in
 `config.php` → `['prequal']` (`cta_phone`, `hold_minutes`).
 
@@ -111,4 +123,5 @@ The confirmation page's phone number and hold-timer length are configurable in
 
 See `.env.example` for the full list. Groups: `GOOGLE_PLACES_KEY`; `APP_ENV`;
 database (`DB_*`); compliance (`TRUSTEDFORM_ENABLED`, `JORNAYA_*`); Equifax
-(`EQUIFAX_*`). `.env` is gitignored.
+(`EQUIFAX_*`); LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
+(`EVERFLOW_*`). `.env` is gitignored.

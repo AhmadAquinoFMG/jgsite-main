@@ -42,7 +42,10 @@
       "Bash(php -l includes/firebase.php)",
       "Bash(git --no-pager diff HEAD -- includes/firebase.php submit.php)",
       "Read(//e/projects/jlr/tdo/**)",
-      "Read(//e/projects/jlr/tdo/includes/**)"
+      "Read(//e/projects/jlr/tdo/includes/**)",
+      "Bash(cd \"e:/projects/jlr\" && echo \"=== everflow search \\(broader\\) ===\" && grep -rli \"everflow\" . 2>/dev/null | head -50)",
+      "Read(//e/projects/jlr/**)",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root jgw_leads_test -e \"SELECT response_body FROM leadprosper_logs ORDER BY id DESC LIMIT 1;\")"
     ]
   }
 }

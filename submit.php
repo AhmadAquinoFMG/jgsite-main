@@ -9,7 +9,9 @@
  *   3. Inserts one row into `leads`.
  *   4. Returns JSON: {ok:true} or {ok:false, errors:{field:code}}.
  *
- * Next phase: forward the lead to the CRM / LeadProsper here (see TODO below).
+ * After storing, best-effort (log & continue) side calls: an Equifax credit
+ * pull (includes/equifax.php) and a LeadProsper direct-post (includes/leadprosper.php).
+ * Neither can fail the submission — the lead is already stored by that point.
  */
 
 declare(strict_types=1);
@@ -20,6 +22,7 @@ $cfg = require __DIR__ . '/config.php';
 require __DIR__ . '/includes/logger.php';
 require __DIR__ . '/includes/db.php';
 require __DIR__ . '/includes/equifax.php';
+require __DIR__ . '/includes/leadprosper.php';
 
 logger($cfg); // initialise the operational file logger
 
@@ -196,6 +199,10 @@ $row = [
     'utm_term'        => $post('utm_term') ?: null,
     'utm_content'     => $post('utm_content') ?: null,
     'gclid'           => $post('gclid') ?: null,
+    'fbclid'          => $post('fbclid') ?: null,
+    'affid'           => $post('affid') ?: null,
+    'oid'             => $post('oid') ?: null,
+    'ef_transaction_id' => $post('ef_transaction_id') ?: null,
 ];
 
 /* -------------------------------------------------------------- persist */
@@ -222,6 +229,7 @@ try {
    Pull the report and log the request/response to equifax_logs. This is "log &
    continue": ANY failure here (Equifax down, bad config, DB write) is swallowed
    so the lead — already stored — still succeeds. */
+$verifiedTotalDebt = null; // read by the LeadProsper post below
 try {
     $eqLead = array_intersect_key($row, array_flip(
         ['first_name', 'last_name', 'street', 'city', 'state', 'zip', 'email']
@@ -265,6 +273,7 @@ try {
             'total_debt' => $eq['total_debt'] ?? null,
             'id'         => $leadId,
         ]);
+        $verifiedTotalDebt = is_numeric($eq['total_debt'] ?? null) ? (int) $eq['total_debt'] : null;
 
         // Ops log: outcome only — no SSN, no request/response bodies (those live
         // in equifax_logs). Correlated to the lead via rid + lead_id.
@@ -284,7 +293,58 @@ try {
     app_log('error', 'equifax', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
 }
 
-// TODO(next phase): forward the lead to the CRM / LeadProsper here, then decide
-// whether a forwarding failure should surface to the visitor or just be logged.
+/* ---------------------------------------- LeadProsper direct-post (best-effort)
+   Post the lead and log the request/response to leadprosper_logs. Same "log &
+   continue" contract as Equifax above — a forwarding failure is logged but
+   never surfaced to the visitor; the lead is already stored. */
+try {
+    $tracking = array_intersect_key($row, array_flip(
+        ['affid', 'oid', 'ef_transaction_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid']
+    ));
+
+    $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt);
+    if (empty($lp['skip'])) {
+        db($cfg)->prepare(
+            'INSERT INTO leadprosper_logs (lead_id, mode, request_body, response_status, response_body, accepted, error, duration_ms)
+             VALUES (:lead_id, :mode, :request_body, :response_status, :response_body, :accepted, :error, :duration_ms)'
+        )->execute([
+            'lead_id'         => $leadId,
+            'mode'            => $lp['mode'],
+            'request_body'    => $lp['sent'],
+            'response_status' => $lp['status'],
+            'response_body'   => $lp['response'],
+            'accepted'        => $lp['ok'] ? 1 : 0,
+            'error'           => $lp['error'],
+            'duration_ms'     => $lp['duration_ms'],
+        ]);
+
+        db($cfg)->prepare(
+            'UPDATE leads SET lp_mode = :mode, lp_status = :status, lp_accepted = :accepted,
+                    lp_error = :error, lp_posted_at = :posted_at
+             WHERE id = :id'
+        )->execute([
+            'mode'      => $lp['mode'],
+            'status'    => $lp['status'],
+            'accepted'  => $lp['ok'] ? 1 : 0,
+            'error'     => $lp['error'],
+            'posted_at' => date('Y-m-d H:i:s'),
+            'id'        => $leadId,
+        ]);
+
+        app_log($lp['error'] ? 'error' : 'info', 'leadprosper', 'post', [
+            'rid'      => $rid,
+            'lead_id'  => $leadId,
+            'mode'     => $lp['mode'],
+            'status'   => $lp['status'],
+            'accepted' => $lp['ok'],
+            'duration' => $lp['duration_ms'],
+            'error'    => $lp['error'],
+        ]);
+    } else {
+        app_log('debug', 'leadprosper', 'skipped', ['rid' => $rid, 'lead_id' => $leadId, 'reason' => $lp['error']]);
+    }
+} catch (Throwable $ex) {
+    app_log('error', 'leadprosper', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
+}
 
 echo json_encode(['ok' => true]);

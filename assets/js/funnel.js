@@ -730,11 +730,18 @@
     // on load so submit.php can store them with the lead.
     (function captureAttribution() {
         var qs = new URLSearchParams(location.search);
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid']
+        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid']
             .forEach(function (k) {
                 var v = qs.get(k), el = document.getElementById(k);
                 if (v && el) el.value = v;
             });
+        // Everflow: affid/oid come straight from the URL (?affid=&oid=); the
+        // ef_transaction_id hidden field is instead written later by the cookie
+        // watcher in assets/js/tracking/everflow.js, once EF.click() resolves.
+        var affid = qs.get('affid'), affEl = document.getElementById('affid');
+        if (affid && affEl) affEl.value = affid;
+        var oid = qs.get('oid'), oidEl = document.getElementById('oid');
+        if (oid && oidEl) oidEl.value = oid;
     })();
 
     render();

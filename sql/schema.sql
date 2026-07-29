@@ -60,6 +60,21 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `utm_term`        VARCHAR(128) DEFAULT NULL,
     `utm_content`     VARCHAR(128) DEFAULT NULL,
     `gclid`           VARCHAR(255) DEFAULT NULL,
+    `fbclid`          VARCHAR(255) DEFAULT NULL,
+
+    -- ---- Everflow click attribution (captured client-side, see
+    --      assets/js/tracking/everflow.js + the hidden fields in index.php) ----
+    `affid`             VARCHAR(64)  DEFAULT NULL,
+    `oid`               VARCHAR(64)  DEFAULT NULL,
+    `ef_transaction_id` VARCHAR(128) DEFAULT NULL,
+
+    -- ---- LeadProsper direct-post outcome (denormalized from leadprosper_logs
+    --      for quick per-lead visibility; NULL when mode=off / no post happened) ----
+    `lp_mode`         VARCHAR(10)  DEFAULT NULL,   -- 'test' | 'live'
+    `lp_status`       SMALLINT     DEFAULT NULL,   -- HTTP status (0 = no response)
+    `lp_accepted`     TINYINT(1)   DEFAULT NULL,
+    `lp_error`        VARCHAR(255) DEFAULT NULL,   -- NULL = success
+    `lp_posted_at`    DATETIME     DEFAULT NULL,
 
     `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -67,6 +82,33 @@ CREATE TABLE IF NOT EXISTS `leads` (
     KEY `idx_created_at` (`created_at`),
     KEY `idx_email`      (`email`),
     KEY `idx_phone`      (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ---------------------------------------------------------------------------
+-- LeadProsper direct-post call log.
+--
+-- One row per lead post attempt made from submit.php (includes/leadprosper.php),
+-- for audit + debugging. The call is best-effort: a failure is logged here but
+-- never blocks the lead (see leads above). Mirrors equifax_logs below.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `leadprosper_logs` (
+    `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `lead_id`         BIGINT UNSIGNED DEFAULT NULL,
+    `mode`            VARCHAR(10)  NOT NULL DEFAULT 'live',   -- 'test' | 'live'
+    `request_body`    LONGTEXT     DEFAULT NULL,              -- lp_key redacted
+    `response_status` SMALLINT     DEFAULT NULL,              -- HTTP status (0 = no response)
+    `response_body`   LONGTEXT     DEFAULT NULL,
+    `accepted`        TINYINT(1)   DEFAULT NULL,
+    `error`           VARCHAR(255) DEFAULT NULL,              -- transport/parse error, if any
+    `duration_ms`     INT UNSIGNED DEFAULT NULL,
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+    KEY `idx_lead_id`    (`lead_id`),
+    KEY `idx_created_at` (`created_at`),
+    CONSTRAINT `fk_leadprosper_lead` FOREIGN KEY (`lead_id`)
+        REFERENCES `leads` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

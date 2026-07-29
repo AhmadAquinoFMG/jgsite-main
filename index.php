@@ -59,6 +59,16 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <input type="hidden" name="utm_term"     id="utm_term">
             <input type="hidden" name="utm_content"  id="utm_content">
             <input type="hidden" name="gclid"        id="gclid">
+            <input type="hidden" name="fbclid"       id="fbclid">
+
+            <!-- Everflow click attribution. affid/oid are copied from the query
+                 string like the UTM fields above; ef_transaction_id is written by
+                 the cookie watcher in assets/js/tracking/everflow.js once the
+                 Everflow tracking cookie is stable. All three ride along to
+                 LeadProsper (includes/leadprosper.php). -->
+            <input type="hidden" name="affid"             id="affid">
+            <input type="hidden" name="oid"                id="oid">
+            <input type="hidden" name="ef_transaction_id"  id="efTransactionId">
 
             <!-- ===== Step 1: debt amount (radio, auto-advance) ===== -->
             <section class="step is-active" data-step="1" data-advance="auto">
@@ -265,9 +275,17 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 <script>
     window.FUNNEL = {
         googlePlacesKey: <?= json_encode($cfg['google_places_key'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
-        appEnv: <?= json_encode($cfg['app_env'] ?? 'production', JSON_UNESCAPED_SLASHES) ?>
+        appEnv: <?= json_encode($cfg['app_env'] ?? 'production', JSON_UNESCAPED_SLASHES) ?>,
+        everflow: {
+            offerId: <?= json_encode($cfg['everflow']['offer_id'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
+            affiliateId: <?= json_encode($cfg['everflow']['affiliate_id'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
+            domain: <?= json_encode($cfg['everflow']['domain'] ?? 'www.f0cg2trk.com', JSON_UNESCAPED_SLASHES) ?>
+        }
     };
 </script>
 <script src="assets/js/funnel.js?v=<?= $e($cfg['asset_version']) ?>"></script>
+<?php if (!empty($cfg['everflow']['offer_id'])): ?>
+<script src="assets/js/tracking/everflow.js?v=<?= $e($cfg['asset_version']) ?>"></script>
+<?php endif; ?>
 </body>
 </html>

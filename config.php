@@ -145,6 +145,39 @@ return [
         ];
     })(),
 
+    // ---- LeadProsper direct-post (lead distribution) --------------------
+    // submit.php posts the lead to LeadProsper AFTER it's stored (and after the
+    // Equifax pull, so the verified total debt can be included). Best-effort —
+    // aligned with the proven integration in the sibling `tdo` project, adapted
+    // to this funnel's field names (includes/leadprosper.php).
+    //
+    //   mode: 'off'  → skip entirely, no log row (default).
+    //         'test' → live call, but flagged lp_action=test so LeadProsper
+    //                  never bills/delivers it (use to validate field mapping).
+    //         'live' → real, billable/deliverable lead post.
+    'leadprosper' => [
+        'mode'        => strtolower(env('LEADPROSPER_MODE', 'off')),
+        'campaign_id' => env('LP_CAMPAIGN_ID', ''),
+        'supplier_id' => env('LP_SUPPLIER_ID', ''),
+        'key'         => env('LP_KEY', ''),
+        'endpoint'    => env('LP_ENDPOINT', 'https://api.leadprosper.io/direct_post'),
+        'timeout'     => (int) env('LP_TIMEOUT', '20'),
+    ],
+
+    // ---- Everflow affiliate tracking (client-side click attribution) ----
+    // Loaded lazily in assets/js/tracking/everflow.js: fires EF.click() on the
+    // landing page, then watches for the Everflow tracking cookie and writes
+    // affid/ef_transaction_id into hidden form fields so they ride along with
+    // the lead (see index.php and LEADPROSPER_TRACKING_PARAMS). Conversion
+    // itself is fired by an Everflow campaign trigger configured on their side
+    // for the thank-you page — no server-side postback. Leave offer_id empty
+    // to disable the script entirely.
+    'everflow' => [
+        'offer_id'     => env('EVERFLOW_OFFER_ID', ''),
+        'affiliate_id' => env('EVERFLOW_AFFILIATE_ID', ''),
+        'domain'       => env('EVERFLOW_DOMAIN', 'www.f0cg2trk.com'),
+    ],
+
     // ---- Branding -------------------------------------------------------
     'brand' => [
         'name'         => 'JG Wentworth',
