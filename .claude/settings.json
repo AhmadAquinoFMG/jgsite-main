@@ -57,7 +57,8 @@
       "Bash(openssl s_client -connect api.sandbox.equifax.com:443 -servername api.sandbox.equifax.com -CAfile certs/equifax-ca-chain.pem)",
       "Bash(openssl s_client -connect api.equifax.com:443 -servername api.equifax.com -CAfile certs/equifax-ca-chain.pem)",
       "Bash(openssl s_client -connect api.equifax.com:443 -servername api.equifax.com)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "Bash(node -c assets/js/tracking/everflow.js)"
     ]
   }
 }

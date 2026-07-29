@@ -1,16 +1,18 @@
 /* ============================================================
    Everflow Affiliate Tracking — LAZY
    ------------------------------------------------------------
-   Exposes window.initEverflow(). Ported from the sibling `cmd-main`
-   project's proven integration, adapted to this funnel's hidden field
-   ids (affid, efTransactionId) and reading offer/affiliate id from
-   window.FUNNEL.everflow (see index.php / config.php ['everflow']).
+   Exposes window.initEverflow(). The EF.click() call block below is
+   the exact snippet from the Everflow dashboard for this offer —
+   script src (scripts/main.js) and field list (sub1-10, uid,
+   transaction_id) must match it verbatim; don't "clean it up" against
+   a different Everflow integration's shape.
 
-   Lazy by design: the SDK + its network call only fire on first user
-   interaction / a 4s safety timeout / form submit — whichever comes
-   first — so a bounce visitor with zero interaction never loads it.
-   Acceptable on a CPA payment model since bounce visitors don't
-   convert anyway, so the missed attribution has no revenue cost.
+   Wrapping is this funnel's own: lazy-load (first interaction / 4s
+   safety timeout / form submit, so a zero-interaction bounce never
+   loads it — fine on a CPA model since bounces don't convert anyway),
+   plus a cookie watcher that copies the resolved affiliate/transaction
+   id into the funnel's hidden fields (affid, efTransactionId) so they
+   ride along with the lead to LeadProsper.
    ============================================================ */
 (function () {
     var cfg = (window.FUNNEL && window.FUNNEL.everflow) || {};
@@ -19,31 +21,27 @@
     function runEverflowClick() {
         if (typeof EF === 'undefined') return;
 
-        var qs = new URLSearchParams(location.search);
-        var offer_id = qs.get('oid') || cfg.offerId;
-        var affiliate_id = qs.get('affid') || cfg.affiliateId || '';
-        var source_id = qs.get('source_id') || '';
-        var sub1 = qs.get('sub1') || '';
-        var sub2 = qs.get('sub2') || '';
-        var sub3 = qs.get('sub3') || '';
-        var sub4 = qs.get('sub4') || '';
-        var sub5 = qs.get('sub5') || '';
-        var uid = qs.get('uid') || '';
-        var transaction_id = qs.get('_ef_transaction_id') || '';
+        var offer_id = EF.urlParameter('oid') || cfg.offerId;
+        var affiliate_id = EF.urlParameter('affid') || cfg.affiliateId || '';
 
         // Fire click only if affiliate_id changed since last session.
         if (affiliate_id !== sessionStorage.getItem('last_affid')) {
             EF.click({
                 offer_id: offer_id,
                 affiliate_id: affiliate_id,
-                source_id: source_id,
-                sub1: sub1,
-                sub2: sub2,
-                sub3: sub3,
-                sub4: sub4,
-                sub5: sub5,
-                uid: uid,
-                transaction_id: transaction_id
+                source_id: EF.urlParameter('source_id'),
+                sub1: EF.urlParameter('sub1'),
+                sub2: EF.urlParameter('sub2'),
+                sub3: EF.urlParameter('sub3'),
+                sub4: EF.urlParameter('sub4'),
+                sub5: EF.urlParameter('sub5'),
+                sub6: EF.urlParameter('sub6'),
+                sub7: EF.urlParameter('sub7'),
+                sub8: EF.urlParameter('sub8'),
+                sub9: EF.urlParameter('sub9'),
+                sub10: EF.urlParameter('sub10'),
+                uid: EF.urlParameter('uid'),
+                transaction_id: EF.urlParameter('_ef_transaction_id'),
             });
             sessionStorage.setItem('last_affid', affiliate_id);
         }
@@ -97,7 +95,7 @@
         window._efSdkInitFired = true;
 
         var script = document.createElement('script');
-        script.src = 'https://' + (cfg.domain || 'www.f0cg2trk.com') + '/scripts/sdk/everflow.js';
+        script.src = 'https://' + (cfg.domain || 'www.f0cg2trk.com') + '/scripts/main.js';
         script.async = true;
         script.onload = runEverflowClick;
         document.head.appendChild(script);
