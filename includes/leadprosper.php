@@ -56,7 +56,6 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
         }
 
         $dobIso = (string) ($row['dob'] ?? '');
-        $dobTs  = $dobIso !== '' ? strtotime($dobIso) : false;
 
         $payload = [
             'lp_campaign_id'       => $lp['campaign_id'] ?? '',
@@ -66,7 +65,7 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             'last_name'            => $row['last_name'] ?? '',
             'email'                => $row['email'] ?? '',
             'phone'                => $phone,
-            'date_of_birth'        => $dobTs !== false ? date('m/d/Y', $dobTs) : '',
+            'date_of_birth'        => $dobIso, // already Y-m-d (ISO) — LeadProsper's expected format
             'address'              => $row['street'] ?? '',
             'city'                 => $row['city'] ?? '',
             'state'                => strtoupper((string) ($row['state'] ?? '')),

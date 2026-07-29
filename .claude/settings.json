@@ -45,7 +45,13 @@
       "Read(//e/projects/jlr/tdo/includes/**)",
       "Bash(cd \"e:/projects/jlr\" && echo \"=== everflow search \\(broader\\) ===\" && grep -rli \"everflow\" . 2>/dev/null | head -50)",
       "Read(//e/projects/jlr/**)",
-      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root jgw_leads_test -e \"SELECT response_body FROM leadprosper_logs ORDER BY id DESC LIMIT 1;\")"
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root jgw_leads_test -e \"SELECT response_body FROM leadprosper_logs ORDER BY id DESC LIMIT 1;\")",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root jgw_leads_test -e \"SELECT id, first_name, lp_mode, lp_status, lp_accepted, lp_error FROM leads ORDER BY id DESC LIMIT 1; SELECT response_body FROM leadprosper_logs ORDER BY id DESC LIMIT 1;\")",
+      "Bash(php -l includes/leadprosper.php)",
+      "Bash(php -S 127.0.0.1:8099)",
+      "Bash(curl -s -X POST http://127.0.0.1:8099/submit.php -d 'first_name=Sam&last_name=Doe&street=789 Oak St&city=Chicago&state=IL&zip=60601&dob=03/22/1985&email=sam2@example.com&phone=3125559998&debt_amount=%2425%2C000+-+%2449%2C999&employment=Full-time&income=Between+%2430%2C000+and+%24100%2C000&product=Debt+Relief&form_name=DRMultiStep_PHP' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n' --max-time 15)",
+      "Bash(kill %1)",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root jgw_leads_test -e \"SELECT id, first_name, lp_mode, lp_status, lp_accepted, lp_error FROM leads ORDER BY id DESC LIMIT 1;\")"
     ]
   }
 }
