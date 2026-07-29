@@ -142,6 +142,16 @@ return [
             'total_debt_path' => env('EQUIFAX_TOTAL_DEBT_PATH', ''),
             // Redact SSN + account secrets in the stored request_body.
             'redact'        => (env('EQUIFAX_REDACT', '0') === '1'),
+            // Optional CA-chain PEM to pin cURL's trust to (includes/equifax.php).
+            // Defaults to certs/equifax-ca-chain.pem NEXT TO THIS config.php (i.e.
+            // wherever this app is actually deployed) rather than a hardcoded
+            // absolute path tied to one specific server/app id — that's what broke
+            // before ("error setting certificate file") when the app id in the path
+            // didn't match this deployment. Falls back to curl's system CA bundle
+            // if the file isn't present. TLS verification is ALWAYS on either way;
+            // this only picks which chain is trusted. Override via EQUIFAX_CA_BUNDLE
+            // if you need a different path.
+            'ca_bundle'     => env('EQUIFAX_CA_BUNDLE', is_readable(__DIR__ . '/certs/equifax-ca-chain.pem') ? __DIR__ . '/certs/equifax-ca-chain.pem' : ''),
         ];
     })(),
 

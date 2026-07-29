@@ -167,7 +167,7 @@ if (!function_exists('equifax_pull')) {
             'Authorization: Bearer ' . $token,
             'Content-Type: application/json',
             'Accept: application/json',
-        ], (int) ($eq['timeout'] ?? 15));
+        ], (int) ($eq['timeout'] ?? 15), (string) ($eq['ca_bundle'] ?? ''));
         $duration = (int) round((microtime(true) - $t0) * 1000);
 
         $score     = null;
@@ -270,7 +270,7 @@ if (!function_exists('equifax_pull')) {
             'Authorization: Basic ' . base64_encode(($eq['api_key'] ?? '') . ':' . ($eq['api_secret'] ?? '')),
             'Content-Type: application/x-www-form-urlencoded',
             'Accept: application/json',
-        ], (int) ($eq['timeout'] ?? 20));
+        ], (int) ($eq['timeout'] ?? 20), (string) ($eq['ca_bundle'] ?? ''));
 
         if ($http['status'] < 200 || $http['status'] >= 300) {
             $err = $http['error'] ?: ('token_http_' . $http['status']);
@@ -284,8 +284,16 @@ if (!function_exists('equifax_pull')) {
         return (string) $data['access_token'];
     }
 
-    /** Minimal curl wrapper. Returns ['status'=>int, 'body'=>?string, 'error'=>?string]. */
-    function equifax_http(string $method, string $url, string $body, array $headers, int $timeout): array
+    /**
+     * Minimal curl wrapper. Returns ['status'=>int, 'body'=>?string, 'error'=>?string].
+     *
+     * @param string $caBundle Absolute path to a CA-chain PEM to pin trust to
+     *                         (config equifax.ca_bundle / EQUIFAX_CA_BUNDLE). Empty
+     *                         string uses curl's default system CA bundle. SSL
+     *                         verification (VERIFYPEER/VERIFYHOST) is always ON
+     *                         regardless — this only selects which chain is trusted.
+     */
+    function equifax_http(string $method, string $url, string $body, array $headers, int $timeout, string $caBundle = ''): array
     {
         if (!function_exists('curl_init')) {
             return ['status' => 0, 'body' => null, 'error' => 'curl_unavailable'];
@@ -298,8 +306,11 @@ if (!function_exists('equifax_pull')) {
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => $timeout,
             CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_CAINFO         => '/home/master/applications/zxnrchfmfz/public_html/certs/equifax-ca-chain.pem',
+            CURLOPT_SSL_VERIFYHOST => 2,
         ]);
+        if ($caBundle !== '') {
+            curl_setopt($ch, CURLOPT_CAINFO, $caBundle);
+        }
         $resp   = curl_exec($ch);
         $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         $cerr   = curl_errno($ch) ? curl_error($ch) : null;
