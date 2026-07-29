@@ -198,11 +198,34 @@ $row = [
     'utm_campaign'    => $post('utm_campaign') ?: null,
     'utm_term'        => $post('utm_term') ?: null,
     'utm_content'     => $post('utm_content') ?: null,
+    'utm_creative'    => $post('utm_creative') ?: null,
+    'utm_placement'   => $post('utm_placement') ?: null,
+    'utm_adgroup'     => $post('utm_adgroup') ?: null,
+    'utm_matchtype'   => $post('utm_matchtype') ?: null,
     'gclid'           => $post('gclid') ?: null,
+    'gbraid'          => $post('gbraid') ?: null,
     'fbclid'          => $post('fbclid') ?: null,
+    'fbp'             => $post('fbp') ?: null,
+    'fb_adid'         => $post('fb_adid') ?: null,
+    'ms_placement'    => $post('ms_placement') ?: null,
+    'ms_publisher'    => $post('ms_publisher') ?: null,
+    'ttclid'          => $post('ttclid') ?: null,
+    'subid'           => $post('subid') ?: null,
     'affid'           => $post('affid') ?: null,
     'oid'             => $post('oid') ?: null,
+    'source_id'       => $post('source_id') ?: null,
     'ef_transaction_id' => $post('ef_transaction_id') ?: null,
+    'lp_subid1'       => $post('lp_subid1') ?: null,
+    'lp_subid2'       => $post('lp_subid2') ?: null,
+    'lp_subid3'       => $post('lp_subid3') ?: null,
+    'lp_subid4'       => $post('lp_subid4') ?: null,
+    'lp_subid5'       => $post('lp_subid5') ?: null,
+    'adv1'            => $post('adv1') ?: null,
+    'adv2'            => $post('adv2') ?: null,
+    'adv3'            => $post('adv3') ?: null,
+    'adv4'            => $post('adv4') ?: null,
+    'adv5'            => $post('adv5') ?: null,
+    'landing_page_url'  => $post('landing_page_url') ?: null,
 ];
 
 /* -------------------------------------------------------------- persist */
@@ -311,9 +334,10 @@ try {
    continue" contract as Equifax above — a forwarding failure is logged but
    never surfaced to the visitor; the lead is already stored. */
 try {
-    $tracking = array_intersect_key($row, array_flip(
-        ['affid', 'oid', 'ef_transaction_id', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid']
-    ));
+    $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
+    // Not a posted field — reflects whether OUR OWN Equifax pull above (not an
+    // upstream one) returned a usable verified total debt.
+    $tracking['softpull_returned'] = $verifiedTotalDebt !== null ? '1' : '0';
 
     $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt);
     if (empty($lp['skip'])) {

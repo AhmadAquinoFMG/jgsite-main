@@ -58,7 +58,13 @@
       "Bash(openssl s_client -connect api.equifax.com:443 -servername api.equifax.com -CAfile certs/equifax-ca-chain.pem)",
       "Bash(openssl s_client -connect api.equifax.com:443 -servername api.equifax.com)",
       "Bash(git merge *)",
-      "Bash(node -c assets/js/tracking/everflow.js)"
+      "Bash(node -c assets/js/tracking/everflow.js)",
+      "Bash(curl -s -X POST http://127.0.0.1:8099/submit.php -d 'first_name=Jamie&last_name=Rivera&street=12 Elm St&city=Austin&state=TX&zip=73301&dob=01/10/1992&email=jamie.rivera@example.com&phone=5125550001&debt_amount=%2410%2C000+-+%2424%2C999&employment=Full-time&income=Under+%2430%2C000&product=Debt+Relief&form_name=DRMultiStep_PHP&landing_page_url=https%3A%2F%2Fexample.com%2F%3Futm_source%3Dgoogle' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n' --max-time 15)",
+      "Bash(DB_NAME=jgw_leads_test DB_USER=root DB_PASS='' APP_ENV=local curl -s -X POST http://127.0.0.1:8099/submit.php -d 'first_name=Jamie&last_name=Rivera&street=12 Elm St&city=Austin&state=TX&zip=73301&dob=01/10/1992&email=jamie.rivera@example.com&phone=5125550001&debt_amount=%2410%2C000+-+%2424%2C999&employment=Full-time&income=Under+%2430%2C000&product=Debt+Relief&form_name=DRMultiStep_PHP&landing_page_url=https%3A%2F%2Fexample.com%2F%3Futm_source%3Dgoogle' -w '\\\\nHTTP_STATUS:%{http_code}\\\\n' --max-time 15)",
+      "Bash(DB_NAME=jgw_leads_test DB_USER=root DB_PASS= APP_ENV=local php -S 127.0.0.1:8099)",
+      "Bash(pkill -f \"php -S 127.0.0.1:8099\")",
+      "Bash(cp .env.bak.attrtest .env)",
+      "Bash(rm .env.bak.attrtest)"
     ]
   }
 }

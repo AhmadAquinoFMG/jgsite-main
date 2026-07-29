@@ -59,14 +59,39 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `utm_campaign`    VARCHAR(128) DEFAULT NULL,
     `utm_term`        VARCHAR(128) DEFAULT NULL,
     `utm_content`     VARCHAR(128) DEFAULT NULL,
+    `utm_creative`    VARCHAR(128) DEFAULT NULL,
+    `utm_placement`   VARCHAR(128) DEFAULT NULL,
+    `utm_adgroup`     VARCHAR(128) DEFAULT NULL,
+    `utm_matchtype`   VARCHAR(64)  DEFAULT NULL,
     `gclid`           VARCHAR(255) DEFAULT NULL,
+    `gbraid`          VARCHAR(255) DEFAULT NULL,
     `fbclid`          VARCHAR(255) DEFAULT NULL,
+    `fbp`             VARCHAR(255) DEFAULT NULL,   -- Meta pixel's _fbp cookie value
+    `fb_adid`         VARCHAR(128) DEFAULT NULL,
+    `ms_placement`    VARCHAR(128) DEFAULT NULL,   -- Microsoft/Bing Ads
+    `ms_publisher`    VARCHAR(128) DEFAULT NULL,
+    `ttclid`          VARCHAR(255) DEFAULT NULL,   -- TikTok click id
+    `subid`           VARCHAR(128) DEFAULT NULL,
 
     -- ---- Everflow click attribution (captured client-side, see
     --      assets/js/tracking/everflow.js + the hidden fields in index.php) ----
     `affid`             VARCHAR(64)  DEFAULT NULL,
     `oid`               VARCHAR(64)  DEFAULT NULL,
+    `source_id`         VARCHAR(64)  DEFAULT NULL,
     `ef_transaction_id` VARCHAR(128) DEFAULT NULL,
+    `landing_page_url`  VARCHAR(512) DEFAULT NULL,
+
+    -- ---- LeadProsper sub-affiliate / advertiser passthrough ids ----
+    `lp_subid1`       VARCHAR(128) DEFAULT NULL,
+    `lp_subid2`       VARCHAR(128) DEFAULT NULL,
+    `lp_subid3`       VARCHAR(128) DEFAULT NULL,
+    `lp_subid4`       VARCHAR(128) DEFAULT NULL,
+    `lp_subid5`       VARCHAR(128) DEFAULT NULL,
+    `adv1`            VARCHAR(128) DEFAULT NULL,
+    `adv2`            VARCHAR(128) DEFAULT NULL,
+    `adv3`            VARCHAR(128) DEFAULT NULL,
+    `adv4`            VARCHAR(128) DEFAULT NULL,
+    `adv5`            VARCHAR(128) DEFAULT NULL,
 
     -- ---- LeadProsper direct-post outcome (denormalized from leadprosper_logs
     --      for quick per-lead visibility; NULL when mode=off / no post happened) ----

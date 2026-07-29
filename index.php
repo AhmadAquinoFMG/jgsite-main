@@ -45,30 +45,58 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
         <form id="funnelForm" class="funnel-form" novalidate method="post" action="submit.php"
               data-product="Debt Relief" data-name="DRMultiStep_PHP">
 
-            <!-- Product context + attribution/compliance. funnel.js fills utm_*/gclid
-                 from the query string on load; the TrustedForm and Jornaya scripts
-                 (includes/compliance.php) populate the two consent fields. All are
-                 stored by submit.php. -->
+            <!-- Product context + attribution/compliance. All of these are stored by
+                 submit.php and (where LeadProsper has a matching campaign field)
+                 forwarded on in includes/leadprosper.php. -->
             <input type="hidden" name="product"   value="Debt Relief">
             <input type="hidden" name="form_name" value="DRMultiStep_PHP">
             <input type="hidden" name="xxTrustedFormCertUrl" id="xxTrustedFormCertUrl">
             <input type="hidden" name="universal_leadid"     id="universal_leadid">
-            <input type="hidden" name="utm_source"   id="utm_source">
-            <input type="hidden" name="utm_medium"   id="utm_medium">
-            <input type="hidden" name="utm_campaign" id="utm_campaign">
-            <input type="hidden" name="utm_term"     id="utm_term">
-            <input type="hidden" name="utm_content"  id="utm_content">
-            <input type="hidden" name="gclid"        id="gclid">
-            <input type="hidden" name="fbclid"       id="fbclid">
 
-            <!-- Everflow click attribution. affid/oid are copied from the query
-                 string like the UTM fields above; ef_transaction_id is written by
-                 the cookie watcher in assets/js/tracking/everflow.js once the
-                 Everflow tracking cookie is stable. All three ride along to
-                 LeadProsper (includes/leadprosper.php). -->
-            <input type="hidden" name="affid"             id="affid">
-            <input type="hidden" name="oid"                id="oid">
-            <input type="hidden" name="ef_transaction_id"  id="efTransactionId">
+            <!-- Everflow click attribution. affid/oid/ef_transaction_id ride along
+                 to LeadProsper (includes/leadprosper.php). ef_transaction_id is
+                 written by the cookie watcher in assets/js/tracking/everflow.js
+                 once the Everflow tracking cookie is stable; the rest of these are
+                 copied straight from the query string on load (funnel.js). -->
+            <input type="hidden" name="affid"              id="affid">
+            <input type="hidden" name="oid"                 id="oid">
+            <input type="hidden" name="ef_transaction_id"   id="efTransactionId">
+            <input type="hidden" name="source_id"           id="source_id">
+            <input type="hidden" name="lp_subid1"           id="lp_subid1">
+            <input type="hidden" name="lp_subid2"           id="lp_subid2">
+            <input type="hidden" name="lp_subid3"           id="lp_subid3">
+            <input type="hidden" name="lp_subid4"           id="lp_subid4">
+            <input type="hidden" name="lp_subid5"           id="lp_subid5">
+            <input type="hidden" name="adv1"                id="adv1">
+            <input type="hidden" name="adv2"                id="adv2">
+            <input type="hidden" name="adv3"                id="adv3">
+            <input type="hidden" name="adv4"                id="adv4">
+            <input type="hidden" name="adv5"                id="adv5">
+            <input type="hidden" name="subid"               id="subid">
+
+            <!-- UTM + ad-platform click ids, all copied from the query string. -->
+            <input type="hidden" name="utm_source"    id="utm_source">
+            <input type="hidden" name="utm_medium"    id="utm_medium">
+            <input type="hidden" name="utm_campaign"  id="utm_campaign">
+            <input type="hidden" name="utm_term"      id="utm_term">
+            <input type="hidden" name="utm_content"   id="utm_content">
+            <input type="hidden" name="utm_creative"  id="utm_creative">
+            <input type="hidden" name="utm_placement" id="utm_placement">
+            <input type="hidden" name="utm_adgroup"   id="utm_adgroup">
+            <input type="hidden" name="utm_matchtype" id="utm_matchtype">
+            <input type="hidden" name="gclid"         id="gclid">
+            <input type="hidden" name="gbraid"        id="gbraid">
+            <input type="hidden" name="fbclid"        id="fbclid">
+            <input type="hidden" name="fb_adid"       id="fb_adid">
+            <input type="hidden" name="ms_placement"  id="ms_placement">
+            <input type="hidden" name="ms_publisher"  id="ms_publisher">
+            <input type="hidden" name="ttclid"        id="ttclid">
+
+            <!-- fbp is NOT a URL param — funnel.js reads it from the _fbp cookie
+                 Meta's pixel sets, if present. -->
+            <input type="hidden" name="fbp" id="fbp">
+
+            <input type="hidden" name="landing_page_url" id="landingPageUrl">
 
             <!-- ===== Step 1: debt amount (radio, auto-advance) ===== -->
             <section class="step is-active" data-step="1" data-advance="auto">

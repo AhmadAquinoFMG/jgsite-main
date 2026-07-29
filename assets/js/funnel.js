@@ -726,22 +726,33 @@
             });
     });
 
-    // Attribution: copy UTM / gclid params from the URL into their hidden fields
-    // on load so submit.php can store them with the lead.
+    // Attribution: copy every param below straight from the URL into its
+    // same-named hidden field on load, so submit.php can store it and
+    // includes/leadprosper.php can forward it. Every one of these has a hidden
+    // field whose id matches the query param name (see index.php). Everflow's
+    // ef_transaction_id is the one exception — that's written later by the
+    // cookie watcher in assets/js/tracking/everflow.js, once EF.click() resolves.
     (function captureAttribution() {
         var qs = new URLSearchParams(location.search);
-        ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid']
-            .forEach(function (k) {
-                var v = qs.get(k), el = document.getElementById(k);
-                if (v && el) el.value = v;
-            });
-        // Everflow: affid/oid come straight from the URL (?affid=&oid=); the
-        // ef_transaction_id hidden field is instead written later by the cookie
-        // watcher in assets/js/tracking/everflow.js, once EF.click() resolves.
-        var affid = qs.get('affid'), affEl = document.getElementById('affid');
-        if (affid && affEl) affEl.value = affid;
-        var oid = qs.get('oid'), oidEl = document.getElementById('oid');
-        if (oid && oidEl) oidEl.value = oid;
+        [
+            'affid', 'oid', 'source_id',
+            'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5',
+            'adv1', 'adv2', 'adv3', 'adv4', 'adv5', 'subid',
+            'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+            'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
+            'gclid', 'gbraid', 'fbclid', 'fb_adid', 'ms_placement', 'ms_publisher', 'ttclid'
+        ].forEach(function (k) {
+            var v = qs.get(k), el = document.getElementById(k);
+            if (v && el) el.value = v;
+        });
+
+        // fbp is not a URL param — Meta's pixel sets it as the _fbp cookie.
+        var fbpMatch = document.cookie.match(/(?:^|;\s*)_fbp=([^;]+)/);
+        var fbpEl = document.getElementById('fbp');
+        if (fbpMatch && fbpEl) fbpEl.value = fbpMatch[1];
+
+        var landingEl = document.getElementById('landingPageUrl');
+        if (landingEl) landingEl.value = location.href;
     })();
 
     render();

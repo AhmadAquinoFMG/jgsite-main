@@ -73,13 +73,17 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             'ip_address'           => $row['ip'] ?? '',
             'total_debt'           => $totalDebt ?? 0,
             'self_assessed_debt'   => leadprosper_debt_bucket_amount((string) ($row['debt_amount'] ?? '')),
-            'employment_status'    => $row['employment'] ?? '',
-            'annual_income'        => $row['income'] ?? '',
-            'product'              => $row['product'] ?? '',
+            'employed'             => $row['employment'] ?? '',
             'trustedform_cert_url' => $row['trustedform_url'] ?? '',
             'jornaya_leadid'       => $row['jornaya_token'] ?? '',
             'tcpa_text'            => $row['consent_text'] ?? '',
             'user_agent'           => $row['user_agent'] ?? '',
+            'landing_page_url'     => $row['landing_page_url'] ?? '',
+            // NOT sent — no data source in this funnel (it doesn't ask these
+            // questions): 'gender', 'behind_payment' (payment-status), and
+            // 'credit_rating' (no score bucket derived from the Equifax pull yet).
+            // Add the funnel questions, or derive credit_rating from $totalDebt's
+            // sibling equifax score, if these need to start populating.
         ];
 
         // Post as a test when the global mode is 'test' OR this specific visit is
@@ -89,7 +93,9 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
         }
 
         foreach (LEADPROSPER_TRACKING_PARAMS as $key) {
-            if (!empty($tracking[$key])) {
+            // NOT empty() — that treats '0' (a real, meaningful false value for
+            // fields like softpull_returned) the same as absent and drops it.
+            if (isset($tracking[$key]) && $tracking[$key] !== '') {
                 $payload[$key] = $tracking[$key];
             }
         }
@@ -193,11 +199,18 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
     }
 }
 
-// First-touch attribution params forwarded to LeadProsper (kept in sync with the
-// hidden fields captured in index.php). affid/oid/ef_transaction_id/source_id
-// come from Everflow; the rest are existing UTM/click-id fields.
+// First-touch attribution params forwarded to LeadProsper — kept in sync with
+// (a) the hidden fields captured in index.php/funnel.js and (b) the exact set
+// of fields actually configured on the LeadProsper campaign. affid/oid/
+// ef_transaction_id come from Everflow; softpull_returned is computed
+// server-side in submit.php (not a posted field).
 const LEADPROSPER_TRACKING_PARAMS = [
     'affid', 'oid', 'source_id', 'ef_transaction_id',
+    'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5',
+    'adv1', 'adv2', 'adv3', 'adv4', 'adv5', 'subid',
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-    'gclid', 'fbclid',
+    'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
+    'gclid', 'gbraid', 'fbclid', 'fbp', 'fb_adid',
+    'ms_placement', 'ms_publisher', 'ttclid',
+    'softpull_returned',
 ];
