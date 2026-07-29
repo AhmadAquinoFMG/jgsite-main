@@ -219,9 +219,22 @@ try {
         'state' => $row['state'],
     ]);
 } catch (Throwable $ex) {
-    app_log('error', 'lead', 'insert_failed', ['rid' => $rid, 'error' => $ex->getMessage()]);
+    app_log('error', 'lead', 'insert_failed', [
+        'rid'   => $rid,
+        'error' => $ex->getMessage(),
+        'file'  => $ex->getFile(),
+        'line'  => $ex->getLine(),
+    ]);
     http_response_code(500);
-    echo json_encode(['ok' => false, 'error' => 'server_error']);
+    // rid always ships (safe to expose — no PII) so the client-visible error
+    // can be matched to the full trace in logs/*.log. The raw exception detail
+    // is included too, but ONLY outside production — never leak DB/host info
+    // (connection strings, table names) to a real visitor.
+    $body = ['ok' => false, 'error' => 'server_error', 'rid' => $rid];
+    if (($cfg['app_env'] ?? 'production') !== 'production') {
+        $body['detail'] = $ex->getMessage();
+    }
+    echo json_encode($body);
     exit;
 }
 
