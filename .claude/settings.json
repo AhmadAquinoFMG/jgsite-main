@@ -64,7 +64,9 @@
       "Bash(DB_NAME=jgw_leads_test DB_USER=root DB_PASS= APP_ENV=local php -S 127.0.0.1:8099)",
       "Bash(pkill -f \"php -S 127.0.0.1:8099\")",
       "Bash(cp .env.bak.attrtest .env)",
-      "Bash(rm .env.bak.attrtest)"
+      "Bash(rm .env.bak.attrtest)",
+      "Bash(mysql --version)",
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root -h 127.0.0.1 jgw_leads_test -e \"SHOW TABLES;\")"
     ]
   }
 }

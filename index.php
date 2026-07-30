@@ -118,12 +118,12 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <section class="step" data-step="2" data-advance="auto">
                 <h2 class="step-title">What is your employment status?</h2>
                 <div class="choice-group" role="radiogroup" aria-label="Employment status">
-                    <?php foreach ($cfg['employment_options'] as $opt): ?>
+                    <?php foreach ($cfg['employment_options'] as $val => $label): ?>
                         <label class="choice">
-                            <input type="radio" name="employment" value="<?= $e($opt) ?>" required
-                                   data-umami-event="choice-employment" data-umami-event-choice="<?= $e($opt) ?>">
+                            <input type="radio" name="employment" value="<?= $e($val) ?>" required
+                                   data-umami-event="choice-employment" data-umami-event-choice="<?= $e($val) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
-                            <span class="choice-label"><?= $e($opt) ?></span>
+                            <span class="choice-label"><?= $e($label) ?></span>
                         </label>
                     <?php endforeach; ?>
                 </div>

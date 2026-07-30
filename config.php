@@ -334,12 +334,14 @@ return [
         'More than $100,000',
     ],
 
-    // ---- Employment status (step 2) ------------------------------------
+    // ---- Employment status (step 2) -------------------------------------
+    // Keys are the values stored/submitted (must match LeadProsper's
+    // `employed` field enum: employed | unemployed | disability); values are
+    // the labels shown to the user.
     'employment_options' => [
-        'Full-time',
-        'Self-employed',
-        'Unemployed',
-        'Other',
+        'employed'   => 'Employed',
+        'unemployed' => 'Unemployed',
+        'disability' => 'On disability',
     ],
 
     // ---- Annual income before taxes (step 3) ---------------------------

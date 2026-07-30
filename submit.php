@@ -155,7 +155,7 @@ $ssnDigits = preg_replace('/\D/', '', $post('ssn'));
 
 // Radio answers must match a configured option.
 if (!in_array($debtAmount, $cfg['debt_options'], true))       $errors['debt_amount'] = 'invalid_option';
-if (!in_array($employment, $cfg['employment_options'], true)) $errors['employment']  = 'invalid_option';
+if (!array_key_exists($employment, $cfg['employment_options']))  $errors['employment']  = 'invalid_option';
 if (!in_array($income, $cfg['income_options'], true))         $errors['income']      = 'invalid_option';
 
 if ($errors) {
