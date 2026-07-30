@@ -336,12 +336,13 @@ return [
 
     // ---- Employment status (step 2) -------------------------------------
     // Keys are the values stored/submitted (must match LeadProsper's
-    // `employed` field enum: employed | unemployed | disability); values are
-    // the labels shown to the user.
+    // `employed` field enum: employed | unemployed | disability | retired);
+    // values are the labels shown to the user.
     'employment_options' => [
         'employed'   => 'Employed',
         'unemployed' => 'Unemployed',
         'disability' => 'On disability',
+        'retired'    => 'Retired',
     ],
 
     // ---- Annual income before taxes (step 3) ---------------------------
