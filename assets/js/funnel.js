@@ -718,9 +718,7 @@
             })
             .then(function (res) {
                 if (res.body && res.body.ok) {
-                    var savings = parseInt(res.body.estimated_savings, 10) || 0;
-                    var debt    = parseInt(res.body.total_debt, 10) || 0;
-                    window.location.assign('thank-you.php?savings=' + savings + '&debt=' + debt);
+                    window.location.assign('thank-you.php');
                     return;
                 }
                 submitting = false;

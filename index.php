@@ -10,6 +10,11 @@
  * UI ONLY: Google Places (step 5) is a lazy-loaded STUB — see
  * assets/js/funnel.js. Submit is not wired to a backend.
  */
+// A fresh funnel run invalidates any estimated savings from a prior
+// submission held in the session for thank-you.php (see submit.php).
+session_start();
+unset($_SESSION['prequal_savings']);
+
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 ?>

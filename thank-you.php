@@ -8,6 +8,8 @@
  * CTA and a "your file is held for N:00" countdown timer (urgency device).
  * Copy/number/hold-time come from config.php → ['prequal'].
  */
+session_start();
+
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
@@ -16,9 +18,11 @@ $ctaPhone  = $pq['cta_phone'];
 $ctaTel    = preg_replace('/[^\d+]/', '', $ctaPhone);          // tel: href (digits only)
 $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seconds
 
-// Estimated savings (40% of the debt figure submit.php used), passed through
-// the redirect URL. Absent/zero just hides the callout below.
-$estimatedSavings = max(0, (int) ($_GET['savings'] ?? 0));
+// Estimated savings (40% of the debt figure submit.php used), stashed in the
+// session by submit.php — never exposed in the URL, so it can't be edited or
+// replayed. Persists across reloads/bookmarks of this page; index.php clears
+// it when a visitor starts the funnel over. Absent/zero hides the callout.
+$estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
 ?>
 <!DOCTYPE html>
 <html lang="en-US">

@@ -16,6 +16,7 @@
 
 declare(strict_types=1);
 
+session_start();
 header('Content-Type: application/json; charset=utf-8');
 
 $cfg = require __DIR__ . '/config.php';
@@ -394,8 +395,8 @@ try {
 $debtForSavings   = $verifiedTotalDebt ?? leadprosper_debt_bucket_amount((string) $row['debt_amount']);
 $estimatedSavings = (int) round($debtForSavings * 0.4);
 
-echo json_encode([
-    'ok'                => true,
-    'total_debt'        => $debtForSavings,
-    'estimated_savings' => $estimatedSavings,
-]);
+// Handed to thank-you.php via session, not the redirect URL, so the visitor
+// can't edit/replay it by hand — thank-you.php reads it once and unsets it.
+$_SESSION['prequal_savings'] = $estimatedSavings;
+
+echo json_encode(['ok' => true]);
