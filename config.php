@@ -339,9 +339,9 @@ return [
     // `employed` field enum: employed | unemployed | disability); values are
     // the labels shown to the user.
     'employment_options' => [
-        'employed'   => 'employed',
-        'unemployed' => 'unemployed',
-        'disability' => 'disability',
+        'Employed'   => 'employed',
+        'Unemployed' => 'unemployed',
+        'On disability' => 'disability',
     ],
 
     // ---- Annual income before taxes (step 3) ---------------------------
