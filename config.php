@@ -369,7 +369,7 @@ return [
     'employment_options' => [
         'employed'   => 'Employed',
         'unemployed' => 'Unemployed',
-        'disability' => 'On disability',
+        'disability' => 'On Disability',
         'retired'    => 'Retired',
     ],
 
