@@ -525,6 +525,26 @@ a { color: var(--green-deep); }
     font-size: 17px; color: var(--ink-soft); line-height: 1.5;
 }
 
+/* estimated savings callout */
+.prequal-savings {
+    display: inline-flex; flex-direction: column; align-items: center;
+    gap: 2px;
+    margin: 0 auto 32px;
+    padding: 16px 28px;
+    background: rgba(27, 151, 106, .10);
+    border-radius: 12px;
+}
+.prequal-savings__label {
+    font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    color: var(--green-deep);
+}
+.prequal-savings__amount {
+    font-size: 34px; font-weight: 700; line-height: 1.2;
+    color: var(--green-deep);
+    font-variant-numeric: tabular-nums;
+}
+.prequal-savings__note { font-size: 12px; color: var(--muted); }
+
 /* assigned specialist row */
 .prequal-assigned {
     display: flex; align-items: flex-start; gap: 18px;
@@ -692,6 +712,8 @@ a { color: var(--green-deep); }
     .prequal-title { font-size: 19px; line-height: 1.2; margin-bottom: 8px; }
     .prequal-title br { display: none; }   /* flow naturally instead of forcing 4 lines */
     .prequal-lede { font-size: 13px; margin-bottom: 18px; }
+    .prequal-savings { padding: 12px 20px; margin-bottom: 20px; }
+    .prequal-savings__amount { font-size: 26px; }
     .prequal-assigned__title { font-size: 15px; }
     .prequal-assigned__body p { font-size: 12px; }
     .prequal-card { padding: 26px 18px; margin-top: 22px; }

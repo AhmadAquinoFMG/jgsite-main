@@ -334,7 +334,17 @@ return [
         'More than $100,000',
     ],
 
-    // ---- Employment status (step 2) -------------------------------------
+    // ---- Behind on payments? (step 2) -----------------------------------
+    // Keys are the values stored/submitted (must match LeadProsper's
+    // `behind_payment` field enum: not_behind | over_30 | over_60); values
+    // are the labels shown to the user.
+    'behind_payment_options' => [
+        'not_behind' => "I'm current on my payments",
+        'over_30'    => '30+ days behind',
+        'over_60'    => '60+ days behind',
+    ],
+
+    // ---- Employment status (step 3) -------------------------------------
     // Keys are the values stored/submitted (must match LeadProsper's
     // `employed` field enum: employed | unemployed | disability | retired);
     // values are the labels shown to the user.
@@ -345,7 +355,7 @@ return [
         'retired'    => 'Retired',
     ],
 
-    // ---- Annual income before taxes (step 3) ---------------------------
+    // ---- Annual income before taxes (step 4) ---------------------------
     'income_options' => [
         'Under $30,000',
         'Between $30,000 and $100,000',

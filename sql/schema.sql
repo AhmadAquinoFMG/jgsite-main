@@ -10,9 +10,10 @@
 CREATE TABLE IF NOT EXISTS `leads` (
     `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 
-    -- ---- Qualifying answers (steps 1-3) ----
+    -- ---- Qualifying answers (steps 1-4) ----
     `debt_amount`        VARCHAR(64) NOT NULL,   -- self-reported bucket (step 1)
     `self_assessed_debt` VARCHAR(64) DEFAULT NULL, -- same self-reported figure, clearly named
+    `behind_payment`  VARCHAR(64)  DEFAULT NULL, -- 'not_behind' | 'over_30' | 'over_60' (step 2); required by submit.php, nullable here so ALTER on existing rows doesn't fail
     `employment`      VARCHAR(64)  NOT NULL,
     `income`          VARCHAR(64)  NOT NULL,
 

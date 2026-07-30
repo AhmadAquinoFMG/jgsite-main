@@ -15,6 +15,10 @@ $pq        = $cfg['prequal'];
 $ctaPhone  = $pq['cta_phone'];
 $ctaTel    = preg_replace('/[^\d+]/', '', $ctaPhone);          // tel: href (digits only)
 $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seconds
+
+// Estimated savings (40% of the debt figure submit.php used), passed through
+// the redirect URL. Absent/zero just hides the callout below.
+$estimatedSavings = max(0, (int) ($_GET['savings'] ?? 0));
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -61,6 +65,14 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
 
             <h1 class="prequal-title">You&rsquo;re Pre-Qualified for <br>a Debt Relief Program</h1>
             <p class="prequal-lede">You could reduce your debt and lower your monthly payments.</p>
+
+            <?php if ($estimatedSavings > 0): ?>
+                <div class="prequal-savings">
+                    <span class="prequal-savings__label">Estimated Savings</span>
+                    <span class="prequal-savings__amount">$<?= $e(number_format($estimatedSavings)) ?></span>
+                    <span class="prequal-savings__note">Based on your qualifying debt</span>
+                </div>
+            <?php endif; ?>
 
             <!-- Assigned specialist -->
             <div class="prequal-assigned">

@@ -10,7 +10,7 @@ qualified lead and route the visitor to a confirmation page where a debt
 specialist follows up. Form submission is the primary conversion.
 
 ## Pages
-- [Debt Relief application](/index.php): The main page. An 8-step form — debt amount, employment status, annual income, name, street address, date of birth (with FCRA/credit consent), email, and phone (with TCPA contact consent). Includes trust badges and customer reviews.
+- [Debt Relief application](/index.php): The main page. A 9-step form — debt amount, behind-on-payments status, employment status, annual income, name, street address, date of birth (with FCRA/credit consent), email, and phone (with TCPA contact consent). Includes trust badges and customer reviews.
 - [You're Pre-Qualified](/thank-you.php): Post-submission confirmation page (noindex). Shows assigned-specialist messaging and a click-to-call CTA. Reached only after the form is submitted.
 
 ## What the program is

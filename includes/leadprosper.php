@@ -74,16 +74,17 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             'total_debt'           => $totalDebt ?? 0,
             'self_assessed_debt'   => leadprosper_debt_bucket_amount((string) ($row['debt_amount'] ?? '')),
             'employed'             => $row['employment'] ?? '',
+            'behind_payment'       => $row['behind_payment'] ?? '',
             'trustedform_cert_url' => $row['trustedform_url'] ?? '',
             'jornaya_leadid'       => $row['jornaya_token'] ?? '',
             'tcpa_text'            => $row['consent_text'] ?? '',
             'user_agent'           => $row['user_agent'] ?? '',
             'landing_page_url'     => $row['landing_page_url'] ?? '',
             // NOT sent — no data source in this funnel (it doesn't ask these
-            // questions): 'gender', 'behind_payment' (payment-status), and
-            // 'credit_rating' (no score bucket derived from the Equifax pull yet).
-            // Add the funnel questions, or derive credit_rating from $totalDebt's
-            // sibling equifax score, if these need to start populating.
+            // questions): 'gender' and 'credit_rating' (no score bucket derived
+            // from the Equifax pull yet). Add a gender question, or derive
+            // credit_rating from $totalDebt's sibling equifax score, if these
+            // need to start populating.
         ];
 
         // Post as a test when the global mode is 'test' OR this specific visit is

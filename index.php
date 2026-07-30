@@ -2,10 +2,10 @@
 /**
  * JG Wentworth — Debt Relief funnel landing page (PHP clone of /ds-aff-lp-2).
  *
- * Single-page, JS-driven 8-step form:
- *   1 debt amount · 2 employment · 3 income (auto-advance radios) ·
- *   4 name · 5 address · 6 date of birth · 7 email (Continue) ·
- *   8 phone + consent + Submit.
+ * Single-page, JS-driven 9-step form:
+ *   1 debt amount · 2 behind on payments · 3 employment · 4 income (auto-advance radios) ·
+ *   5 name · 6 address · 7 date of birth · 8 email (Continue) ·
+ *   9 phone + consent + Submit.
  *
  * UI ONLY: Google Places (step 5) is a lazy-loaded STUB — see
  * assets/js/funnel.js. Submit is not wired to a backend.
@@ -114,8 +114,23 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 2: employment status (radio, auto-advance) ===== -->
+            <!-- ===== Step 2: behind on payments (radio, auto-advance) ===== -->
             <section class="step" data-step="2" data-advance="auto">
+                <h2 class="step-title">Are you behind on any of your payments?</h2>
+                <div class="choice-group" role="radiogroup" aria-label="Behind on payments">
+                    <?php foreach ($cfg['behind_payment_options'] as $val => $label): ?>
+                        <label class="choice">
+                            <input type="radio" name="behind_payment" value="<?= $e($val) ?>" required
+                                   data-umami-event="choice-behind-payment" data-umami-event-choice="<?= $e($val) ?>">
+                            <span class="choice-radio" aria-hidden="true"></span>
+                            <span class="choice-label"><?= $e($label) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+
+            <!-- ===== Step 3: employment status (radio, auto-advance) ===== -->
+            <section class="step" data-step="3" data-advance="auto">
                 <h2 class="step-title">What is your employment status?</h2>
                 <div class="choice-group" role="radiogroup" aria-label="Employment status">
                     <?php foreach ($cfg['employment_options'] as $val => $label): ?>
@@ -129,8 +144,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 3: annual income (radio, auto-advance) ===== -->
-            <section class="step" data-step="3" data-advance="auto">
+            <!-- ===== Step 4: annual income (radio, auto-advance) ===== -->
+            <section class="step" data-step="4" data-advance="auto">
                 <h2 class="step-title">What is your annual income before taxes?</h2>
                 <div class="choice-group" role="radiogroup" aria-label="Annual income">
                     <?php foreach ($cfg['income_options'] as $opt): ?>
@@ -144,8 +159,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 4: name ===== -->
-            <section class="step" data-step="4">
+            <!-- ===== Step 5: name ===== -->
+            <section class="step" data-step="5">
                 <h2 class="step-title">What is your first and last name?</h2>
                 <div class="field">
                     <label for="first_name">First name <span class="req">*</span></label>
@@ -159,14 +174,14 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 5: address =====
+            <!-- ===== Step 6: address =====
                  DEFAULT: one free-form "Home Address" field. The visible input has
                  NO name, so it never enters the payload; funnel.js populates the four
                  hidden inputs (street/city/state/zip) from a picked Google suggestion
                  or a submit-time geocode, so the backend always receives a segregated
                  address. ROLLBACK to the legacy multi-field UI with ?address_classic=1. -->
             <?php $addressClassic = (($_GET['address_classic'] ?? '') === '1'); ?>
-            <section class="step" data-step="5" data-lazy="places"
+            <section class="step" data-step="6" data-lazy="places"
                      data-address-mode="<?= $addressClassic ? 'classic' : 'single' ?>">
             <?php if ($addressClassic): ?>
                 <h2 class="step-title">What is your street address?</h2>
@@ -214,8 +229,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <?php endif; ?>
             </section>
 
-            <!-- ===== Step 6: date of birth (auto-format MM/DD/YYYY) ===== -->
-            <section class="step" data-step="6">
+            <!-- ===== Step 7: date of birth (auto-format MM/DD/YYYY) ===== -->
+            <section class="step" data-step="7">
                 <h2 class="step-title">What's your date of birth?</h2>
                 <div class="field">
                     <label for="dob">Date of Birth <span class="req">*</span></label>
@@ -237,8 +252,8 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <p class="consent-note consent-note--left"><?= $e($cfg['consent']['credit']) ?></p>
             </section>
 
-            <!-- ===== Step 7: email ===== -->
-            <section class="step" data-step="7">
+            <!-- ===== Step 8: email ===== -->
+            <section class="step" data-step="8">
                 <h2 class="step-title">What is your email address?</h2>
                 <div class="field">
                     <label for="email">Email address <span class="req">*</span></label>
@@ -247,11 +262,11 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 8: phone + consent + submit =====
+            <!-- ===== Step 9: phone + consent + submit =====
                  The TCPA consent text lives here, below the fold under the
                  compliance note, instead of on its own page. This is the final
                  step, so it submits. -->
-            <section class="step" data-step="8" data-nav="submit">
+            <section class="step" data-step="9" data-nav="submit">
                 <h2 class="step-title">What is your phone number?</h2>
                 <div class="field">
                     <label for="phone">Phone <span class="req">*</span></label>
@@ -277,12 +292,12 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <!-- Step-specific disclosure shown below the nav row. The DOB step's
                  FCRA authorization appears here; visibility is driven by the
                  form's data-current attribute (set in funnel.js). -->
-            <p class="step-disclosure" data-for="6"><?= $e($cfg['consent']['fcra']) ?></p>
+            <p class="step-disclosure" data-for="7"><?= $e($cfg['consent']['fcra']) ?></p>
 
             <!-- Phone step's TCPA consent. Sits below the Submit button (and above
                  the reviews section) rather than above it; the short contact note
                  stays above Submit inside the step. Trusted static HTML (legal links). -->
-            <p class="step-disclosure tcpa" data-for="8"><?= $cfg['consent']['tcpa'] ?></p>
+            <p class="step-disclosure tcpa" data-for="9"><?= $cfg['consent']['tcpa'] ?></p>
         </form>
 
         <!-- On submit, funnel.js redirects to thank-you.php (pre-qualified page). -->

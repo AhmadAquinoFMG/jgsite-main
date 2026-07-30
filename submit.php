@@ -83,9 +83,10 @@ $zip        = $post('zip');
 $dobRaw     = $post('dob');
 $email      = $post('email');
 $phoneRaw   = $post('phone');
-$debtAmount = $post('debt_amount');
-$employment = $post('employment');
-$income     = $post('income');
+$debtAmount    = $post('debt_amount');
+$behindPayment = $post('behind_payment');
+$employment    = $post('employment');
+$income        = $post('income');
 
 $nameRx = "/^[A-Za-z][A-Za-z .'\\-]{0,48}$/";
 
@@ -154,9 +155,10 @@ if ($phoneRaw === '') {
 $ssnDigits = preg_replace('/\D/', '', $post('ssn'));
 
 // Radio answers must match a configured option.
-if (!in_array($debtAmount, $cfg['debt_options'], true))       $errors['debt_amount'] = 'invalid_option';
-if (!array_key_exists($employment, $cfg['employment_options']))  $errors['employment']  = 'invalid_option';
-if (!in_array($income, $cfg['income_options'], true))         $errors['income']      = 'invalid_option';
+if (!in_array($debtAmount, $cfg['debt_options'], true))              $errors['debt_amount']    = 'invalid_option';
+if (!array_key_exists($behindPayment, $cfg['behind_payment_options'])) $errors['behind_payment'] = 'invalid_option';
+if (!array_key_exists($employment, $cfg['employment_options']))      $errors['employment']     = 'invalid_option';
+if (!in_array($income, $cfg['income_options'], true))                $errors['income']         = 'invalid_option';
 
 if ($errors) {
     // Log which fields failed (names + codes only, never the submitted values).
@@ -174,6 +176,7 @@ $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
 $row = [
     'debt_amount'        => $debtAmount,
     'self_assessed_debt' => $debtAmount, // the visitor's self-reported figure
+    'behind_payment'  => $behindPayment,
     'employment'      => $employment,
     'income'          => $income,
     'first_name'      => $firstName,
@@ -384,4 +387,15 @@ try {
     app_log('error', 'leadprosper', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
 }
 
-echo json_encode(['ok' => true]);
+/* ---------------------------------------- estimated savings (thank-you page)
+   40% of the debt used for the LeadProsper post: the Equifax-verified total
+   when the pull succeeded, otherwise the same self-reported bucket estimate
+   LeadProsper itself falls back to (leadprosper_debt_bucket_amount()). */
+$debtForSavings   = $verifiedTotalDebt ?? leadprosper_debt_bucket_amount((string) $row['debt_amount']);
+$estimatedSavings = (int) round($debtForSavings * 0.4);
+
+echo json_encode([
+    'ok'                => true,
+    'total_debt'        => $debtForSavings,
+    'estimated_savings' => $estimatedSavings,
+]);

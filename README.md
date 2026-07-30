@@ -47,20 +47,21 @@ complete. Set `APP_ENV=production` on staging/live so the phone gate is enforced
 | `assets/js/funnel.js` | Multi-step navigation, validation, Google Places, Firebase OTP, attribution capture, and the `fetch()` submit. |
 | `assets/img/` | Logos, trust badges and icons. |
 
-## The funnel flow (8 steps)
+## The funnel flow (9 steps)
 
-Single page, JS-driven (no reloads between steps). A progress bar advances 1/8 → 8/8.
+Single page, JS-driven (no reloads between steps). A progress bar advances 1/9 → 9/9.
 
 | # | Step | Input | Advance |
 |---|------|-------|---------|
 | 1 | Debt amount | 5 radio cards | auto |
-| 2 | Employment status | 4 radio cards | auto |
-| 3 | Annual income | 3 radio cards | auto |
-| 4 | First & last name | 2 text inputs | Continue |
-| 5 | Address | single free-form field, **Google Places autocomplete**, submits segregated street/city/state/zip (`?address_classic=1` for the legacy multi-field UI) | Continue |
-| 6 | Date of birth | single input, **auto-formats MM/DD/YYYY** | Continue |
-| 7 | Email | email input | Continue |
-| 8 | Phone + verification | phone → **Send code** → 6 OTP boxes → **Verify** → TCPA + **Submit** | Submit |
+| 2 | Behind on payments | 3 radio cards | auto |
+| 3 | Employment status | 4 radio cards | auto |
+| 4 | Annual income | 3 radio cards | auto |
+| 5 | First & last name | 2 text inputs | Continue |
+| 6 | Address | single free-form field, **Google Places autocomplete**, submits segregated street/city/state/zip (`?address_classic=1` for the legacy multi-field UI) | Continue |
+| 7 | Date of birth | single input, **auto-formats MM/DD/YYYY** | Continue |
+| 8 | Email | email input | Continue |
+| 9 | Phone + verification | phone → **Send code** → 6 OTP boxes → **Verify** → TCPA + **Submit** | Submit |
 
 Client-side validation surfaces per-field error states: `invalid_format`,
 `too_short`, `incomplete` / `out_of_range` / `underage` (DOB),
@@ -69,7 +70,7 @@ Submit is gated on successful OTP verification (production only).
 
 ## Integrations
 
-- **Google Places (step 5)** — real Places API (New) autocomplete, keyed from
+- **Google Places (step 6)** — real Places API (New) autocomplete, keyed from
   `GOOGLE_PLACES_KEY`. Falls back to a mock suggestion list when unset so the
   funnel works locally without billing.
 - **TrustedForm + Jornaya** — TCPA proof-of-consent scripts (`includes/compliance.php`),

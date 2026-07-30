@@ -8,9 +8,9 @@
        a submit-time Geocoder fallback; mock suggestions when no key is set.
        Rollback to the legacy multi-field UI with ?address_classic=1.
 
-   Steps: 1 debt · 2 employment · 3 income (auto-advance radios) ·
-          4 name · 5 address · 6 dob · 7 email (Continue) ·
-          8 phone + consent + Submit
+   Steps: 1 debt · 2 behind on payments · 3 employment · 4 income (auto-advance radios) ·
+          5 name · 6 address · 7 dob · 8 email (Continue) ·
+          9 phone + consent + Submit
    ========================================================================= */
 (function () {
     'use strict';
@@ -35,8 +35,8 @@
        so an Umami Funnel report shows how many visitors hit each step and where
        they exit. umami may be absent (script blocked / not configured) — guard. */
     var STEP_NAMES = {
-        1: 'debt-amount', 2: 'employment', 3: 'income', 4: 'name',
-        5: 'address', 6: 'dob', 7: 'email', 8: 'phone'
+        1: 'debt-amount', 2: 'behind-payment', 3: 'employment', 4: 'income', 5: 'name',
+        6: 'address', 7: 'dob', 8: 'email', 9: 'phone'
     };
     var trackedSteps = {};
     function track(event, data) {
@@ -633,13 +633,13 @@
     btnNext.addEventListener('click', function () {
         if (!validateStep(current)) return;
 
-        // Step 5 single-field: resolve the segregated address (may geocode) before
+        // Step 6 single-field: resolve the segregated address (may geocode) before
         // advancing. Disable Continue ONLY while that async resolution is in flight.
-        if (current === 5 && address.present && address.single) {
+        if (current === 6 && address.present && address.single) {
             btnNext.disabled = true;
             address.resolveForSubmit(function () {
                 btnNext.disabled = false;
-                trackStepComplete(5);
+                trackStepComplete(6);
                 goNext();
             });
             return;
@@ -650,7 +650,7 @@
     });
     btnBack.addEventListener('click', goBack);
 
-    // radio steps (1–3): clear any error on selection; the Continue button
+    // radio steps (1–4): clear any error on selection; the Continue button
     // (not auto-advance) drives the step forward, consistent with all pages.
     form.querySelectorAll('.step[data-advance="auto"] input[type=radio]').forEach(function (r) {
         r.addEventListener('change', function () {
@@ -672,10 +672,10 @@
     // Map each server-validated field to the step that collects it, so a 422
     // can bounce the visitor back to fix it.
     var FIELD_STEP = {
-        debt_amount: 1, employment: 2, income: 3,
-        first_name: 4, last_name: 4,
-        street: 5, city: 5, state: 5, zip: 5,
-        dob: 6, email: 7, phone: 8
+        debt_amount: 1, behind_payment: 2, employment: 3, income: 4,
+        first_name: 5, last_name: 5,
+        street: 6, city: 6, state: 6, zip: 6,
+        dob: 7, email: 8, phone: 9
     };
 
     // Surface server-side {field: code} errors: jump to the earliest offending
@@ -718,7 +718,9 @@
             })
             .then(function (res) {
                 if (res.body && res.body.ok) {
-                    window.location.assign('thank-you.php');
+                    var savings = parseInt(res.body.estimated_savings, 10) || 0;
+                    var debt    = parseInt(res.body.total_debt, 10) || 0;
+                    window.location.assign('thank-you.php?savings=' + savings + '&debt=' + debt);
                     return;
                 }
                 submitting = false;

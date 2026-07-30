@@ -66,7 +66,8 @@
       "Bash(cp .env.bak.attrtest .env)",
       "Bash(rm .env.bak.attrtest)",
       "Bash(mysql --version)",
-      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root -h 127.0.0.1 jgw_leads_test -e \"SHOW TABLES;\")"
+      "Bash(\"/c/xampp/mysql/bin/mysql.exe\" -u root -h 127.0.0.1 jgw_leads_test -e \"SHOW TABLES;\")",
+      "Bash(grep -n ''\\\\''employment'\\\\''\\\\s*=>\\\\|debt_amount.*=>\\\\|$row = \\\\[' 'e:\\\\projects\\\\jlr\\\\jg-main\\\\submit.php')"
     ]
   }
 }
