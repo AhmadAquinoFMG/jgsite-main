@@ -229,8 +229,15 @@
     if (dob) {
         dob.addEventListener('input', function () {
             var d = dob.value.replace(/\D/g, '').slice(0, 8);
-            var out = d.slice(0, 2);
-            if (d.length >= 3) out += '/' + d.slice(2, 4);
+
+            var mm = d.slice(0, 2);
+            if (mm.length === 2 && (+mm === 0 || +mm > 12)) mm = '12';
+
+            var dd = d.slice(2, 4);
+            if (dd.length === 2 && (+dd === 0 || +dd > 31)) dd = '31';
+
+            var out = mm;
+            if (d.length >= 3) out += '/' + dd;
             if (d.length >= 5) out += '/' + d.slice(4, 8);
             dob.value = out;
         });
@@ -385,7 +392,10 @@
     }
 
     // Toggles the Submit button; re-enabled after a failed submit attempt.
-    function setSubmitEnabled(on) { btnSubmit.disabled = !on; }
+    function setSubmitEnabled(on) {
+        btnSubmit.disabled = !on;
+        if (on) btnSubmit.textContent = 'Submit';
+    }
 
     /* ---- Address controller (step 5) ----------------------------------
        Default (single mode): the visitor types in ONE field (#address, no name),
@@ -691,6 +701,7 @@
         submitting = true;
         submitted  = true; // a completion, not an abandonment — suppress funnel-exit
         btnSubmit.disabled = true;
+        btnSubmit.textContent = 'Submitting…';
 
         // Funnel completion — the conversion endpoint of the drop-off report.
         track('funnel-submit', { step: current, name: STEP_NAMES[current] || 'submit' });
