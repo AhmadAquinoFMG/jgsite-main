@@ -68,9 +68,8 @@ $estimatedSavings = max(0, (int) ($_GET['savings'] ?? 0));
 
             <?php if ($estimatedSavings > 0): ?>
                 <div class="prequal-savings">
-                    <span class="prequal-savings__label">Estimated Savings</span>
+                    <span class="prequal-savings__label">You can save up to:</span>
                     <span class="prequal-savings__amount">$<?= $e(number_format($estimatedSavings)) ?></span>
-                    <span class="prequal-savings__note">Based on your qualifying debt</span>
                 </div>
             <?php endif; ?>
 
