@@ -65,6 +65,12 @@ return [
     // suggestion list so the funnel still works locally without billing.
     'google_places_key' => env('GOOGLE_PLACES_KEY', ''),
 
+    // ---- Bot-protection: minimum plausible time-to-submit (seconds) -----
+    // A submission completed faster than this after the page rendered is flagged
+    // as a bot (see submit.php's $botReason). 4s is already generous for a script
+    // filling every field in one shot; real visitors take much longer on a 9-step form.
+    'timing_min_seconds' => (int) env('TIMING_MIN_SECONDS', '4'),
+
     // ---- Runtime environment -------------------------------------------
     // 'local' relaxes production-only checks so the funnel can be exercised
     // without live third-party services. Set APP_ENV=production on staging/live.
@@ -172,6 +178,18 @@ return [
         'key'         => env('LP_KEY', ''),
         'endpoint'    => env('LP_ENDPOINT', 'https://api.leadprosper.io/direct_post'),
         'timeout'     => (int) env('LP_TIMEOUT', '20'),
+    ],
+
+    // ---- Cloudflare Turnstile (bot protection on the final funnel step) -------
+    // Verified server-side in submit.php via includes/turnstile.php. Leave
+    // TURNSTILE_ENABLED=0 (default) to skip rendering the widget and skip
+    // server-side verification entirely — useful for local dev.
+    'turnstile' => [
+        'enabled'    => env('TURNSTILE_ENABLED', '0') === '1',
+        'site_key'   => env('TURNSTILE_SITE_KEY', ''),
+        'secret_key' => env('TURNSTILE_SECRET_KEY', ''),
+        'endpoint'   => env('TURNSTILE_VERIFY_ENDPOINT', 'https://challenges.cloudflare.com/turnstile/v0/siteverify'),
+        'timeout'    => (int) env('TURNSTILE_TIMEOUT', '10'),
     ],
 
     // ---- Everflow affiliate tracking (client-side click attribution) ----

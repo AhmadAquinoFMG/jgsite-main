@@ -104,6 +104,10 @@ CREATE TABLE IF NOT EXISTS `leads` (
 
     `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
+    -- ---- Bot protection (see docs/bot-protection.md) --------------------
+    `bot_suspected`   TINYINT(1)   NOT NULL DEFAULT 0,
+    `bot_reason`      VARCHAR(32)  DEFAULT NULL,   -- 'honeypot' | 'timing' | 'turnstile'
+
     PRIMARY KEY (`id`),
     KEY `idx_created_at` (`created_at`),
     KEY `idx_email`      (`email`),

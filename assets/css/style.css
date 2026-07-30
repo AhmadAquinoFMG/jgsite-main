@@ -23,6 +23,17 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+/* Honeypot field (index.php) — off-screen, not display:none, so it still
+   "exists" to less careful bots but is unreachable/invisible to real users. */
+.hp-field {
+    position: absolute;
+    left: -9999px;
+    top: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {

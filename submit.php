@@ -24,6 +24,7 @@ require __DIR__ . '/includes/logger.php';
 require __DIR__ . '/includes/db.php';
 require __DIR__ . '/includes/equifax.php';
 require __DIR__ . '/includes/leadprosper.php';
+require __DIR__ . '/includes/turnstile.php';
 
 logger($cfg); // initialise the operational file logger
 
@@ -47,6 +48,30 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 $post = fn(string $k): string => trim((string) ($_POST[$k] ?? ''));
 
 app_log('info', 'lead', 'received', ['rid' => $rid]);
+
+/* --------------------------------------------------------- bot detection */
+// Aggregates all three signals below (honeypot / timing / Turnstile). When
+// set, the lead is still stored (flagged) but never reaches Equifax/LeadProsper,
+// and the response still looks like a normal success — see the bottom of this
+// file and docs/bot-protection.md for the full rationale.
+$botReason = null;
+
+if ($post('website') !== '') {
+    $botReason = 'honeypot';
+}
+
+$renderedAt = (int) $post('form_rendered_at');
+if ($botReason === null && $renderedAt > 0
+    && (time() - $renderedAt) < (int) ($cfg['timing_min_seconds'] ?? 4)) {
+    $botReason = 'timing';
+}
+
+if ($botReason === null && !empty($cfg['turnstile']['enabled'])) {
+    $ts = turnstile_verify($cfg, $post('cf-turnstile-response'), $_SERVER['REMOTE_ADDR'] ?? '');
+    if (empty($ts['ok'])) {
+        $botReason = 'turnstile';
+    }
+}
 
 /**
  * Validate DOB (MM/DD/YYYY, real calendar date, age >= 18).
@@ -197,6 +222,8 @@ $row = [
     'consent_at'      => date('Y-m-d H:i:s'),
     'ip'              => $ip ?: null,
     'user_agent'      => $userAgent ?: null,
+    'bot_suspected'   => $botReason !== null ? 1 : 0,
+    'bot_reason'      => $botReason,
     'utm_source'      => $post('utm_source') ?: null,
     'utm_medium'      => $post('utm_medium') ?: null,
     'utm_campaign'    => $post('utm_campaign') ?: null,
@@ -270,6 +297,7 @@ try {
    continue": ANY failure here (Equifax down, bad config, DB write) is swallowed
    so the lead — already stored — still succeeds. */
 $verifiedTotalDebt = null; // read by the LeadProsper post below
+if ($botReason === null) {
 try {
     $eqLead = array_intersect_key($row, array_flip(
         ['first_name', 'last_name', 'street', 'city', 'state', 'zip', 'email']
@@ -332,11 +360,13 @@ try {
 } catch (Throwable $ex) {
     app_log('error', 'equifax', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
 }
+}
 
 /* ---------------------------------------- LeadProsper direct-post (best-effort)
    Post the lead and log the request/response to leadprosper_logs. Same "log &
    continue" contract as Equifax above — a forwarding failure is logged but
    never surfaced to the visitor; the lead is already stored. */
+if ($botReason === null) {
 try {
     $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
     // Not a posted field — reflects whether OUR OWN Equifax pull above (not an
@@ -387,6 +417,7 @@ try {
 } catch (Throwable $ex) {
     app_log('error', 'leadprosper', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
 }
+}
 
 /* ---------------------------------------- estimated savings (thank-you page)
    40% of the debt used for the LeadProsper post: the Equifax-verified total
@@ -396,7 +427,12 @@ $debtForSavings   = $verifiedTotalDebt ?? leadprosper_debt_bucket_amount((string
 $estimatedSavings = (int) round($debtForSavings * 0.4);
 
 // Handed to thank-you.php via session, not the redirect URL, so the visitor
-// can't edit/replay it by hand — thank-you.php reads it once and unsets it.
+// can't edit/replay it by hand. Persists across reloads of thank-you.php;
+// index.php clears it when the funnel is started over.
 $_SESSION['prequal_savings'] = $estimatedSavings;
+
+if ($botReason !== null) {
+    app_log('warning', 'lead', 'bot_suspected', ['rid' => $rid, 'lead_id' => $leadId, 'reason' => $botReason]);
+}
 
 echo json_encode(['ok' => true]);

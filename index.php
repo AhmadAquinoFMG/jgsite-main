@@ -34,6 +34,10 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>
+
+    <?php if (!empty($cfg['turnstile']['enabled'])): ?>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <?php endif; ?>
 </head>
 <body>
 
@@ -102,6 +106,20 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
             <input type="hidden" name="fbp" id="fbp">
 
             <input type="hidden" name="landing_page_url" id="landingPageUrl">
+
+            <!-- Honeypot: invisible to real visitors (see .hp-field in style.css). Real
+                 bot-form-fillers often populate any input they can find, including ones
+                 with no visible label — this one silently marks the submission as a bot
+                 in submit.php instead of erroring, so the trap stays invisible. -->
+            <div class="hp-field" aria-hidden="true">
+                <label for="website">Website</label>
+                <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <!-- Server-rendered timestamp (NOT a JS Date.now() — that's trivially spoofable
+                 by a bot that just sets the field itself). submit.php compares this against
+                 request time to reject implausibly fast completions. -->
+            <input type="hidden" name="form_rendered_at" value="<?= time() ?>">
 
             <!-- ===== Step 1: debt amount (radio, auto-advance) ===== -->
             <section class="step is-active" data-step="1" data-advance="auto">
@@ -281,6 +299,10 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
 
                 <p class="consent-note"><?= $e($cfg['consent']['contact']) ?></p>
+
+                <?php if (!empty($cfg['turnstile']['enabled'])): ?>
+                    <div class="cf-turnstile" data-sitekey="<?= $e($cfg['turnstile']['site_key']) ?>"></div>
+                <?php endif; ?>
             </section>
 
             <!-- Navigation. The back arrow shares this row with whichever primary
