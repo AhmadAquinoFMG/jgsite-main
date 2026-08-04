@@ -38,6 +38,29 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     <?php if (!empty($cfg['turnstile']['enabled'])): ?>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <?php endif; ?>
+    <!-- Everflow -->
+    <script type="text/javascript" src="https://www.f0cg2trk.com/scripts/main.js"></script>
+
+    <script type="text/javascript">
+    EF.click({
+        offer_id: EF.urlParameter('oid'),
+        affiliate_id: EF.urlParameter('affid'),
+        source_id: EF.urlParameter('source_id'),
+        sub1: EF.urlParameter('sub1'),
+        sub2: EF.urlParameter('sub2'),
+        sub3: EF.urlParameter('sub3'),
+        sub4: EF.urlParameter('sub4'),
+        sub5: EF.urlParameter('sub5'),
+        sub6: EF.urlParameter('sub6'),
+        sub7: EF.urlParameter('sub7'),
+        sub8: EF.urlParameter('sub8'),
+        sub9: EF.urlParameter('sub9'),
+        sub10: EF.urlParameter('sub10'),
+        uid: EF.urlParameter('uid'),
+        transaction_id: EF.urlParameter('_ef_transaction_id'),
+    });
+    </script>
+    <!-- Everflow End-->
 </head>
 <body>
 

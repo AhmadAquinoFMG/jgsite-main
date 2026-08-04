@@ -78,7 +78,7 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
             <?php endif; ?>
 
             <!-- Assigned specialist -->
-            <div class="prequal-assigned">
+            <!-- <div class="prequal-assigned">
                 <span class="prequal-assigned__icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none"
                         stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -91,7 +91,7 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
                     <h2 class="prequal-assigned__title">A Certified Debt Specialist Has Been Assigned to You</h2>
                     <p>They&rsquo;re ready to walk you through your best options for becoming debt free.</p>
                 </div>
-            </div>
+            </div> -->
 
             <!-- Call CTA card -->
             <section class="prequal-card" aria-label="Speak with your specialist">
