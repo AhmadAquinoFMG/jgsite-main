@@ -123,7 +123,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
             <!-- ===== Step 1: debt amount (radio, auto-advance) ===== -->
             <section class="step is-active" data-step="1" data-advance="auto">
-                <h1 class="form-header">Get Debt Relief</h1>
+                <h1 class="form-header">Debt Relief</h1>
                 <p class="form-subtext">How much debt do you owe?</p>
                 <div class="choice-group" role="radiogroup" aria-label="Debt amount">
                     <?php foreach ($cfg['debt_options'] as $opt): ?>
