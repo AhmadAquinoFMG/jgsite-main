@@ -17,6 +17,29 @@ unset($_SESSION['prequal_savings']);
 
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+
+/* ---- Funnel landing event props -------------------------------------------
+   One "funnel-landing" event per pageview, carrying the traffic source. Step 1
+   (funnel-1-debt-amount) is the entry anchor of the drop-off report, so without
+   this there is no measurement of the landing → step 1 gap — the largest and
+   previously invisible drop on the page. Built server-side from a WHITELIST of
+   query params (never the raw query string) and length-capped, then emitted as a
+   JSON object with every HTML-significant character hex-escaped, so a crafted
+   ?utm_source=… can't break out of the inline <script>. */
+$landingProps = [];
+foreach ([
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+    'affid', 'oid', 'source_id', 'subid', 'gclid', 'fbclid', 'ttclid',
+] as $param) {
+    $value = trim((string) ($_GET[$param] ?? ''));
+    if ($value !== '') {
+        $landingProps[$param] = substr($value, 0, 100);
+    }
+}
+$landingJson = json_encode(
+    $landingProps,
+    JSON_FORCE_OBJECT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+);
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -33,7 +56,12 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php include __DIR__ . '/includes/track.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>
+
+    <!-- Funnel entry, queued by includes/track.php until the deferred Umami tag
+         is live. Reported as "Landed" in bin/funnel-slack-report.php. -->
+    <script>jgTrack('funnel-landing', <?= $landingJson ?>);</script>
 
     <?php if (!empty($cfg['turnstile']['enabled'])): ?>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -205,18 +233,26 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 5: name ===== -->
+            <!-- ===== Step 5: name =====
+                 data-jg-event marks a field for first-touch tracking: funnel.js
+                 fires the named event once, on first FOCUS of that field. (Umami's
+                 own data-umami-event is click-only, so it would miss every visitor
+                 who tabs into the field — hence the separate attribute.) Comparing
+                 these against the step's view event separates "saw the step" from
+                 "actually started filling it in". -->
             <section class="step" data-step="5">
                 <h2 class="step-title">What is your first and last name?</h2>
                 <div class="field">
                     <label for="first_name">First name <span class="req">*</span></label>
                     <input type="text" id="first_name" name="first_name" autocomplete="given-name"
-                           data-validate="name" required>
+                           data-validate="name" required
+                           data-jg-event="field-first-name">
                 </div>
                 <div class="field">
                     <label for="last_name">Last name <span class="req">*</span></label>
                     <input type="text" id="last_name" name="last_name" autocomplete="family-name"
-                           data-validate="name" required>
+                           data-validate="name" required
+                           data-jg-event="field-last-name">
                 </div>
             </section>
 
@@ -234,18 +270,20 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="field places-wrap">
                     <label for="street">Street address <span class="req">*</span></label>
                     <input type="text" id="street" name="street" autocomplete="off"
-                           data-validate="street" placeholder="Start typing your address&hellip;" required>
+                           data-validate="street" placeholder="Start typing your address&hellip;" required
+                           data-jg-event="field-street">
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
                 </div>
                 <div class="field-row">
                     <div class="field">
                         <label for="city">City <span class="req">*</span></label>
                         <input type="text" id="city" name="city" autocomplete="address-level2"
-                               data-validate="city" required>
+                               data-validate="city" required data-jg-event="field-city">
                     </div>
                     <div class="field">
                         <label for="state">State <span class="req">*</span></label>
-                        <select id="state" name="state" autocomplete="address-level1" required>
+                        <select id="state" name="state" autocomplete="address-level1" required
+                                data-jg-event="field-state">
                             <option value="">Select State</option>
                             <?php foreach ($cfg['states'] as $abbr => $name): ?>
                                 <option value="<?= $e($abbr) ?>"><?= $e($name) ?></option>
@@ -256,14 +294,16 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="field field--zip">
                     <label for="zip">Zip code <span class="req">*</span></label>
                     <input type="text" id="zip" name="zip" autocomplete="postal-code"
-                           inputmode="numeric" data-validate="zip" maxlength="5" required>
+                           inputmode="numeric" data-validate="zip" maxlength="5" required
+                           data-jg-event="field-zip">
                 </div>
             <?php else: ?>
                 <h2 class="step-title">What is your home address?</h2>
                 <div class="field places-wrap">
                     <label for="address">Home address <span class="req">*</span></label>
                     <input type="text" id="address" autocomplete="off" autocapitalize="words"
-                           data-validate="address" placeholder="Home Address" required>
+                           data-validate="address" placeholder="Home Address" required
+                           data-jg-event="field-address">
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
                 </div>
                 <!-- Segregated payload — populated by funnel.js (pick or submit-time geocode).
@@ -283,7 +323,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <div class="dob-wrap">
                         <input type="text" id="dob" name="dob" inputmode="numeric"
                                placeholder="MM/DD/YYYY" maxlength="10" data-validate="dob"
-                               autocomplete="bday" required>
+                               autocomplete="bday" required data-jg-event="field-dob">
                         <button type="button" class="dob-toggle" id="dobToggle"
                                 aria-label="Open calendar" aria-expanded="false" aria-controls="dobCal">
                             <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
@@ -304,7 +344,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="field">
                     <label for="email">Email address <span class="req">*</span></label>
                     <input type="email" id="email" name="email" autocomplete="email"
-                           data-validate="email" required>
+                           data-validate="email" required data-jg-event="field-email">
                 </div>
             </section>
 
@@ -318,7 +358,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <label for="phone">Phone <span class="req">*</span></label>
                     <input type="tel" id="phone" name="phone" autocomplete="tel"
                            inputmode="tel" placeholder="(555) 555-5555" maxlength="14"
-                           data-validate="phone" required>
+                           data-validate="phone" required data-jg-event="field-phone">
                 </div>
 
                 <p class="consent-note"><?= $e($cfg['consent']['contact']) ?></p>
@@ -335,8 +375,15 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                         data-umami-event="funnel-back">
                     <img src="assets/img/chevron-left-grey.svg" alt="" width="26" height="26">
                 </button>
-                <button type="button" class="btn btn-next" id="btnNext">Continue</button>
-                <button type="submit" class="btn btn-submit" id="btnSubmit" hidden>Submit</button>
+                <!-- Both buttons are shared across steps, so these count CLICKS, not
+                     step progress: funnel-continue-click includes attempts that bounce
+                     off validation (the per-step "advanced" signal is funnel-N-…-done),
+                     and funnel-submit-click includes retries after a 422. Umami's
+                     click-only declarative tracking is exactly right for buttons. -->
+                <button type="button" class="btn btn-next" id="btnNext"
+                        data-umami-event="funnel-continue-click">Continue</button>
+                <button type="submit" class="btn btn-submit" id="btnSubmit" hidden
+                        data-umami-event="funnel-submit-click">Submit</button>
             </div>
 
             <!-- Step-specific disclosure shown below the nav row. The DOB step's

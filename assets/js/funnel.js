@@ -39,8 +39,15 @@
         6: 'address', 7: 'dob', 8: 'email', 9: 'phone'
     };
     var trackedSteps = {};
+    // Prefer window.jgTrack (includes/track.php): this file is a classic script at
+    // the end of <body>, so it runs BEFORE the deferred Umami tag — window.umami is
+    // not there yet and the load-time step-1 view (the drop-off report's entry
+    // anchor) would be lost. jgTrack queues until the tracker is live. The direct
+    // umami call stays as a fallback for any page that omits the shim.
     function track(event, data) {
-        if (window.umami && typeof window.umami.track === 'function') {
+        if (typeof window.jgTrack === 'function') {
+            window.jgTrack(event, data);
+        } else if (window.umami && typeof window.umami.track === 'function') {
             window.umami.track(event, data);
         }
     }
@@ -64,6 +71,20 @@
         completedSteps[n] = true;
         track(stageEvent(n, '-done'), { step: n, name: STEP_NAMES[n] || ('step-' + n) });
     }
+
+    // First-touch per field. index.php marks each input with data-jg-event; we fire
+    // that event once, on first focus. focusin (not click) so tab/keyboard entry
+    // counts too — which is also why these can't be plain data-umami-event
+    // attributes, whose declarative tracking only listens for clicks.
+    var engagedFields = {};
+    form.addEventListener('focusin', function (ev) {
+        var el = ev.target && ev.target.closest ? ev.target.closest('[data-jg-event]') : null;
+        if (!el) return;
+        var name = el.getAttribute('data-jg-event');
+        if (!name || engagedFields[name]) return;
+        engagedFields[name] = true;
+        track(name, { step: current, name: STEP_NAMES[current] || ('step-' + current) });
+    });
 
     // Abandonment: fire once when the visitor leaves before submitting (tab
     // close, navigating away, or backgrounding on mobile), recording the step
