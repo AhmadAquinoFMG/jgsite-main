@@ -314,8 +314,7 @@
         var list = names.length > 1
             ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]
             : names[0];
-        return 'Please enter a complete address — we still need the ' + list + '. ' +
-               'Pick your address from the suggestions to fill it in.';
+        return 'Please enter a complete address — ' + list + ' are required';
     }
 
     function validateStep(n) {
