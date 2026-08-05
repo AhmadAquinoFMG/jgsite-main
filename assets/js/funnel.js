@@ -256,27 +256,53 @@
     };
     var PART_ORDER = ['street', 'city', 'state', 'zip', 'country'];
 
-    // p is {street, city, state, zip, country}; returns {ok:true} or
-    // {ok:false, missing:[part,…]}. Presence only — no country-specific format
-    // rules here, so a resolved address from anywhere passes as long as it is
-    // whole.
+    // A typed street line must carry a NUMBER as well as a name — "Main St" is a
+    // street, not an address. PO/rural boxes carry their number the same way, so
+    // "contains a digit" accepts them too.
+    function isStreetLine(v) { return v.length >= 4 && /\d/.test(v); }
+
+    // p is {street, city, state, zip, country}, optionally with the has* flags
+    // parseComponents attaches. Returns {ok:true} or {ok:false, missing:[part,…],
+    // code}. Presence only — no country-specific format rules here, so a resolved
+    // address from anywhere passes as long as it is whole.
     function checkAddressParts(p) {
         p = p || {};
         function val(k) { return (p[k] || '').trim(); }
 
+        // Google-resolved parts state outright whether a house number and street
+        // name were found; typed parts (classic mode) only have the text, so they
+        // fall back to the digit heuristic.
+        var street     = val('street');
+        var fromGoogle = p.hasNumber !== undefined;
+        var streetOk   = street && (fromGoogle
+            ? (p.hasPostBox || (p.hasNumber && p.hasRoute))
+            : isStreetLine(street));
+
         var missing = [];
-        if (val('street').length  < 4) missing.push('street');
+        if (!streetOk)                 missing.push('street');
         if (val('city').length    < 2) missing.push('city');
         if (val('state').length   < 2) missing.push('state');
         if (val('zip').length     < 3) missing.push('zip');
         if (!val('country'))           missing.push('country');
 
-        return missing.length ? { ok: false, missing: missing } : { ok: true };
+        if (!missing.length) return { ok: true };
+        return {
+            ok: false,
+            missing: missing,
+            // A street with a name but no number is a different problem from a
+            // blank one, and worth its own message when it's the only gap.
+            code: (street && !streetOk && missing.length === 1) ? 'no_street_number' : ''
+        };
     }
 
     // "…we still need the city and ZIP code." Naming the gap beats a generic
     // "address is incomplete", which leaves the visitor guessing what to retype.
-    function addressErrorMsg(missing) {
+    function addressErrorMsg(res) {
+        if (res.code === 'no_street_number') {
+            return 'Please enter a full street address including the house or ' +
+                   'building number — e.g. 123 Main St.';
+        }
+        var missing = res.missing;
         var names = PART_ORDER
             .filter(function (k) { return missing.indexOf(k) > -1; })
             .map(function (k) { return PART_LABELS[k]; });
@@ -518,6 +544,7 @@
         var pickedFor  = '';    // visible.value at the moment of that pick
         var resolvedFor = null; // text whose resolution already sits in the payload fields
                                 // (so a repeat Continue on a blocked address doesn't re-geocode)
+        var resolvedRes = null; // and that resolution's completeness verdict
 
         function close() { if (list) { list.hidden = true; list.innerHTML = ''; } }
         function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
@@ -562,30 +589,41 @@
         }
 
         // Google addressComponents (New: longText/shortText; legacy geocoder:
-        // long_name/short_name) -> our {street, city, state, zip, country}. state
-        // and country come from shortText (CA, US) to match what submit.php and
-        // LeadProsper expect.
-        function parseComponents(comps, formatted) {
-            var g = { num: '', route: '', locality: '', sublocality: '', admin1: '', zip: '', country: '' };
+        // long_name/short_name) -> our {street, city, state, zip, country} plus the
+        // has* flags checkAddressParts needs. state and country come from shortText
+        // (CA, US) to match what submit.php and LeadProsper expect.
+        //
+        // The street line is composed ONLY from real components. It must never fall
+        // back to the formatted address: a locality-level result formats as
+        // "Springfield, IL 62701, USA", so taking the first segment invented a
+        // street ("Springfield") and let an address with no street at all pass the
+        // completeness check.
+        function parseComponents(comps) {
+            var g = { num: '', route: '', postBox: '', locality: '', sublocality: '', admin1: '', zip: '', country: '' };
             (comps || []).forEach(function (c) {
                 var t = c.types || [];
                 var long  = c.longText  != null ? c.longText  : c.long_name;
                 var short = c.shortText != null ? c.shortText : c.short_name;
                 if (t.indexOf('street_number') > -1) g.num = long;
                 else if (t.indexOf('route') > -1) g.route = long;
+                else if (t.indexOf('post_box') > -1) g.postBox = long;
                 else if (t.indexOf('locality') > -1) g.locality = long;
                 else if (t.indexOf('sublocality') > -1 || t.indexOf('sublocality_level_1') > -1) g.sublocality = long;
                 else if (t.indexOf('administrative_area_level_1') > -1) g.admin1 = short;
                 else if (t.indexOf('postal_code') > -1) g.zip = long;
                 else if (t.indexOf('country') > -1) g.country = short || long;
             });
-            var streetLine = (g.num + ' ' + g.route).trim();
             return {
-                street:  streetLine || (formatted ? String(formatted).split(',')[0] : ''),
-                city:    g.locality || g.sublocality || '',
-                state:   g.admin1 || '',
-                zip:     (g.zip || '').slice(0, 5),
-                country: g.country || ''
+                street:    g.postBox || (g.num + ' ' + g.route).trim(),
+                city:      g.locality || g.sublocality || '',
+                state:     g.admin1 || '',
+                zip:       (g.zip || '').slice(0, 5),
+                country:   g.country || '',
+                // Flags, not guesses: a route with no street_number is a street
+                // NAME, not an address, and only Google can tell us which we got.
+                hasNumber:  !!g.num,
+                hasRoute:   !!g.route,
+                hasPostBox: !!g.postBox
             };
         }
 
@@ -600,7 +638,7 @@
                         .filter(Boolean).join(', ');
                 visible.value = shown;
                 picked = p; pickedFor = shown;
-                resolvedFor = null;
+                resolvedFor = null; resolvedRes = null;
                 setParts(p);
             } else {
                 visible.value = p.street || '';
@@ -618,7 +656,7 @@
         visible.addEventListener('input', function () {
             clearError(visible.closest('.step'));
             if (!single) return;
-            resolvedFor = null;
+            resolvedFor = null; resolvedRes = null;
             if (picked && visible.value !== pickedFor) {
                 picked = null; pickedFor = '';
                 setParts({});
@@ -669,7 +707,7 @@
                         var place = pred.toPlace();
                         place.fetchFields({ fields: ['addressComponents', 'formattedAddress'] })
                             .then(function () {
-                                onPick(parseComponents(place.addressComponents, place.formattedAddress), place.formattedAddress);
+                                onPick(parseComponents(place.addressComponents), place.formattedAddress);
                                 token = new Token(); // close the billing session, start a fresh one
                             })
                             .catch(function (err) { console.error('[funnel] place details failed', err); });
@@ -709,9 +747,16 @@
                 .then(function (geo) {
                     var gc = new geo.Geocoder();
                     gc.geocode({ address: text, componentRestrictions: { country: 'us' } }, function (results, status) {
-                        if (status === 'OK' && results && results[0]) {
-                            finish(parseComponents(results[0].address_components, results[0].formatted_address));
-                        } else { finish(null); }
+                        if (status !== 'OK' || !results || !results[0]) return finish(null);
+                        var r = results[0];
+                        // partial_match means the geocoder could not match what was
+                        // typed and picked its best guess — typically snapping a
+                        // city-less "123 Main St" to whichever Main St it likes.
+                        // Its components come back complete, so trusting it would
+                        // put an address the visitor never entered on the lead.
+                        // Treat it as unresolved and ask them to pick a suggestion.
+                        if (r.partial_match) return finish(null);
+                        finish(parseComponents(r.address_components));
                     });
                 })
                 .catch(function () { finish(null); });
@@ -723,9 +768,14 @@
         // a partial address — i.e. how often this gate is what holds visitors up.
         function finalize(parts, text, cb) {
             setParts(parts);
-            resolvedFor = text;
 
-            var res = checkAddressParts(currentParts());
+            // Judge the resolution itself, not the hidden inputs: the has* flags
+            // that distinguish a street from a street NAME live on `parts` and
+            // cannot be read back out of the DOM.
+            var res = checkAddressParts(parts);
+            resolvedFor = text;
+            resolvedRes = res;
+
             track(res.ok ? 'event_address_resolved' : 'event_address_partial', {
                 step: 6, field: 'address',
                 has_city:  !!parts.city,
@@ -751,19 +801,17 @@
             if (picked && visible.value === pickedFor) { finalize(picked, text, cb); return; }
 
             // (b) already resolved this exact text — don't pay for a second geocode
-            if (resolvedFor === text) { cb(checkAddressParts(currentParts())); return; }
+            if (resolvedFor === text && resolvedRes) { cb(resolvedRes); return; }
 
-            // (c) geocode the typed text
+            // (c) geocode the typed text. Whatever comes back is used as-is: the
+            // typed line is NEVER promoted into a missing street, or "62701" would
+            // arrive as a street next to the ZIP's own city and state and pass.
             geocode(text, function (parts) {
-                if (parts && (parts.street || parts.city || parts.state || parts.zip)) {
-                    if (!parts.street) parts.street = text; // keep the typed line if the geocoder had no street
-                    finalize(parts, text, cb);
-                } else {
-                    // Nothing came back (no key, timeout, or unrecognised address):
-                    // keep the typed line as the street and let the completeness
-                    // check block on the parts we could not fill.
-                    finalize({ street: text, city: '', state: '', zip: '' }, text, cb);
-                }
+                if (parts) { finalize(parts, text, cb); return; }
+                // Nothing usable came back (no key, timeout, partial match, or an
+                // unrecognised address): keep the typed line as the street so it
+                // isn't lost, and let the check block on the parts we can't fill.
+                finalize({ street: text, city: '', state: '', zip: '' }, text, cb);
             });
         }
 
@@ -799,7 +847,7 @@
                     track('event_address_incomplete', {
                         step: 6, field: 'address', missing: res.missing.join(',')
                     });
-                    fail(scope, address.fieldFor(res.missing[0]), addressErrorMsg(res.missing));
+                    fail(scope, address.fieldFor(res.missing[0]), addressErrorMsg(res));
                     return;
                 }
                 trackStepComplete(6);
