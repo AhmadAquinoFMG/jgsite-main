@@ -66,7 +66,7 @@ return [
     // or the UMAMI_WEBSITE_ID env var that overrides it.
     'umami' => [
         'src'        => 'https://cloud.umami.is/script.js',
-        'website_id' => '8ed84c35-51fe-4ede-8193-3ae61f46508d',
+        'website_id' => '40f1f6d9-80c1-49cf-b6ef-0280ac052f83',
     ],
 
     // ---- Google Places (address autocomplete, step 5) ------------------
