@@ -58,7 +58,7 @@ $landingJson = json_encode(
     <?php include __DIR__ . '/includes/analytics.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>
-
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="8ed84c35-51fe-4ede-8193-3ae61f46508d"></script>
     <!-- Funnel entry, queued by includes/track.php until the deferred Umami tag
          is live. Reported as "Landed" in bin/funnel-slack-report.php. -->
     <script>jgTrack('funnel-landing', <?= $landingJson ?>);</script>
