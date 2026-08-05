@@ -19,8 +19,8 @@ $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
 /* ---- Funnel landing event props -------------------------------------------
-   One "funnel-landing" event per pageview, carrying the traffic source. Step 1
-   (funnel-1-debt-amount) is the entry anchor of the drop-off report, so without
+   One "event_view_landing" event per pageview, carrying the traffic source. Step 1
+   (event_view_debt_amount) is the entry anchor of the drop-off report, so without
    this there is no measurement of the landing → step 1 gap — the largest and
    previously invisible drop on the page. Built server-side from a WHITELIST of
    query params (never the raw query string) and length-capped, then emitted as a
@@ -58,10 +58,10 @@ $landingJson = json_encode(
     <?php include __DIR__ . '/includes/analytics.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>
-    <script defer src="https://cloud.umami.is/script.js" data-website-id="8ed84c35-51fe-4ede-8193-3ae61f46508d"></script>
+
     <!-- Funnel entry, queued by includes/track.php until the deferred Umami tag
          is live. Reported as "Landed" in bin/funnel-slack-report.php. -->
-    <script>jgTrack('funnel-landing', <?= $landingJson ?>);</script>
+    <script>jgTrack('event_view_landing', <?= $landingJson ?>);</script>
 
     <?php if (!empty($cfg['turnstile']['enabled'])): ?>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -180,7 +180,7 @@ $landingJson = json_encode(
                     <?php foreach ($cfg['debt_options'] as $opt): ?>
                         <label class="choice">
                             <input type="radio" name="debt_amount" value="<?= $e($opt) ?>" required
-                                   data-umami-event="choice-debt-amount" data-umami-event-choice="<?= $e($opt) ?>">
+                                   data-umami-event="event_choice_debt_amount" data-umami-event-choice="<?= $e($opt) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($opt) ?></span>
                         </label>
@@ -195,7 +195,7 @@ $landingJson = json_encode(
                     <?php foreach ($cfg['behind_payment_options'] as $val => $label): ?>
                         <label class="choice">
                             <input type="radio" name="behind_payment" value="<?= $e($val) ?>" required
-                                   data-umami-event="choice-behind-payment" data-umami-event-choice="<?= $e($val) ?>">
+                                   data-umami-event="event_choice_behind_payment" data-umami-event-choice="<?= $e($val) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($label) ?></span>
                         </label>
@@ -210,7 +210,7 @@ $landingJson = json_encode(
                     <?php foreach ($cfg['employment_options'] as $val => $label): ?>
                         <label class="choice">
                             <input type="radio" name="employment" value="<?= $e($val) ?>" required
-                                   data-umami-event="choice-employment" data-umami-event-choice="<?= $e($val) ?>">
+                                   data-umami-event="event_choice_employment" data-umami-event-choice="<?= $e($val) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($label) ?></span>
                         </label>
@@ -225,7 +225,7 @@ $landingJson = json_encode(
                     <?php foreach ($cfg['income_options'] as $opt): ?>
                         <label class="choice">
                             <input type="radio" name="income" value="<?= $e($opt) ?>" required
-                                   data-umami-event="choice-income" data-umami-event-choice="<?= $e($opt) ?>">
+                                   data-umami-event="event_choice_income" data-umami-event-choice="<?= $e($opt) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($opt) ?></span>
                         </label>
@@ -246,13 +246,13 @@ $landingJson = json_encode(
                     <label for="first_name">First name <span class="req">*</span></label>
                     <input type="text" id="first_name" name="first_name" autocomplete="given-name"
                            data-validate="name" required
-                           data-jg-event="field-first-name">
+                           data-jg-event="event_engage_first_name">
                 </div>
                 <div class="field">
                     <label for="last_name">Last name <span class="req">*</span></label>
                     <input type="text" id="last_name" name="last_name" autocomplete="family-name"
                            data-validate="name" required
-                           data-jg-event="field-last-name">
+                           data-jg-event="event_engage_last_name">
                 </div>
             </section>
 
@@ -271,19 +271,19 @@ $landingJson = json_encode(
                     <label for="street">Street address <span class="req">*</span></label>
                     <input type="text" id="street" name="street" autocomplete="off"
                            data-validate="street" placeholder="Start typing your address&hellip;" required
-                           data-jg-event="field-street">
+                           data-jg-event="event_engage_street">
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
                 </div>
                 <div class="field-row">
                     <div class="field">
                         <label for="city">City <span class="req">*</span></label>
                         <input type="text" id="city" name="city" autocomplete="address-level2"
-                               data-validate="city" required data-jg-event="field-city">
+                               data-validate="city" required data-jg-event="event_engage_city">
                     </div>
                     <div class="field">
                         <label for="state">State <span class="req">*</span></label>
                         <select id="state" name="state" autocomplete="address-level1" required
-                                data-jg-event="field-state">
+                                data-jg-event="event_engage_state">
                             <option value="">Select State</option>
                             <?php foreach ($cfg['states'] as $abbr => $name): ?>
                                 <option value="<?= $e($abbr) ?>"><?= $e($name) ?></option>
@@ -295,7 +295,7 @@ $landingJson = json_encode(
                     <label for="zip">Zip code <span class="req">*</span></label>
                     <input type="text" id="zip" name="zip" autocomplete="postal-code"
                            inputmode="numeric" data-validate="zip" maxlength="5" required
-                           data-jg-event="field-zip">
+                           data-jg-event="event_engage_zip">
                 </div>
             <?php else: ?>
                 <h2 class="step-title">What is your home address?</h2>
@@ -303,7 +303,7 @@ $landingJson = json_encode(
                     <label for="address">Home address <span class="req">*</span></label>
                     <input type="text" id="address" autocomplete="off" autocapitalize="words"
                            data-validate="address" placeholder="Home Address" required
-                           data-jg-event="field-address">
+                           data-jg-event="event_engage_address">
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
                 </div>
                 <!-- Segregated payload — populated by funnel.js (pick or submit-time geocode).
@@ -323,7 +323,7 @@ $landingJson = json_encode(
                     <div class="dob-wrap">
                         <input type="text" id="dob" name="dob" inputmode="numeric"
                                placeholder="MM/DD/YYYY" maxlength="10" data-validate="dob"
-                               autocomplete="bday" required data-jg-event="field-dob">
+                               autocomplete="bday" required data-jg-event="event_engage_dob">
                         <button type="button" class="dob-toggle" id="dobToggle"
                                 aria-label="Open calendar" aria-expanded="false" aria-controls="dobCal">
                             <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
@@ -344,7 +344,7 @@ $landingJson = json_encode(
                 <div class="field">
                     <label for="email">Email address <span class="req">*</span></label>
                     <input type="email" id="email" name="email" autocomplete="email"
-                           data-validate="email" required data-jg-event="field-email">
+                           data-validate="email" required data-jg-event="event_engage_email">
                 </div>
             </section>
 
@@ -358,7 +358,7 @@ $landingJson = json_encode(
                     <label for="phone">Phone <span class="req">*</span></label>
                     <input type="tel" id="phone" name="phone" autocomplete="tel"
                            inputmode="tel" placeholder="(555) 555-5555" maxlength="14"
-                           data-validate="phone" required data-jg-event="field-phone">
+                           data-validate="phone" required data-jg-event="event_engage_phone">
                 </div>
 
                 <p class="consent-note"><?= $e($cfg['consent']['contact']) ?></p>
@@ -372,18 +372,19 @@ $landingJson = json_encode(
                  button the step uses: Continue (steps 1–7) or Submit (step 8). -->
             <div class="form-nav">
                 <button type="button" class="btn-back" id="btnBack" aria-label="Back" hidden
-                        data-umami-event="funnel-back">
+                        data-umami-event="event_back_click">
                     <img src="assets/img/chevron-left-grey.svg" alt="" width="26" height="26">
                 </button>
-                <!-- Both buttons are shared across steps, so these count CLICKS, not
-                     step progress: funnel-continue-click includes attempts that bounce
-                     off validation (the per-step "advanced" signal is funnel-N-…-done),
-                     and funnel-submit-click includes retries after a 422. Umami's
-                     click-only declarative tracking is exactly right for buttons. -->
+                <!-- Both buttons are shared across every step, which is why these are
+                     NOT named after a field: they count CLICKS. event_continue_click
+                     includes attempts that bounce off validation (the per-step signal
+                     is event_<field>_complete) and event_submit_click includes retries
+                     after a 422. Umami's click-only declarative tracking is exactly
+                     right for buttons — no focus subtleties to worry about. -->
                 <button type="button" class="btn btn-next" id="btnNext"
-                        data-umami-event="funnel-continue-click">Continue</button>
+                        data-umami-event="event_continue_click">Continue</button>
                 <button type="submit" class="btn btn-submit" id="btnSubmit" hidden
-                        data-umami-event="funnel-submit-click">Submit</button>
+                        data-umami-event="event_submit_click">Submit</button>
             </div>
 
             <!-- Step-specific disclosure shown below the nav row. The DOB step's

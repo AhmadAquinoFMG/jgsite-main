@@ -30,15 +30,31 @@
     function stepEl(n)   { return steps[n - 1]; }
 
     /* ----------------------------------------------------- analytics (Umami)
-       Funnel drop-off tracking. We fire one "funnel-step" event the first time
-       each step is reached (a Set guards against back/forward double-counting),
-       so an Umami Funnel report shows how many visitors hit each step and where
-       they exit. umami may be absent (script blocked / not configured) — guard. */
-    var STEP_NAMES = {
-        1: 'debt-amount', 2: 'behind-payment', 3: 'employment', 4: 'income', 5: 'name',
+       Funnel drop-off tracking. Every event is named after the DATA THE STEP
+       COLLECTS, not its position, so an event name still means the same thing
+       after a step is inserted, moved or dropped:
+
+         event_view_<field>       first time the step is shown
+         event_engage_<field>     first focus of one of its inputs (index.php marks
+                                  these with data-jg-event)
+         event_<field>_complete   the step validated and the visitor advanced
+         event_abandon_<field>    the visitor left the page while on this step
+         event_resume_<field>     the visitor came BACK to this step
+
+       Naming each one per field (rather than one event carrying a step number as a
+       property) is what makes them countable in Umami — its funnel and event
+       reports group by event NAME, so a shared name with a `step` prop cannot be
+       broken out per step. bin/funnel-slack-report.php reads these names; rename on
+       one side only and the Slack digest silently reports zeroes.
+
+       Umami may be absent (script blocked / not configured) — track() guards. */
+    var STEP_FIELDS = {
+        1: 'debt_amount', 2: 'behind_payment', 3: 'employment', 4: 'income', 5: 'name',
         6: 'address', 7: 'dob', 8: 'email', 9: 'phone'
     };
-    var trackedSteps = {};
+    function field(n)     { return STEP_FIELDS[n] || ('step_' + n); }
+    function stepProps(n) { return { step: n, field: field(n) }; }
+
     // Prefer window.jgTrack (includes/track.php): this file is a classic script at
     // the end of <body>, so it runs BEFORE the deferred Umami tag — window.umami is
     // not there yet and the load-time step-1 view (the drop-off report's entry
@@ -51,25 +67,29 @@
             window.umami.track(event, data);
         }
     }
-    // Distinct, ordered event name per stage (e.g. "funnel-1-debt-amount") so
-    // each stage shows up as its own row in Umami's Events list and sorts in
-    // funnel order. The "-done" suffix marks the stage as completed.
-    function stageEvent(n, suffix) {
-        return 'funnel-' + n + '-' + (STEP_NAMES[n] || ('step-' + n)) + (suffix || '');
-    }
+
+    // A step already seen and shown again is a RESUME (back button, or a 422
+    // bouncing the visitor to the offending step). Unlike the others this is not
+    // once-per-visit: every return trip counts, because repeated returns to the
+    // same field are the signal that the field itself is the problem.
+    var trackedSteps = {};
     function trackStep(n) {
-        if (trackedSteps[n]) return;
+        if (trackedSteps[n]) {
+            track('event_resume_' + field(n), stepProps(n));
+            return;
+        }
         trackedSteps[n] = true;
-        track(stageEvent(n), { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+        track('event_view_' + field(n), stepProps(n));
     }
-    // Fired when a stage is validated and the visitor advances. Comparing
-    // "reached" (funnel-N-name) vs "completed" (funnel-N-name-done) per stage
-    // shows exactly which stage visitors stall on before leaving.
+
+    // Fired when a step is validated and the visitor advances. Comparing
+    // event_view_<field> against event_<field>_complete shows which field visitors
+    // stall on rather than merely pass through.
     var completedSteps = {};
     function trackStepComplete(n) {
         if (completedSteps[n]) return;
         completedSteps[n] = true;
-        track(stageEvent(n, '-done'), { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+        track('event_' + field(n) + '_complete', stepProps(n));
     }
 
     // First-touch per field. index.php marks each input with data-jg-event; we fire
@@ -83,12 +103,12 @@
         var name = el.getAttribute('data-jg-event');
         if (!name || engagedFields[name]) return;
         engagedFields[name] = true;
-        track(name, { step: current, name: STEP_NAMES[current] || ('step-' + current) });
+        track(name, stepProps(current));
     });
 
     // Abandonment: fire once when the visitor leaves before submitting (tab
-    // close, navigating away, or backgrounding on mobile), recording the step
-    // they left from. This is the explicit "where did they drop off" signal.
+    // close, navigating away, or backgrounding on mobile), naming the FIELD they
+    // left from. This is the explicit "where did they drop off" signal.
     // We use 'visibilitychange' -> hidden rather than 'beforeunload' because it
     // fires reliably across desktop and mobile and lets the request flush.
     var submitted   = false;
@@ -96,7 +116,7 @@
     function trackExit() {
         if (exitTracked || submitted) return;
         exitTracked = true;
-        track('funnel-exit', { step: current, name: STEP_NAMES[current] || ('step-' + current) });
+        track('event_abandon_' + field(current), stepProps(current));
     }
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'hidden') trackExit();
@@ -616,8 +636,8 @@
             var hasCity = !!parts.city, hasState = !!parts.state, hasZip = !!parts.zip;
             // Two distinct event names so a drop-off report (which counts by event
             // name) can measure how often the single field yields a partial address.
-            track(hasCity && hasState && hasZip ? 'address_resolved_complete' : 'address_resolved_incomplete', {
-                step: 5, name: 'address',
+            track(hasCity && hasState && hasZip ? 'event_address_resolved' : 'event_address_partial', {
+                step: 6, field: 'address',
                 has_city: hasCity, has_state: hasState, has_zip: hasZip
             });
             cb();
@@ -720,12 +740,14 @@
         if (submitting) return;
 
         submitting = true;
-        submitted  = true; // a completion, not an abandonment — suppress funnel-exit
+        submitted  = true; // a completion, not an abandonment — suppress event_abandon_*
         btnSubmit.disabled = true;
         btnSubmit.textContent = 'Submitting…';
 
-        // Funnel completion — the conversion endpoint of the drop-off report.
-        track('funnel-submit', { step: current, name: STEP_NAMES[current] || 'submit' });
+        // ATTEMPT, not success: this fires before the POST resolves, so 422s and
+        // network failures are in here too. The conversion signal is
+        // event_view_thank_you, fired by thank-you.php after submit.php accepts.
+        track('event_submit_attempt', stepProps(current));
 
         fetch('submit.php', {
             method: 'POST',

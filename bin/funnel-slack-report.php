@@ -9,43 +9,62 @@
  * ---------------------------------------------------------------------------
  * The events it reads (all of them exist — don't rename one side only)
  * ---------------------------------------------------------------------------
- *   funnel-landing          index.php, on pageview, with the traffic-source props.
- *   funnel-N-<name>         assets/js/funnel.js, first time step N is shown.
- *   funnel-N-<name>-done    assets/js/funnel.js, when step N validates and advances.
- *   thank_you_view          thank-you.php, on pageview.
- *   call_click              thank-you.php, the CALL NOW tel: link.
- *   funnel-submit           assets/js/funnel.js, on every submit ATTEMPT.
+ * Events are named after the DATA THE STEP COLLECTS, never its position, so a name
+ * still means the same thing after a step is inserted, moved or dropped. Per-FIELD
+ * names are also what makes them countable: Umami groups by event NAME, so one
+ * shared event carrying a step number as a property could not be broken out.
  *
- * Measurement is unique-visitor based (Umami's funnel report) and, for the
- * headline outcome, BEACON-INDEPENDENT so the number is correct immediately:
+ *   event_view_landing          index.php, on pageview, with traffic-source props.
+ *   event_view_<field>          funnel.js, first time that step is shown.
+ *   event_engage_<field>        funnel.js, first focus of one of its inputs.
+ *   event_<field>_complete      funnel.js, step validated and visitor advanced.
+ *   event_abandon_<field>       funnel.js, visitor left the page on that step.
+ *   event_resume_<field>        funnel.js, visitor came BACK to that step.
+ *   event_view_thank_you        thank-you.php, on pageview.
+ *   event_call_click            thank-you.php, the CALL NOW tel: link.
+ *   event_submit_attempt        funnel.js, on every submit ATTEMPT.
  *
- *   - Form table: the 9 on-form view steps, all fired via track() on a page that
- *     stays open, so they are the reliable signal. This is pure in-form drop-off.
- *   - Completed is derived from a terminal funnel anchored at entry
- *     (funnel-1-debt-amount → thank_you_view). thank_you_view is a fresh pageview
- *     on the post-submit page, so it cannot be lost to the redirect the way an
- *     in-page submit beacon can.
- *   - funnel-submit is shown only as a secondary "submit attempts" line. It counts
- *     ATTEMPTS, not successes — it fires before the POST resolves, so 422s and
- *     network failures are in there. Never treat it as a conversion count.
+ * ---------------------------------------------------------------------------
+ * Why the headline numbers are trustworthy
+ * ---------------------------------------------------------------------------
+ *   - Form table: the 9 event_view_<field> steps, all fired via track() on a page
+ *     that stays open, so they are the reliable signal. Pure in-form drop-off.
+ *   - Completed comes from a terminal funnel anchored at entry (event_view_debt_amount
+ *     → event_view_thank_you). event_view_thank_you is a fresh pageview on the
+ *     post-submit page, so it cannot be lost to the redirect the way an in-page
+ *     submit beacon can.
+ *   - event_submit_attempt is shown only as a secondary line. It counts ATTEMPTS,
+ *     not successes — it fires before the POST resolves, so 422s and network
+ *     failures are in there. Never read it as a conversion count.
  *
- * There is one outcome path: submit.php accepts the lead and funnel.js redirects
- * to thank-you.php (submit.php:438). No offerwall/decline branch exists on this
- * site, so there is no second terminal funnel to report.
+ * There is one outcome path: submit.php accepts the lead and funnel.js redirects to
+ * thank-you.php (submit.php:438). No offerwall/decline branch exists on this site,
+ * so there is no second terminal funnel to report.
  *
- * The "Adv" (advanced) column comes from the -done events. Note that by
- * construction adv(N) ≈ saw(N+1) — advancing renders the next step, which fires
- * its view event — so on steps 1-8 it is mostly a cross-check that both events
- * landed. It carries real information on the LAST step, where "advanced" means the
- * visitor actually pushed Submit rather than merely reaching the phone field.
+ * Columns, and what each is actually measuring:
+ *   Saw   unique visitors who reached the step        (funnel report)
+ *   Adv   of those, how many advanced from it         (funnel report)
+ *   Left  event_abandon_<field> total fires           (event totals)
+ *   Back  event_resume_<field> total fires            (event totals)
+ * Saw/Adv are unique VISITORS; Left/Back are event COUNTS, so don't read
+ * Left as a share of Saw. Back counts every return trip on purpose — repeated
+ * returns to the same field are the signal that the field itself is the problem.
  *
- * Cost: ~14 Umami API calls per run (1 form funnel + 1 per step for -done + 4
- * outcome funnels).
+ * Note that adv(N) ≈ saw(N+1) by construction: advancing renders the next step,
+ * which fires its view event. On steps 1-8 the Adv column is mostly a cross-check
+ * that both events landed; it carries real information on the LAST step, where
+ * "advanced" means the visitor actually pushed Submit rather than merely reaching
+ * the phone field.
+ *
+ * Cost: ~15 Umami API calls per run (1 form funnel + 1 per step for _complete +
+ * 4 outcome funnels + 1 event-totals call covering all abandon/resume names).
  *
  * Secrets (real env vars or .env/.env.local at the project root):
  *   UMAMI_API_KEY       required — Umami Cloud API key (x-umami-api-key)
- *   SLACK_WEBHOOK_URLS  required — one or more Slack webhook URLs, comma-separated
- *   UMAMI_WEBSITE_ID    optional — defaults to the JG Wentworth website id
+ *   SLACK_WEBHOOK_URL   required — one or more Slack webhook URLs, comma-separated
+ *                                  (SLACK_WEBHOOK_URLS is accepted as an alias)
+ *   UMAMI_WEBSITE_ID    optional — defaults to DEFAULT_WEBSITE below, which must
+ *                                  match config.php ['umami']['website_id']
  *
  * Usage:  php bin/funnel-slack-report.php
  * Exit:   0 success · 1 config error · 2 Umami error · 3 Slack post failed.
@@ -62,32 +81,41 @@ if (PHP_SAPI !== 'cli') {
 // Config
 // ---------------------------------------------------------------------------
 const UMAMI_API_BASE  = 'https://api.umami.is/v1';
-const DEFAULT_WEBSITE = '40f1f6d9-80c1-49cf-b6ef-0280ac052f83'; // JG Wentworth (config.php ['umami'])
+const DEFAULT_WEBSITE = '8ed84c35-51fe-4ede-8193-3ae61f46508d'; // must match config.php ['umami']['website_id']
 const REPORT_TZ       = 'America/New_York';
 const LOW_SAMPLE_MIN  = 15;   // below this many entrants, flag the numbers as noisy
 const HTTP_TIMEOUT    = 20;
-const DONE_SUFFIX     = '-done';
 
-// The on-form funnel: ordered [event_name => human label]. Mirrors STEP_NAMES in
-// assets/js/funnel.js — the two must stay in lockstep.
+// The on-form funnel, in order: [field slug => human label]. The slugs mirror
+// STEP_FIELDS in assets/js/funnel.js — the two must stay in lockstep. Event names
+// are derived from these by the ev_* helpers below.
 const FORM_STEPS = [
-    'funnel-1-debt-amount'    => 'Debt amount',
-    'funnel-2-behind-payment' => 'Behind on payments',
-    'funnel-3-employment'     => 'Employment',
-    'funnel-4-income'         => 'Income',
-    'funnel-5-name'           => 'Name',
-    'funnel-6-address'        => 'Address',
-    'funnel-7-dob'            => 'Date of birth',
-    'funnel-8-email'          => 'Email',
-    'funnel-9-phone'          => 'Phone',
+    'debt_amount'    => 'Debt amount',
+    'behind_payment' => 'Behind on payments',
+    'employment'     => 'Employment',
+    'income'         => 'Income',
+    'name'           => 'Name',
+    'address'        => 'Address',
+    'dob'            => 'Date of birth',
+    'email'          => 'Email',
+    'phone'          => 'Phone',
 ];
 
-// Key events used for the landing and terminal (outcome) funnels.
-const EV_LAND     = 'funnel-landing';         // landed on index.php (with source props)
-const EV_ENTER    = 'funnel-1-debt-amount';   // funnel entry anchor (step 1 shown)
-const EV_COMPLETE = 'thank_you_view';         // reached the pre-qualified page — the conversion
-const EV_CALL     = 'call_click';             // clicked the CALL NOW CTA there
-const EV_ATTEMPT  = 'funnel-submit';          // submit ATTEMPT (secondary signal, see docblock)
+// Landing and terminal (outcome) events.
+const EV_LAND     = 'event_view_landing';    // landed on index.php (with source props)
+const EV_COMPLETE = 'event_view_thank_you';  // reached the pre-qualified page — the conversion
+const EV_CALL     = 'event_call_click';      // clicked the CALL NOW CTA there
+const EV_ATTEMPT  = 'event_submit_attempt';  // submit ATTEMPT (secondary signal, see docblock)
+
+// Event names for a step, derived from its field slug. One place to change if the
+// taxonomy ever shifts.
+function ev_view(string $field): string     { return 'event_view_' . $field; }
+function ev_complete(string $field): string { return 'event_' . $field . '_complete'; }
+function ev_abandon(string $field): string  { return 'event_abandon_' . $field; }
+function ev_resume(string $field): string   { return 'event_resume_' . $field; }
+
+/** The funnel entry anchor: the view event of the first step. */
+function ev_enter(): string { return ev_view((string) array_key_first(FORM_STEPS)); }
 
 // ---------------------------------------------------------------------------
 // Minimal .env loader (no web side effects; real env vars win over files)
@@ -134,6 +162,11 @@ function fail(int $code, string $msg): never
 {
     fwrite(STDERR, '[funnel_report] ' . $msg . "\n");
     exit($code);
+}
+
+function warn(string $msg): void
+{
+    fwrite(STDERR, '[funnel_report] WARN ' . $msg . "\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -212,6 +245,55 @@ function funnel_ends(string $apiKey, string $websiteId, array $events, string $s
     return [(int) ($first['visitors'] ?? 0), (int) ($last['visitors'] ?? 0)];
 }
 
+/**
+ * Per-event totals for the window: [eventName => count]. One call covers every
+ * event name, which is why the abandon/resume columns are nearly free.
+ *
+ * These are total event COUNTS, not unique visitors — fine for abandon (fires at
+ * most once per pageview) and deliberate for resume (every return trip counts).
+ * Degrades to [] on error rather than killing the digest: those two columns are
+ * secondary, and the run should still post the drop-off table.
+ */
+function umami_event_counts(string $apiKey, string $websiteId, int $startMs, int $endMs): array
+{
+    $url = sprintf(
+        '%s/websites/%s/metrics?type=event&startAt=%d&endAt=%d',
+        UMAMI_API_BASE, rawurlencode($websiteId), $startMs, $endMs
+    );
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => HTTP_TIMEOUT,
+        CURLOPT_HTTPHEADER     => ['x-umami-api-key: ' . $apiKey],
+    ]);
+    $resp = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $err  = curl_error($ch);
+    curl_close($ch);
+
+    if ($resp === false) {
+        warn('event totals request failed (Left/Back columns will read 0): ' . $err);
+        return [];
+    }
+    if ($code !== 200) {
+        warn("event totals returned HTTP $code (Left/Back columns will read 0): $resp");
+        return [];
+    }
+    $data = json_decode($resp, true);
+    if (!is_array($data)) {
+        warn('event totals returned non-array (Left/Back columns will read 0).');
+        return [];
+    }
+
+    $out = [];
+    foreach ($data as $row) {
+        if (is_array($row) && isset($row['x'])) {
+            $out[(string) $row['x']] = (int) ($row['y'] ?? 0);
+        }
+    }
+    return $out;
+}
+
 /** POST a Slack Block Kit payload to a webhook. Returns [httpCode, body]. */
 function slack_post(string $url, array $payload): array
 {
@@ -246,17 +328,22 @@ function by_event(array $rows): array
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
-$apiKey     = cfg('UMAMI_API_KEY');
-$websiteId  = cfg('UMAMI_WEBSITE_ID', DEFAULT_WEBSITE);
-$webhookRaw = cfg('SLACK_WEBHOOK_URLS');
+$apiKey    = cfg('UMAMI_API_KEY');
+$websiteId = cfg('UMAMI_WEBSITE_ID', DEFAULT_WEBSITE);
+
+// SLACK_WEBHOOK_URL is this project's key (see .env.production.example) and already
+// holds a comma-separated list. SLACK_WEBHOOK_URLS is accepted as an alias so a
+// plural spelling in someone's env doesn't silently produce a report that never posts.
+$webhookRaw = cfg('SLACK_WEBHOOK_URL') ?? cfg('SLACK_WEBHOOK_URLS');
 
 if (!$apiKey)     { fail(1, 'UMAMI_API_KEY is not set.'); }
-if (!$webhookRaw) { fail(1, 'SLACK_WEBHOOK_URLS is not set.'); }
+if (!$webhookRaw) { fail(1, 'SLACK_WEBHOOK_URL is not set.'); }
 
 $webhooks = array_values(array_filter(array_map('trim', explode(',', $webhookRaw))));
-if (!$webhooks) { fail(1, 'SLACK_WEBHOOK_URLS contained no URLs.'); }
+if (!$webhooks) { fail(1, 'SLACK_WEBHOOK_URL contained no URLs.'); }
 
-// Window: today since midnight in report TZ → now. Umami accepts UTC ISO (Z).
+// Window: today since midnight in report TZ → now. Umami's funnel endpoint takes
+// UTC ISO (Z); the metrics endpoint takes unix ms.
 $tz    = new DateTimeZone(REPORT_TZ);
 $now   = new DateTime('now', $tz);
 $start = (clone $now)->setTime(0, 0, 0);
@@ -265,38 +352,51 @@ $startIso = (clone $start)->setTimezone($utc)->format('Y-m-d\TH:i:s\Z');
 $endIso   = (clone $now)->setTimezone($utc)->format('Y-m-d\TH:i:s\Z');
 $windowLabel = 'Today ' . $start->format('g:i a') . ' → ' . $now->format('g:i a T') . ' (' . $now->format('M j') . ')';
 
+$enterEvent = ev_enter();
+
 // --- Pull the on-form funnel (per-step view table + entered) ---
-$form    = by_event(umami_funnel($apiKey, $websiteId, array_keys(FORM_STEPS), $startIso, $endIso));
-$entered = (int) ($form[EV_ENTER]['visitors'] ?? 0);
+$viewEvents = array_map('ev_view', array_keys(FORM_STEPS));
+$form       = by_event(umami_funnel($apiKey, $websiteId, $viewEvents, $startIso, $endIso));
+$entered    = (int) ($form[$enterEvent]['visitors'] ?? 0);
 
 // --- Per-step "advanced": visitors who reached step N and then completed it ---
 $advanced = [];
-foreach (FORM_STEPS as $event => $label) {
-    $advanced[$event] = terminal_visitors($apiKey, $websiteId, [$event, $event . DONE_SUFFIX], $startIso, $endIso);
+foreach (FORM_STEPS as $fieldSlug => $label) {
+    $advanced[$fieldSlug] = terminal_visitors(
+        $apiKey, $websiteId, [ev_view($fieldSlug), ev_complete($fieldSlug)], $startIso, $endIso
+    );
 }
 
+// --- Abandon / resume totals (one call for every event name) ---
+$eventTotals = umami_event_counts(
+    $apiKey, $websiteId, $start->getTimestamp() * 1000, $now->getTimestamp() * 1000
+);
+
 // --- Landing → entry, and the terminal outcomes (unique visitors from entry) ---
-[$landed, $enteredFromLanding] = funnel_ends($apiKey, $websiteId, [EV_LAND, EV_ENTER], $startIso, $endIso);
-$completed = terminal_visitors($apiKey, $websiteId, [EV_ENTER, EV_COMPLETE], $startIso, $endIso);
+[$landed, $enteredFromLanding] = funnel_ends($apiKey, $websiteId, [EV_LAND, $enterEvent], $startIso, $endIso);
+$completed = terminal_visitors($apiKey, $websiteId, [$enterEvent, EV_COMPLETE], $startIso, $endIso);
 $called    = terminal_visitors($apiKey, $websiteId, [EV_COMPLETE, EV_CALL], $startIso, $endIso);
-$attempts  = terminal_visitors($apiKey, $websiteId, [EV_ENTER, EV_ATTEMPT], $startIso, $endIso);
+$attempts  = terminal_visitors($apiKey, $websiteId, [$enterEvent, EV_ATTEMPT], $startIso, $endIso);
 
 $startPct      = $landed    > 0 ? $enteredFromLanding / $landed : 0.0;
 $completionPct = $entered   > 0 ? $completed / $entered    : 0.0;
 $callPct       = $completed > 0 ? $called    / $completed  : 0.0;
 
-// --- Per-step form table + biggest single in-form drop ---
-$rows      = [sprintf('%-2s %-19s %5s %6s   %s', '#', 'Step', 'Saw', 'Adv', 'Dropped from prev')];
+// --- Per-step form table + biggest single in-form drop / worst abandonment ---
+$rows      = [sprintf('%-2s %-19s %5s %5s %5s %5s  %s', '#', 'Step', 'Saw', 'Adv', 'Left', 'Back', 'Dropped from prev')];
 $biggest   = null;
+$worstLeft = null;
 $prevLabel = null;
 $n         = 0;
-foreach (FORM_STEPS as $event => $label) {
+foreach (FORM_STEPS as $fieldSlug => $label) {
     $n++;
-    $r        = $form[$event] ?? ['visitors' => 0, 'dropped' => 0, 'dropoff' => null];
+    $r        = $form[ev_view($fieldSlug)] ?? ['visitors' => 0, 'dropped' => 0, 'dropoff' => null];
     $visitors = (int) $r['visitors'];
     $dropped  = (int) $r['dropped'];
     $dropoff  = $r['dropoff']; // fraction or null (first step)
-    $adv      = $advanced[$event];
+    $adv      = $advanced[$fieldSlug];
+    $left     = $eventTotals[ev_abandon($fieldSlug)] ?? 0;
+    $back     = $eventTotals[ev_resume($fieldSlug)]  ?? 0;
 
     $dropText = '';
     if ($dropoff !== null) {
@@ -305,7 +405,11 @@ foreach (FORM_STEPS as $event => $label) {
             $biggest = ['from' => $prevLabel, 'to' => $label, 'dropped' => $dropped, 'dropoff' => (float) $dropoff];
         }
     }
-    $rows[]    = sprintf('%-2d %-19s %5d %6d   %s', $n, $label, $visitors, $adv, $dropText);
+    if ($left > 0 && ($worstLeft === null || $left > $worstLeft['left'])) {
+        $worstLeft = ['label' => $label, 'left' => $left];
+    }
+
+    $rows[]    = sprintf('%-2d %-19s %5d %5d %5d %5d  %s', $n, $label, $visitors, $adv, $left, $back, $dropText);
     $prevLabel = $label;
 }
 $tableText = "```\n" . implode("\n", $rows) . "\n```";
@@ -313,15 +417,15 @@ $lowSample = $entered < LOW_SAMPLE_MIN;
 
 // The final step is where "advanced" earns its keep: saw the phone field vs
 // actually pushed Submit. Everything above it is ≈ the next step's view count.
-$lastEvent    = array_key_last(FORM_STEPS);
-$lastSaw      = (int) ($form[$lastEvent]['visitors'] ?? 0);
-$lastAdvanced = $advanced[$lastEvent];
+$lastField    = (string) array_key_last(FORM_STEPS);
+$lastSaw      = (int) ($form[ev_view($lastField)]['visitors'] ?? 0);
+$lastAdvanced = $advanced[$lastField];
 
 // --- Compose the Slack message (Block Kit) ---
 $summaryLines = [];
 if ($landed > 0) {
-    // Only meaningful once funnel-landing is deployed and recording; before that
-    // the event simply isn't there and the line would read 0 → 0.
+    // Only meaningful once event_view_landing is deployed and recording; before
+    // that the event simply isn't there and the line would read 0 → 0.
     $summaryLines[] = sprintf('*Landed:* %d   •   *Started form:* %d (%s)', $landed, $enteredFromLanding, pct($startPct));
 }
 $summaryLines[] = sprintf('*Entered:* %d   •   *Completed:* %d (%s)', $entered, $completed, pct($completionPct));
@@ -338,13 +442,19 @@ if ($lowSample) {
         'text' => sprintf(':warning: *Low sample* — only %d entered the funnel; percentages are noisy.', $entered)]];
 }
 
-$blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn',
-    'text' => "*Form steps* (Saw = reached it, Adv = advanced from it)\n" . $tableText]];
+$blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => "*Form steps*\n" . $tableText]];
+$blocks[] = ['type' => 'context', 'elements' => [['type' => 'mrkdwn',
+    'text' => 'Saw = reached it · Adv = advanced from it (unique visitors) · Left = abandoned there · Back = returned to it (event counts)']]];
 
 if ($biggest && $biggest['dropped'] > 0) {
     $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn',
         'text' => sprintf(':small_red_triangle_down: *Biggest in-form drop:* %s → %s  (−%d, %s)',
             $biggest['from'], $biggest['to'], $biggest['dropped'], pct($biggest['dropoff']))]];
+}
+
+if ($worstLeft) {
+    $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn',
+        'text' => sprintf(':door: *Most abandoned field:* %s  (%d left from here)', $worstLeft['label'], $worstLeft['left'])]];
 }
 
 $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => "*Outcomes*\n" . implode("\n", $summaryLines)]];
