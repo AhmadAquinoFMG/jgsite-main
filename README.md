@@ -68,12 +68,26 @@ Client-side validation surfaces per-field error states: `invalid_format`,
 `invalid_length` (phone), `invalid_email` / `untrusted_domain`. On the phone step,
 Submit is gated on successful OTP verification (production only).
 
-Step 6 will not advance on a partial address. After the pick (or the Continue-time
-geocode fallback) the resolved components must all be present — street, city,
-state, ZIP and country — or the visitor stays on the step and is told which parts
-are still missing. This is the same set `submit.php` requires, so an incomplete
-address is caught while the field is still on screen instead of coming back as a
-422 from the final Submit.
+Step 6 will not advance on a partial address, and takes two tests to enforce it
+because either alone is fooled:
+
+1. **Components** (`checkAddressParts`) — Google's own `addressComponents` must
+   carry a house number *and* a street name (or a PO box), plus city, state, ZIP
+   and country. Never derived from the formatted address string: a locality-level
+   result formats as `"Springfield, IL 62701, USA"`, so reading the first segment
+   invents a street.
+2. **Field text** (`partsNotInText`) — the city and ZIP must also appear in the
+   field. The geocoder *completes* addresses: `"1600 Amphitheatre Pkwy"` comes back
+   with a city and ZIP the visitor never typed, and `partial_match` is not set,
+   so the components look whole. Picking a suggestion rewrites the field to
+   Google's formatted address, so a real pick always passes this; a typed fragment
+   does not. Picked results skip the test — the visitor chose that exact address.
+
+Geocoder results flagged `partial_match` are treated as unresolved (Google's
+"couldn't match what was typed, here's my best guess"). Either failure keeps the
+visitor on the step and names the missing parts. It's the same set `submit.php`
+requires, so an incomplete address is caught while the field is still on screen
+instead of coming back as a 422 from the final Submit.
 
 ## Integrations
 

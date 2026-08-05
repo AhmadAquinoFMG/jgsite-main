@@ -6,9 +6,14 @@
        segregated street/city/state/zip. It uses the lazy-loaded Google Places
        (New) SDK (keyed from window.FUNNEL.googlePlacesKey) for autocomplete, with
        a submit-time Geocoder fallback; mock suggestions when no key is set.
-       The step will NOT advance until that resolves to a complete US address —
-       street (with a number), city, state, ZIP, country US. See
-       checkAddressParts(); submit.php enforces the same fields server-side.
+       The step will NOT advance on anything less than a whole address — street
+       (with a house number), city, state, ZIP and country. Two tests, because
+       either alone is fooled: checkAddressParts() reads Google's own components
+       (so a locality or a street NAME can't pass as a street), and
+       partsNotInText() requires the city and ZIP to appear in the field itself (so
+       a typed fragment Google silently COMPLETED can't pass either — picking a
+       suggestion rewrites the field, which is what makes the text test fair).
+       submit.php enforces the same fields server-side.
        Rollback to the legacy multi-field UI with ?address_classic=1.
 
    Steps: 1 debt · 2 behind on payments · 3 employment · 4 income (auto-advance radios) ·
@@ -762,17 +767,46 @@
                 .catch(function () { finish(null); });
         }
 
+        // Loose containment test: case/punctuation/spacing-insensitive.
+        function norm(s) {
+            return String(s || '').toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        // THE typed-fragment hole. The geocoder does not just validate an address,
+        // it COMPLETES one: "1600 Amphitheatre Pkwy" with no city and no ZIP comes
+        // back with both filled in, and partial_match is not set, because Google did
+        // match the little that was typed. So a components-only check cannot tell a
+        // full address from a fragment Google finished — both look whole.
+        //
+        // Requiring the city and ZIP to also appear in the FIELD TEXT can tell them
+        // apart: the visitor either typed the whole address, or picked a suggestion,
+        // which rewrites the field to Google's own formatted address. A fragment
+        // stays a fragment, and we ask them to pick from the list.
+        function partsNotInText(parts, text) {
+            var t = norm(text);
+            var absent = [];
+            if (parts.city && t.indexOf(norm(parts.city)) === -1) absent.push('city');
+            if (parts.zip  && t.indexOf(parts.zip) === -1)        absent.push('zip');
+            return absent;
+        }
+
         // Write the resolution into the payload fields, report whether it is whole,
         // and emit the analytics pair. Two distinct event names so a drop-off report
         // (which counts by event NAME) can measure how often the single field yields
         // a partial address — i.e. how often this gate is what holds visitors up.
-        function finalize(parts, text, cb) {
+        // fromPick skips the text test: the visitor chose that exact address off the
+        // list, so the field already holds Google's rendering of it.
+        function finalize(parts, text, fromPick, cb) {
             setParts(parts);
 
             // Judge the resolution itself, not the hidden inputs: the has* flags
             // that distinguish a street from a street NAME live on `parts` and
             // cannot be read back out of the DOM.
             var res = checkAddressParts(parts);
+            if (res.ok && !fromPick) {
+                var absent = partsNotInText(parts, text);
+                if (absent.length) res = { ok: false, missing: absent, code: '' };
+            }
             resolvedFor = text;
             resolvedRes = res;
 
@@ -798,7 +832,7 @@
             var text = (visible.value || '').trim();
 
             // (a) trusted picked parts, field unchanged since the pick
-            if (picked && visible.value === pickedFor) { finalize(picked, text, cb); return; }
+            if (picked && visible.value === pickedFor) { finalize(picked, text, true, cb); return; }
 
             // (b) already resolved this exact text — don't pay for a second geocode
             if (resolvedFor === text && resolvedRes) { cb(resolvedRes); return; }
@@ -807,11 +841,11 @@
             // typed line is NEVER promoted into a missing street, or "62701" would
             // arrive as a street next to the ZIP's own city and state and pass.
             geocode(text, function (parts) {
-                if (parts) { finalize(parts, text, cb); return; }
+                if (parts) { finalize(parts, text, false, cb); return; }
                 // Nothing usable came back (no key, timeout, partial match, or an
                 // unrecognised address): keep the typed line as the street so it
                 // isn't lost, and let the check block on the parts we can't fill.
-                finalize({ street: text, city: '', state: '', zip: '' }, text, cb);
+                finalize({ street: text, city: '', state: '', zip: '' }, text, false, cb);
             });
         }
 
