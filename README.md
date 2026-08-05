@@ -58,7 +58,7 @@ Single page, JS-driven (no reloads between steps). A progress bar advances 1/9 �
 | 3 | Employment status | 4 radio cards | auto |
 | 4 | Annual income | 3 radio cards | auto |
 | 5 | First & last name | 2 text inputs | Continue |
-| 6 | Address | single free-form field, **Google Places autocomplete**, submits segregated street/city/state/zip (`?address_classic=1` for the legacy multi-field UI) | Continue |
+| 6 | Address | single free-form field, **Google Places autocomplete**, submits segregated street/city/state/zip/country (`?address_classic=1` for the legacy multi-field UI) | Continue (blocked until the address is complete) |
 | 7 | Date of birth | single input, **auto-formats MM/DD/YYYY** | Continue |
 | 8 | Email | email input | Continue |
 | 9 | Phone + verification | phone → **Send code** → 6 OTP boxes → **Verify** → TCPA + **Submit** | Submit |
@@ -67,6 +67,27 @@ Client-side validation surfaces per-field error states: `invalid_format`,
 `too_short`, `incomplete` / `out_of_range` / `underage` (DOB),
 `invalid_length` (phone), `invalid_email` / `untrusted_domain`. On the phone step,
 Submit is gated on successful OTP verification (production only).
+
+Step 6 will not advance on a partial address, and takes two tests to enforce it
+because either alone is fooled:
+
+1. **Components** (`checkAddressParts`) — Google's own `addressComponents` must
+   carry a house number *and* a street name (or a PO box), plus city, state, ZIP
+   and country. Never derived from the formatted address string: a locality-level
+   result formats as `"Springfield, IL 62701, USA"`, so reading the first segment
+   invents a street.
+2. **Field text** (`partsNotInText`) — the city and ZIP must also appear in the
+   field. The geocoder *completes* addresses: `"1600 Amphitheatre Pkwy"` comes back
+   with a city and ZIP the visitor never typed, and `partial_match` is not set,
+   so the components look whole. Picking a suggestion rewrites the field to
+   Google's formatted address, so a real pick always passes this; a typed fragment
+   does not. Picked results skip the test — the visitor chose that exact address.
+
+Geocoder results flagged `partial_match` are treated as unresolved (Google's
+"couldn't match what was typed, here's my best guess"). Either failure keeps the
+visitor on the step and names the missing parts. It's the same set `submit.php`
+requires, so an incomplete address is caught while the field is still on screen
+instead of coming back as a 422 from the final Submit.
 
 ## Integrations
 

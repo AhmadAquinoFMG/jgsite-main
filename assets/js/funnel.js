@@ -6,6 +6,14 @@
        segregated street/city/state/zip. It uses the lazy-loaded Google Places
        (New) SDK (keyed from window.FUNNEL.googlePlacesKey) for autocomplete, with
        a submit-time Geocoder fallback; mock suggestions when no key is set.
+       The step will NOT advance on anything less than a whole address — street
+       (with a house number), city, state, ZIP and country. Two tests, because
+       either alone is fooled: checkAddressParts() reads Google's own components
+       (so a locality or a street NAME can't pass as a street), and
+       partsNotInText() requires the city and ZIP to appear in the field itself (so
+       a typed fragment Google silently COMPLETED can't pass either — picking a
+       suggestion rewrites the field, which is what makes the text test fair).
+       submit.php enforces the same fields server-side.
        Rollback to the legacy multi-field UI with ?address_classic=1.
 
    Steps: 1 debt · 2 behind on payments · 3 employment · 4 income (auto-advance radios) ·
@@ -30,44 +38,85 @@
     function stepEl(n)   { return steps[n - 1]; }
 
     /* ----------------------------------------------------- analytics (Umami)
-       Funnel drop-off tracking. We fire one "funnel-step" event the first time
-       each step is reached (a Set guards against back/forward double-counting),
-       so an Umami Funnel report shows how many visitors hit each step and where
-       they exit. umami may be absent (script blocked / not configured) — guard. */
-    var STEP_NAMES = {
-        1: 'debt-amount', 2: 'behind-payment', 3: 'employment', 4: 'income', 5: 'name',
+       Funnel drop-off tracking. Every event is named after the DATA THE STEP
+       COLLECTS, not its position, so an event name still means the same thing
+       after a step is inserted, moved or dropped:
+
+         event_view_<field>       first time the step is shown
+         event_engage_<field>     first focus of one of its inputs (index.php marks
+                                  these with data-jg-event)
+         event_<field>_complete   the step validated and the visitor advanced
+         event_abandon_<field>    the visitor left the page while on this step
+         event_resume_<field>     the visitor came BACK to this step
+
+       Naming each one per field (rather than one event carrying a step number as a
+       property) is what makes them countable in Umami — its funnel and event
+       reports group by event NAME, so a shared name with a `step` prop cannot be
+       broken out per step. bin/funnel-slack-report.php reads these names; rename on
+       one side only and the Slack digest silently reports zeroes.
+
+       Umami may be absent (script blocked / not configured) — track() guards. */
+    var STEP_FIELDS = {
+        1: 'debt_amount', 2: 'behind_payment', 3: 'employment', 4: 'income', 5: 'name',
         6: 'address', 7: 'dob', 8: 'email', 9: 'phone'
     };
-    var trackedSteps = {};
+    function field(n)     { return STEP_FIELDS[n] || ('step_' + n); }
+    function stepProps(n) { return { step: n, field: field(n) }; }
+
+    // Prefer window.jgTrack (includes/track.php): this file is a classic script at
+    // the end of <body>, so it runs BEFORE the deferred Umami tag — window.umami is
+    // not there yet and the load-time step-1 view (the drop-off report's entry
+    // anchor) would be lost. jgTrack queues until the tracker is live. The direct
+    // umami call stays as a fallback for any page that omits the shim.
     function track(event, data) {
-        if (window.umami && typeof window.umami.track === 'function') {
+        if (typeof window.jgTrack === 'function') {
+            window.jgTrack(event, data);
+        } else if (window.umami && typeof window.umami.track === 'function') {
             window.umami.track(event, data);
         }
     }
-    // Distinct, ordered event name per stage (e.g. "funnel-1-debt-amount") so
-    // each stage shows up as its own row in Umami's Events list and sorts in
-    // funnel order. The "-done" suffix marks the stage as completed.
-    function stageEvent(n, suffix) {
-        return 'funnel-' + n + '-' + (STEP_NAMES[n] || ('step-' + n)) + (suffix || '');
-    }
+
+    // A step already seen and shown again is a RESUME (back button, or a 422
+    // bouncing the visitor to the offending step). Unlike the others this is not
+    // once-per-visit: every return trip counts, because repeated returns to the
+    // same field are the signal that the field itself is the problem.
+    var trackedSteps = {};
     function trackStep(n) {
-        if (trackedSteps[n]) return;
+        if (trackedSteps[n]) {
+            track('event_resume_' + field(n), stepProps(n));
+            return;
+        }
         trackedSteps[n] = true;
-        track(stageEvent(n), { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+        track('event_view_' + field(n), stepProps(n));
     }
-    // Fired when a stage is validated and the visitor advances. Comparing
-    // "reached" (funnel-N-name) vs "completed" (funnel-N-name-done) per stage
-    // shows exactly which stage visitors stall on before leaving.
+
+    // Fired when a step is validated and the visitor advances. Comparing
+    // event_view_<field> against event_<field>_complete shows which field visitors
+    // stall on rather than merely pass through.
     var completedSteps = {};
     function trackStepComplete(n) {
         if (completedSteps[n]) return;
         completedSteps[n] = true;
-        track(stageEvent(n, '-done'), { step: n, name: STEP_NAMES[n] || ('step-' + n) });
+        track('event_' + field(n) + '_complete', stepProps(n));
     }
 
+    // First-touch per field. index.php marks each input with data-jg-event; we fire
+    // that event once, on first focus. focusin (not click) so tab/keyboard entry
+    // counts too — which is also why these can't be plain data-umami-event
+    // attributes, whose declarative tracking only listens for clicks.
+    var engagedFields = {};
+    form.addEventListener('focusin', function (ev) {
+        var el = ev.target && ev.target.closest ? ev.target.closest('[data-jg-event]') : null;
+        if (!el) return;
+        var name = el.getAttribute('data-jg-event');
+        if (!name || engagedFields[name]) return;
+        engagedFields[name] = true;
+        track(name, stepProps(current));
+    });
+
     // Abandonment: fire once when the visitor leaves before submitting (tab
-    // close, navigating away, or backgrounding on mobile), recording the step
-    // they left from. This is the explicit "where did they drop off" signal.
+    // close, navigating away, or backgrounding on mobile), naming the FIELD they
+    // left from. This is the explicit "where did they drop off" signal.
     // We use 'visibilitychange' -> hidden rather than 'beforeunload' because it
     // fires reliably across desktop and mobile and lets the request flush.
     var submitted   = false;
@@ -75,7 +124,7 @@
     function trackExit() {
         if (exitTracked || submitted) return;
         exitTracked = true;
-        track('funnel-exit', { step: current, name: STEP_NAMES[current] || ('step-' + current) });
+        track('event_abandon_' + field(current), stepProps(current));
     }
     document.addEventListener('visibilitychange', function () {
         if (document.visibilityState === 'hidden') trackExit();
@@ -171,8 +220,10 @@
         if (!v) return { ok: true };
 
         switch (kind) {
-            // single free-form address field: only non-empty required (checked
-            // above); street/city/state/zip are resolved + validated at submit time.
+            // single free-form address field: non-empty is all we can judge from the
+            // text itself. The four components are resolved (pick or geocode) and
+            // checked for completeness before the step advances — see the Continue
+            // handler and checkAddressParts().
             case 'address': return { ok: true };
             case 'name':   return RX.name.test(v)  ? { ok: true } : { ok: false, code: 'invalid_format' };
             case 'street': return v.length >= 4    ? { ok: true } : { ok: false, code: 'too_short' };
@@ -195,6 +246,76 @@
         invalid_length: 'Please enter a valid 10-digit phone number.',
         invalid_email:  'Please enter a valid email address.'
     };
+
+    /* ---- address completeness (step 6, both UI modes) -------------------
+       A lead is only usable with a full mailing address, so the step refuses to
+       advance until all five parts are present. Checking it here — while the
+       address field is still in front of the visitor — beats letting them run to
+       the end and be bounced back by submit.php's 422 five steps later. */
+    var PART_LABELS = {
+        street:  'street address',
+        city:    'city',
+        state:   'state',
+        zip:     'ZIP code',
+        country: 'country'
+    };
+    var PART_ORDER = ['street', 'city', 'state', 'zip', 'country'];
+
+    // A typed street line must carry a NUMBER as well as a name — "Main St" is a
+    // street, not an address. PO/rural boxes carry their number the same way, so
+    // "contains a digit" accepts them too.
+    function isStreetLine(v) { return v.length >= 4 && /\d/.test(v); }
+
+    // p is {street, city, state, zip, country}, optionally with the has* flags
+    // parseComponents attaches. Returns {ok:true} or {ok:false, missing:[part,…],
+    // code}. Presence only — no country-specific format rules here, so a resolved
+    // address from anywhere passes as long as it is whole.
+    function checkAddressParts(p) {
+        p = p || {};
+        function val(k) { return (p[k] || '').trim(); }
+
+        // Google-resolved parts state outright whether a house number and street
+        // name were found; typed parts (classic mode) only have the text, so they
+        // fall back to the digit heuristic.
+        var street     = val('street');
+        var fromGoogle = p.hasNumber !== undefined;
+        var streetOk   = street && (fromGoogle
+            ? (p.hasPostBox || (p.hasNumber && p.hasRoute))
+            : isStreetLine(street));
+
+        var missing = [];
+        if (!streetOk)                 missing.push('street');
+        if (val('city').length    < 2) missing.push('city');
+        if (val('state').length   < 2) missing.push('state');
+        if (val('zip').length     < 3) missing.push('zip');
+        if (!val('country'))           missing.push('country');
+
+        if (!missing.length) return { ok: true };
+        return {
+            ok: false,
+            missing: missing,
+            // A street with a name but no number is a different problem from a
+            // blank one, and worth its own message when it's the only gap.
+            code: (street && !streetOk && missing.length === 1) ? 'no_street_number' : ''
+        };
+    }
+
+    // "…we still need the city and ZIP code." Naming the gap beats a generic
+    // "address is incomplete", which leaves the visitor guessing what to retype.
+    function addressErrorMsg(res) {
+        if (res.code === 'no_street_number') {
+            return 'Please enter a full street address including the house or ' +
+                   'building number — e.g. 123 Main St.';
+        }
+        var missing = res.missing;
+        var names = PART_ORDER
+            .filter(function (k) { return missing.indexOf(k) > -1; })
+            .map(function (k) { return PART_LABELS[k]; });
+        var list = names.length > 1
+            ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]
+            : names[0];
+        return 'Please enter a complete address — ' + list + ' are required';
+    }
 
     function validateStep(n) {
         var scope = stepEl(n);
@@ -340,7 +461,7 @@
             var day = ev.target.closest('.dob-cal__day');
             if (day) {
                 dob.value = pad(view.m + 1) + '/' + pad(+day.dataset.day) + '/' + view.y;
-                clearError(stepEl(6));
+                clearError(dob.closest('.step')); // the DOB step, whatever number it holds
                 close();
             }
         });
@@ -399,11 +520,13 @@
 
     /* ---- Address controller (step 5) ----------------------------------
        Default (single mode): the visitor types in ONE field (#address, no name),
-       and we always populate the four hidden inputs street/city/state/zip from
-       either a picked Google suggestion (trusted only while the field is unchanged)
-       or a submit-time geocode, with a raw-text fallback so the funnel never traps
-       the visitor. Classic mode (?address_classic=1 → no #address element): the
-       legacy multi-field UI, where each visible field validates on its own.
+       and we populate the hidden inputs street/city/state/zip/country from either
+       a picked Google suggestion (trusted only while the field is unchanged) or a
+       Continue-time geocode. An address that resolves only partially does NOT
+       advance the step — resolve() reports what is missing and the visitor is asked
+       to pick from the suggestions. Classic mode (?address_classic=1 → no #address
+       element): the legacy multi-field UI, where each visible field validates on
+       its own and the same completeness check runs over the four of them.
        Autocomplete uses the Places API (New) JS SDK, rendering into our styled
        #placesSuggestions list; the key comes from window.FUNNEL.googlePlacesKey
        (config.php -> .env). No key → a small mock list keeps local/dev working. */
@@ -413,15 +536,19 @@
         var visible = document.getElementById(single ? 'address' : 'street'); // the field the user types in
         if (!visible) return { present: false, single: false };
 
-        var streetEl = document.getElementById('street');
-        var cityEl   = document.getElementById('city');
-        var stateEl  = document.getElementById('state');
-        var zipEl    = document.getElementById('zip');
-        var list     = document.getElementById('placesSuggestions');
-        var key      = (window.FUNNEL && window.FUNNEL.googlePlacesKey) || '';
+        var streetEl  = document.getElementById('street');
+        var cityEl    = document.getElementById('city');
+        var stateEl   = document.getElementById('state');
+        var zipEl     = document.getElementById('zip');
+        var countryEl = document.getElementById('country');
+        var list      = document.getElementById('placesSuggestions');
+        var key       = (window.FUNNEL && window.FUNNEL.googlePlacesKey) || '';
 
-        var picked    = null;   // trusted {street,city,state,zip} from a chosen suggestion
-        var pickedFor = '';     // visible.value at the moment of that pick
+        var picked     = null;  // trusted {street,city,state,zip,country} from a chosen suggestion
+        var pickedFor  = '';    // visible.value at the moment of that pick
+        var resolvedFor = null; // text whose resolution already sits in the payload fields
+                                // (so a repeat Continue on a blocked address doesn't re-geocode)
+        var resolvedRes = null; // and that resolution's completeness verdict
 
         function close() { if (list) { list.hidden = true; list.innerHTML = ''; } }
         function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
@@ -431,6 +558,22 @@
             if (cityEl)   cityEl.value   = p.city   || '';
             if (stateEl)  stateEl.value  = p.state  || '';
             if (zipEl)    zipEl.value    = p.zip    || '';
+            // Country only when the resolution actually carried one — otherwise keep
+            // the field's own default (index.php seeds "US"), so a Google result that
+            // omits the component can't blank a value we already had.
+            if (countryEl && p.country) countryEl.value = p.country;
+        }
+
+        // Read whatever is currently in the payload fields. Single mode: what the
+        // last pick/geocode wrote. Classic mode: what the visitor typed/selected.
+        function currentParts() {
+            return {
+                street:  streetEl  ? streetEl.value  : '',
+                city:    cityEl    ? cityEl.value    : '',
+                state:   stateEl   ? stateEl.value   : '',
+                zip:     zipEl     ? zipEl.value     : '',
+                country: countryEl ? countryEl.value : ''
+            };
         }
 
         // render [{label, onPick}] rows into the styled suggestion list
@@ -450,26 +593,41 @@
         }
 
         // Google addressComponents (New: longText/shortText; legacy geocoder:
-        // long_name/short_name) -> our {street, city, state(2-letter), zip(5-digit)}.
-        function parseComponents(comps, formatted) {
-            var g = { num: '', route: '', locality: '', sublocality: '', admin1: '', zip: '' };
+        // long_name/short_name) -> our {street, city, state, zip, country} plus the
+        // has* flags checkAddressParts needs. state and country come from shortText
+        // (CA, US) to match what submit.php and LeadProsper expect.
+        //
+        // The street line is composed ONLY from real components. It must never fall
+        // back to the formatted address: a locality-level result formats as
+        // "Springfield, IL 62701, USA", so taking the first segment invented a
+        // street ("Springfield") and let an address with no street at all pass the
+        // completeness check.
+        function parseComponents(comps) {
+            var g = { num: '', route: '', postBox: '', locality: '', sublocality: '', admin1: '', zip: '', country: '' };
             (comps || []).forEach(function (c) {
                 var t = c.types || [];
                 var long  = c.longText  != null ? c.longText  : c.long_name;
                 var short = c.shortText != null ? c.shortText : c.short_name;
                 if (t.indexOf('street_number') > -1) g.num = long;
                 else if (t.indexOf('route') > -1) g.route = long;
+                else if (t.indexOf('post_box') > -1) g.postBox = long;
                 else if (t.indexOf('locality') > -1) g.locality = long;
                 else if (t.indexOf('sublocality') > -1 || t.indexOf('sublocality_level_1') > -1) g.sublocality = long;
                 else if (t.indexOf('administrative_area_level_1') > -1) g.admin1 = short;
                 else if (t.indexOf('postal_code') > -1) g.zip = long;
+                else if (t.indexOf('country') > -1) g.country = short || long;
             });
-            var streetLine = (g.num + ' ' + g.route).trim();
             return {
-                street: streetLine || (formatted ? String(formatted).split(',')[0] : ''),
-                city:   g.locality || g.sublocality || '',
-                state:  g.admin1 || '',
-                zip:    (g.zip || '').slice(0, 5)
+                street:    g.postBox || (g.num + ' ' + g.route).trim(),
+                city:      g.locality || g.sublocality || '',
+                state:     g.admin1 || '',
+                zip:       (g.zip || '').slice(0, 5),
+                country:   g.country || '',
+                // Flags, not guesses: a route with no street_number is a street
+                // NAME, not an address, and only Google can tell us which we got.
+                hasNumber:  !!g.num,
+                hasRoute:   !!g.route,
+                hasPostBox: !!g.postBox
             };
         }
 
@@ -484,18 +642,29 @@
                         .filter(Boolean).join(', ');
                 visible.value = shown;
                 picked = p; pickedFor = shown;
+                resolvedFor = null; resolvedRes = null;
                 setParts(p);
             } else {
                 visible.value = p.street || '';
                 setParts(p);
             }
+            // A pick answers an "incomplete address" error — drop it now rather than
+            // leaving stale red text under a field the visitor just fixed.
+            clearError(visible.closest('.step'));
             close();
         }
 
-        // Hand-editing after a pick discards the trusted parts (single mode) so we
-        // re-resolve from the edited text at submit time.
+        // Hand-editing after a pick discards the trusted parts AND the components
+        // they wrote (single mode), so the next Continue re-resolves from the edited
+        // text and can never advance on the previous address's city/state/ZIP.
         visible.addEventListener('input', function () {
-            if (single && picked && visible.value !== pickedFor) { picked = null; pickedFor = ''; }
+            clearError(visible.closest('.step'));
+            if (!single) return;
+            resolvedFor = null; resolvedRes = null;
+            if (picked && visible.value !== pickedFor) {
+                picked = null; pickedFor = '';
+                setParts({});
+            }
         });
         visible.addEventListener('blur', function () { setTimeout(close, 120); });
 
@@ -542,7 +711,7 @@
                         var place = pred.toPlace();
                         place.fetchFields({ fields: ['addressComponents', 'formattedAddress'] })
                             .then(function () {
-                                onPick(parseComponents(place.addressComponents, place.formattedAddress), place.formattedAddress);
+                                onPick(parseComponents(place.addressComponents), place.formattedAddress);
                                 token = new Token(); // close the billing session, start a fresh one
                             })
                             .catch(function (err) { console.error('[funnel] place details failed', err); });
@@ -557,10 +726,10 @@
         /* ----- mock fallback (no key configured) ----- */
         function initMock() {
             var MOCK = [
-                { street: '1600 Amphitheatre Pkwy', city: 'Mountain View', state: 'CA', zip: '94043' },
-                { street: '350 Fifth Ave',           city: 'New York',       state: 'NY', zip: '10118' },
-                { street: '233 S Wacker Dr',         city: 'Chicago',        state: 'IL', zip: '60606' },
-                { street: '1 Apple Park Way',        city: 'Cupertino',      state: 'CA', zip: '95014' }
+                { street: '1600 Amphitheatre Pkwy', city: 'Mountain View', state: 'CA', zip: '94043', country: 'US' },
+                { street: '350 Fifth Ave',           city: 'New York',       state: 'NY', zip: '10118', country: 'US' },
+                { street: '233 S Wacker Dr',         city: 'Chicago',        state: 'IL', zip: '60606', country: 'US' },
+                { street: '1 Apple Park Way',        city: 'Cupertino',      state: 'CA', zip: '95014', country: 'US' }
             ];
             visible.addEventListener('input', function () {
                 if (visible.value.trim().length < 3) return close();
@@ -582,63 +751,138 @@
                 .then(function (geo) {
                     var gc = new geo.Geocoder();
                     gc.geocode({ address: text, componentRestrictions: { country: 'us' } }, function (results, status) {
-                        if (status === 'OK' && results && results[0]) {
-                            finish(parseComponents(results[0].address_components, results[0].formatted_address));
-                        } else { finish(null); }
+                        if (status !== 'OK' || !results || !results[0]) return finish(null);
+                        var r = results[0];
+                        // partial_match means the geocoder could not match what was
+                        // typed and picked its best guess — typically snapping a
+                        // city-less "123 Main St" to whichever Main St it likes.
+                        // Its components come back complete, so trusting it would
+                        // put an address the visitor never entered on the lead.
+                        // Treat it as unresolved and ask them to pick a suggestion.
+                        if (r.partial_match) return finish(null);
+                        finish(parseComponents(r.address_components));
                     });
                 })
                 .catch(function () { finish(null); });
         }
 
-        function finalize(parts, cb) {
-            setParts(parts);
-            var hasCity = !!parts.city, hasState = !!parts.state, hasZip = !!parts.zip;
-            // Two distinct event names so a drop-off report (which counts by event
-            // name) can measure how often the single field yields a partial address.
-            track(hasCity && hasState && hasZip ? 'address_resolved_complete' : 'address_resolved_incomplete', {
-                step: 5, name: 'address',
-                has_city: hasCity, has_state: hasState, has_zip: hasZip
-            });
-            cb();
+        // Loose containment test: case/punctuation/spacing-insensitive.
+        function norm(s) {
+            return String(s || '').toLowerCase().replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim();
         }
 
-        // Resolve the four components, populate the hidden inputs, emit analytics,
-        // then cb(). Synchronous when we already hold trusted picked parts; async
-        // (≤4s) when we must geocode the typed text.
-        function resolveForSubmit(cb) {
-            // classic mode: visible fields are separate and already validated
-            if (!single) { cb(); return; }
+        // THE typed-fragment hole. The geocoder does not just validate an address,
+        // it COMPLETES one: "1600 Amphitheatre Pkwy" with no city and no ZIP comes
+        // back with both filled in, and partial_match is not set, because Google did
+        // match the little that was typed. So a components-only check cannot tell a
+        // full address from a fragment Google finished — both look whole.
+        //
+        // Requiring the city and ZIP to also appear in the FIELD TEXT can tell them
+        // apart: the visitor either typed the whole address, or picked a suggestion,
+        // which rewrites the field to Google's own formatted address. A fragment
+        // stays a fragment, and we ask them to pick from the list.
+        function partsNotInText(parts, text) {
+            var t = norm(text);
+            var absent = [];
+            if (parts.city && t.indexOf(norm(parts.city)) === -1) absent.push('city');
+            if (parts.zip  && t.indexOf(parts.zip) === -1)        absent.push('zip');
+            return absent;
+        }
+
+        // Write the resolution into the payload fields, report whether it is whole,
+        // and emit the analytics pair. Two distinct event names so a drop-off report
+        // (which counts by event NAME) can measure how often the single field yields
+        // a partial address — i.e. how often this gate is what holds visitors up.
+        // fromPick skips the text test: the visitor chose that exact address off the
+        // list, so the field already holds Google's rendering of it.
+        function finalize(parts, text, fromPick, cb) {
+            setParts(parts);
+
+            // Judge the resolution itself, not the hidden inputs: the has* flags
+            // that distinguish a street from a street NAME live on `parts` and
+            // cannot be read back out of the DOM.
+            var res = checkAddressParts(parts);
+            if (res.ok && !fromPick) {
+                var absent = partsNotInText(parts, text);
+                if (absent.length) res = { ok: false, missing: absent, code: '' };
+            }
+            resolvedFor = text;
+            resolvedRes = res;
+
+            track(res.ok ? 'event_address_resolved' : 'event_address_partial', {
+                step: 6, field: 'address',
+                has_city:  !!parts.city,
+                has_state: !!parts.state,
+                has_zip:   !!parts.zip,
+                missing:   res.ok ? '' : res.missing.join(',')
+            });
+            cb(res);
+        }
+
+        // Resolve the address components, populate the payload inputs, emit
+        // analytics, then cb({ok, missing}). Synchronous when we already hold
+        // trusted picked parts or an unchanged prior resolution; async (≤4s) when
+        // we must geocode the typed text. An incomplete result is reported as such
+        // — the caller keeps the visitor on the step.
+        function resolve(cb) {
+            // classic mode: the visitor fills the parts directly, so just check them
+            if (!single) { cb(checkAddressParts(currentParts())); return; }
 
             var text = (visible.value || '').trim();
 
             // (a) trusted picked parts, field unchanged since the pick
-            if (picked && visible.value === pickedFor) { finalize(picked, cb); return; }
+            if (picked && visible.value === pickedFor) { finalize(picked, text, true, cb); return; }
 
-            // (b) submit-time geocode of the typed text
+            // (b) already resolved this exact text — don't pay for a second geocode
+            if (resolvedFor === text && resolvedRes) { cb(resolvedRes); return; }
+
+            // (c) geocode the typed text. Whatever comes back is used as-is: the
+            // typed line is NEVER promoted into a missing street, or "62701" would
+            // arrive as a street next to the ZIP's own city and state and pass.
             geocode(text, function (parts) {
-                if (parts && (parts.street || parts.city || parts.state || parts.zip)) {
-                    if (!parts.street) parts.street = text; // keep the typed line if the geocoder had no street
-                    finalize(parts, cb);
-                } else {
-                    // (c) fallback: raw typed string as street, blanks elsewhere — never trap the visitor
-                    finalize({ street: text, city: '', state: '', zip: '' }, cb);
-                }
+                if (parts) { finalize(parts, text, false, cb); return; }
+                // Nothing usable came back (no key, timeout, partial match, or an
+                // unrecognised address): keep the typed line as the street so it
+                // isn't lost, and let the check block on the parts we can't fill.
+                finalize({ street: text, city: '', state: '', zip: '' }, text, false, cb);
             });
         }
 
-        return { present: true, single: single, init: initAutocomplete, resolveForSubmit: resolveForSubmit };
+        // Which input to flag for a missing part: single mode has only the one
+        // visible field; classic mode points at the offending input.
+        function fieldFor(part) {
+            if (single) return visible;
+            return { street: streetEl, city: cityEl, state: stateEl, zip: zipEl }[part] || visible;
+        }
+
+        return { present: true, single: single, init: initAutocomplete, resolve: resolve, fieldFor: fieldFor };
     }
 
     /* ------------------------------------------------------------ events */
     btnNext.addEventListener('click', function () {
         if (!validateStep(current)) return;
 
-        // Step 6 single-field: resolve the segregated address (may geocode) before
-        // advancing. Disable Continue ONLY while that async resolution is in flight.
-        if (current === 6 && address.present && address.single) {
+        // Step 6: resolve the address (may geocode) and advance ONLY if it came back
+        // whole — street, city, state, ZIP and country. A partial address keeps the
+        // visitor here with the missing parts named, rather than sending an
+        // unusable lead on to the rest of the funnel. Continue is disabled only
+        // while the async resolution is in flight.
+        if (current === 6 && address.present) {
             btnNext.disabled = true;
-            address.resolveForSubmit(function () {
+            address.resolve(function (res) {
                 btnNext.disabled = false;
+                if (!res.ok) {
+                    var scope = stepEl(6);
+                    clearError(scope);
+                    // Distinct from event_address_partial (fired by finalize, once per
+                    // resolution): this counts BLOCKED CONTINUE CLICKS, so repeated
+                    // attempts on the same bad address show up as the friction they are.
+                    track('event_address_incomplete', {
+                        step: 6, field: 'address', missing: res.missing.join(',')
+                    });
+                    fail(scope, address.fieldFor(res.missing[0]), addressErrorMsg(res));
+                    return;
+                }
                 trackStepComplete(6);
                 goNext();
             });
@@ -674,7 +918,7 @@
     var FIELD_STEP = {
         debt_amount: 1, behind_payment: 2, employment: 3, income: 4,
         first_name: 5, last_name: 5,
-        street: 6, city: 6, state: 6, zip: 6,
+        street: 6, city: 6, state: 6, zip: 6, country: 6,
         dob: 7, email: 8, phone: 9
     };
 
@@ -699,12 +943,14 @@
         if (submitting) return;
 
         submitting = true;
-        submitted  = true; // a completion, not an abandonment — suppress funnel-exit
+        submitted  = true; // a completion, not an abandonment — suppress event_abandon_*
         btnSubmit.disabled = true;
         btnSubmit.textContent = 'Submitting…';
 
-        // Funnel completion — the conversion endpoint of the drop-off report.
-        track('funnel-submit', { step: current, name: STEP_NAMES[current] || 'submit' });
+        // ATTEMPT, not success: this fires before the POST resolves, so 422s and
+        // network failures are in here too. The conversion signal is
+        // event_view_thank_you, fired by thank-you.php after submit.php accepts.
+        track('event_submit_attempt', stepProps(current));
 
         fetch('submit.php', {
             method: 'POST',

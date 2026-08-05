@@ -46,14 +46,24 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '29',
+    'asset_version' => '33',
 
     // ---- Analytics: Umami -----------------------------------------------
-    // Privacy-friendly analytics. Used to measure funnel drop-off (which step
-    // visitors leave from) via per-step events fired in assets/js/funnel.js.
+    // Privacy-friendly analytics. Used to measure funnel drop-off (which field
+    // visitors leave from) via the per-field events fired in assets/js/funnel.js
+    // and read back by bin/funnel-slack-report.php.
     // Leave 'website_id' empty to disable the script entirely.
     //   • Umami Cloud:  src => 'https://cloud.umami.is/script.js'
     //   • Self-hosted:  src => 'https://<your-host>/script.js'
+    //
+    // THE ONLY PLACE this id belongs. Every page renders the tag through
+    // includes/analytics.php — never hardcode a second <script> tag on a page.
+    // Two tags means two pageviews per visit, doubled click events, and (because
+    // both define window.umami, last one winning) custom events landing on a
+    // different property than the pages that don't carry the extra tag — which
+    // splits the funnel across two websites and makes it unreportable.
+    // bin/funnel-slack-report.php must query this same id: its DEFAULT_WEBSITE,
+    // or the UMAMI_WEBSITE_ID env var that overrides it.
     'umami' => [
         'src'        => 'https://cloud.umami.is/script.js',
         'website_id' => '40f1f6d9-80c1-49cf-b6ef-0280ac052f83',

@@ -17,6 +17,29 @@ unset($_SESSION['prequal_savings']);
 
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+
+/* ---- Funnel landing event props -------------------------------------------
+   One "event_view_landing" event per pageview, carrying the traffic source. Step 1
+   (event_view_debt_amount) is the entry anchor of the drop-off report, so without
+   this there is no measurement of the landing → step 1 gap — the largest and
+   previously invisible drop on the page. Built server-side from a WHITELIST of
+   query params (never the raw query string) and length-capped, then emitted as a
+   JSON object with every HTML-significant character hex-escaped, so a crafted
+   ?utm_source=… can't break out of the inline <script>. */
+$landingProps = [];
+foreach ([
+    'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+    'affid', 'oid', 'source_id', 'subid', 'gclid', 'fbclid', 'ttclid',
+] as $param) {
+    $value = trim((string) ($_GET[$param] ?? ''));
+    if ($value !== '') {
+        $landingProps[$param] = substr($value, 0, 100);
+    }
+}
+$landingJson = json_encode(
+    $landingProps,
+    JSON_FORCE_OBJECT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+);
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -33,11 +56,39 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php include __DIR__ . '/includes/track.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>
+
+    <!-- Funnel entry, queued by includes/track.php until the deferred Umami tag
+         is live. Reported as "Landed" in bin/funnel-slack-report.php. -->
+    <script>jgTrack('event_view_landing', <?= $landingJson ?>);</script>
 
     <?php if (!empty($cfg['turnstile']['enabled'])): ?>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <?php endif; ?>
+    <!-- Everflow -->
+    <script type="text/javascript" src="https://www.f0cg2trk.com/scripts/main.js"></script>
+
+    <script type="text/javascript">
+    EF.click({
+        offer_id: EF.urlParameter('oid'),
+        affiliate_id: EF.urlParameter('affid'),
+        source_id: EF.urlParameter('source_id'),
+        sub1: EF.urlParameter('sub1'),
+        sub2: EF.urlParameter('sub2'),
+        sub3: EF.urlParameter('sub3'),
+        sub4: EF.urlParameter('sub4'),
+        sub5: EF.urlParameter('sub5'),
+        sub6: EF.urlParameter('sub6'),
+        sub7: EF.urlParameter('sub7'),
+        sub8: EF.urlParameter('sub8'),
+        sub9: EF.urlParameter('sub9'),
+        sub10: EF.urlParameter('sub10'),
+        uid: EF.urlParameter('uid'),
+        transaction_id: EF.urlParameter('_ef_transaction_id'),
+    });
+    </script>
+    <!-- Everflow End-->
 </head>
 <body>
 
@@ -123,13 +174,13 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
             <!-- ===== Step 1: debt amount (radio, auto-advance) ===== -->
             <section class="step is-active" data-step="1" data-advance="auto">
-                <h1 class="form-header">Get Debt Relief</h1>
+                <h1 class="form-header">Debt Relief</h1>
                 <p class="form-subtext">How much debt do you owe?</p>
                 <div class="choice-group" role="radiogroup" aria-label="Debt amount">
                     <?php foreach ($cfg['debt_options'] as $opt): ?>
                         <label class="choice">
                             <input type="radio" name="debt_amount" value="<?= $e($opt) ?>" required
-                                   data-umami-event="choice-debt-amount" data-umami-event-choice="<?= $e($opt) ?>">
+                                   data-umami-event="event_choice_debt_amount" data-umami-event-choice="<?= $e($opt) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($opt) ?></span>
                         </label>
@@ -144,7 +195,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <?php foreach ($cfg['behind_payment_options'] as $val => $label): ?>
                         <label class="choice">
                             <input type="radio" name="behind_payment" value="<?= $e($val) ?>" required
-                                   data-umami-event="choice-behind-payment" data-umami-event-choice="<?= $e($val) ?>">
+                                   data-umami-event="event_choice_behind_payment" data-umami-event-choice="<?= $e($val) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($label) ?></span>
                         </label>
@@ -159,7 +210,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <?php foreach ($cfg['employment_options'] as $val => $label): ?>
                         <label class="choice">
                             <input type="radio" name="employment" value="<?= $e($val) ?>" required
-                                   data-umami-event="choice-employment" data-umami-event-choice="<?= $e($val) ?>">
+                                   data-umami-event="event_choice_employment" data-umami-event-choice="<?= $e($val) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($label) ?></span>
                         </label>
@@ -174,7 +225,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <?php foreach ($cfg['income_options'] as $opt): ?>
                         <label class="choice">
                             <input type="radio" name="income" value="<?= $e($opt) ?>" required
-                                   data-umami-event="choice-income" data-umami-event-choice="<?= $e($opt) ?>">
+                                   data-umami-event="event_choice_income" data-umami-event-choice="<?= $e($opt) ?>">
                             <span class="choice-radio" aria-hidden="true"></span>
                             <span class="choice-label"><?= $e($opt) ?></span>
                         </label>
@@ -182,18 +233,26 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 </div>
             </section>
 
-            <!-- ===== Step 5: name ===== -->
+            <!-- ===== Step 5: name =====
+                 data-jg-event marks a field for first-touch tracking: funnel.js
+                 fires the named event once, on first FOCUS of that field. (Umami's
+                 own data-umami-event is click-only, so it would miss every visitor
+                 who tabs into the field — hence the separate attribute.) Comparing
+                 these against the step's view event separates "saw the step" from
+                 "actually started filling it in". -->
             <section class="step" data-step="5">
                 <h2 class="step-title">What is your first and last name?</h2>
                 <div class="field">
                     <label for="first_name">First name <span class="req">*</span></label>
                     <input type="text" id="first_name" name="first_name" autocomplete="given-name"
-                           data-validate="name" required>
+                           data-validate="name" required
+                           data-jg-event="event_engage_first_name">
                 </div>
                 <div class="field">
                     <label for="last_name">Last name <span class="req">*</span></label>
                     <input type="text" id="last_name" name="last_name" autocomplete="family-name"
-                           data-validate="name" required>
+                           data-validate="name" required
+                           data-jg-event="event_engage_last_name">
                 </div>
             </section>
 
@@ -211,18 +270,20 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="field places-wrap">
                     <label for="street">Street address <span class="req">*</span></label>
                     <input type="text" id="street" name="street" autocomplete="off"
-                           data-validate="street" placeholder="Start typing your address&hellip;" required>
+                           data-validate="street" placeholder="Start typing your address&hellip;" required
+                           data-jg-event="event_engage_street">
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
                 </div>
                 <div class="field-row">
                     <div class="field">
                         <label for="city">City <span class="req">*</span></label>
                         <input type="text" id="city" name="city" autocomplete="address-level2"
-                               data-validate="city" required>
+                               data-validate="city" required data-jg-event="event_engage_city">
                     </div>
                     <div class="field">
                         <label for="state">State <span class="req">*</span></label>
-                        <select id="state" name="state" autocomplete="address-level1" required>
+                        <select id="state" name="state" autocomplete="address-level1" required
+                                data-jg-event="event_engage_state">
                             <option value="">Select State</option>
                             <?php foreach ($cfg['states'] as $abbr => $name): ?>
                                 <option value="<?= $e($abbr) ?>"><?= $e($name) ?></option>
@@ -233,22 +294,33 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="field field--zip">
                     <label for="zip">Zip code <span class="req">*</span></label>
                     <input type="text" id="zip" name="zip" autocomplete="postal-code"
-                           inputmode="numeric" data-validate="zip" maxlength="5" required>
+                           inputmode="numeric" data-validate="zip" maxlength="5" required
+                           data-jg-event="event_engage_zip">
                 </div>
+                <!-- Country: not collected from the visitor, but funnel.js requires it
+                     to be present before the step advances (see checkAddressParts). -->
+                <input type="hidden" id="country" name="country" value="US">
             <?php else: ?>
                 <h2 class="step-title">What is your home address?</h2>
                 <div class="field places-wrap">
                     <label for="address">Home address <span class="req">*</span></label>
                     <input type="text" id="address" autocomplete="off" autocapitalize="words"
-                           data-validate="address" placeholder="Home Address" required>
+                           data-validate="address" placeholder="Home Address" required
+                           data-jg-event="event_engage_address">
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
+                    <p class="field-help">Start typing, then pick your address from the list so we
+                        capture the street, city, state and ZIP code.</p>
                 </div>
-                <!-- Segregated payload — populated by funnel.js (pick or submit-time geocode).
-                     The visible field above has NO name, so ONLY these reach the backend. -->
-                <input type="hidden" id="street" name="street">
-                <input type="hidden" id="city"   name="city">
-                <input type="hidden" id="state"  name="state">
-                <input type="hidden" id="zip"    name="zip">
+                <!-- Segregated payload — populated by funnel.js (pick or Continue-time
+                     geocode); the step will not advance until all of them are filled.
+                     The visible field above has NO name, so ONLY these reach the backend.
+                     Country is seeded here so a resolution that omits the component
+                     cannot leave the address incomplete. -->
+                <input type="hidden" id="street"  name="street">
+                <input type="hidden" id="city"    name="city">
+                <input type="hidden" id="state"   name="state">
+                <input type="hidden" id="zip"     name="zip">
+                <input type="hidden" id="country" name="country" value="US">
             <?php endif; ?>
             </section>
 
@@ -260,7 +332,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <div class="dob-wrap">
                         <input type="text" id="dob" name="dob" inputmode="numeric"
                                placeholder="MM/DD/YYYY" maxlength="10" data-validate="dob"
-                               autocomplete="bday" required>
+                               autocomplete="bday" required data-jg-event="event_engage_dob">
                         <button type="button" class="dob-toggle" id="dobToggle"
                                 aria-label="Open calendar" aria-expanded="false" aria-controls="dobCal">
                             <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
@@ -281,7 +353,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                 <div class="field">
                     <label for="email">Email address <span class="req">*</span></label>
                     <input type="email" id="email" name="email" autocomplete="email"
-                           data-validate="email" required>
+                           data-validate="email" required data-jg-event="event_engage_email">
                 </div>
             </section>
 
@@ -295,7 +367,7 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                     <label for="phone">Phone <span class="req">*</span></label>
                     <input type="tel" id="phone" name="phone" autocomplete="tel"
                            inputmode="tel" placeholder="(555) 555-5555" maxlength="14"
-                           data-validate="phone" required>
+                           data-validate="phone" required data-jg-event="event_engage_phone">
                 </div>
 
                 <p class="consent-note"><?= $e($cfg['consent']['contact']) ?></p>
@@ -309,11 +381,19 @@ $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
                  button the step uses: Continue (steps 1–7) or Submit (step 8). -->
             <div class="form-nav">
                 <button type="button" class="btn-back" id="btnBack" aria-label="Back" hidden
-                        data-umami-event="funnel-back">
+                        data-umami-event="event_back_click">
                     <img src="assets/img/chevron-left-grey.svg" alt="" width="26" height="26">
                 </button>
-                <button type="button" class="btn btn-next" id="btnNext">Continue</button>
-                <button type="submit" class="btn btn-submit" id="btnSubmit" hidden>Submit</button>
+                <!-- Both buttons are shared across every step, which is why these are
+                     NOT named after a field: they count CLICKS. event_continue_click
+                     includes attempts that bounce off validation (the per-step signal
+                     is event_<field>_complete) and event_submit_click includes retries
+                     after a 422. Umami's click-only declarative tracking is exactly
+                     right for buttons — no focus subtleties to worry about. -->
+                <button type="button" class="btn btn-next" id="btnNext"
+                        data-umami-event="event_continue_click">Continue</button>
+                <button type="submit" class="btn btn-submit" id="btnSubmit" hidden
+                        data-umami-event="event_submit_click">Submit</button>
             </div>
 
             <!-- Step-specific disclosure shown below the nav row. The DOB step's

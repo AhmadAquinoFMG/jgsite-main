@@ -40,6 +40,17 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php include __DIR__ . '/includes/track.php'; ?>
+
+    <!-- Funnel completion. This is the report's authoritative "completed" signal:
+         it only fires after submit.php accepted the lead and funnel.js redirected
+         here, and it fires from a fresh pageview rather than from a beacon racing
+         that redirect — so it can't be undercounted the way event_submit_attempt can.
+         See bin/funnel-slack-report.php. -->
+    <script>jgTrack('event_view_thank_you', {
+        has_savings: <?= $estimatedSavings > 0 ? 'true' : 'false' ?>,
+        estimated_savings: <?= (int) $estimatedSavings ?>
+    });</script>
 
     <?php /*
       Everflow conversion trigger goes here once the offer is live.
@@ -78,7 +89,7 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
             <?php endif; ?>
 
             <!-- Assigned specialist -->
-            <div class="prequal-assigned">
+            <!-- <div class="prequal-assigned">
                 <span class="prequal-assigned__icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="none"
                         stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -91,14 +102,18 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
                     <h2 class="prequal-assigned__title">A Certified Debt Specialist Has Been Assigned to You</h2>
                     <p>They&rsquo;re ready to walk you through your best options for becoming debt free.</p>
                 </div>
-            </div>
+            </div> -->
 
             <!-- Call CTA card -->
             <section class="prequal-card" aria-label="Speak with your specialist">
                 <h2 class="prequal-card__title">Speak With Your Specialist Now</h2>
                 <p class="prequal-card__sub">Your estimate is reserved, but availability is limited.</p>
 
-                <a class="prequal-call" href="tel:<?= $e($ctaTel) ?>">
+                <!-- The money click. Umami's declarative tracking holds the tel:
+                     navigation until the event is away, so this survives the dialer
+                     opening. Reported as "Called" (share of completions). -->
+                <a class="prequal-call" href="tel:<?= $e($ctaTel) ?>"
+                   data-umami-event="event_call_click">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
