@@ -297,6 +297,9 @@ $landingJson = json_encode(
                            inputmode="numeric" data-validate="zip" maxlength="5" required
                            data-jg-event="event_engage_zip">
                 </div>
+                <!-- Country: not collected from the visitor, but funnel.js requires it
+                     to be present before the step advances (see checkAddressParts). -->
+                <input type="hidden" id="country" name="country" value="US">
             <?php else: ?>
                 <h2 class="step-title">What is your home address?</h2>
                 <div class="field places-wrap">
@@ -305,13 +308,19 @@ $landingJson = json_encode(
                            data-validate="address" placeholder="Home Address" required
                            data-jg-event="event_engage_address">
                     <ul class="places-suggestions" id="placesSuggestions" role="listbox" hidden></ul>
+                    <p class="field-help">Start typing, then pick your address from the list so we
+                        capture the street, city, state and ZIP code.</p>
                 </div>
-                <!-- Segregated payload — populated by funnel.js (pick or submit-time geocode).
-                     The visible field above has NO name, so ONLY these reach the backend. -->
-                <input type="hidden" id="street" name="street">
-                <input type="hidden" id="city"   name="city">
-                <input type="hidden" id="state"  name="state">
-                <input type="hidden" id="zip"    name="zip">
+                <!-- Segregated payload — populated by funnel.js (pick or Continue-time
+                     geocode); the step will not advance until all of them are filled.
+                     The visible field above has NO name, so ONLY these reach the backend.
+                     Country is seeded here so a resolution that omits the component
+                     cannot leave the address incomplete. -->
+                <input type="hidden" id="street"  name="street">
+                <input type="hidden" id="city"    name="city">
+                <input type="hidden" id="state"   name="state">
+                <input type="hidden" id="zip"     name="zip">
+                <input type="hidden" id="country" name="country" value="US">
             <?php endif; ?>
             </section>
 
