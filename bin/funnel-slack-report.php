@@ -56,8 +56,10 @@
  * "advanced" means the visitor actually pushed Submit rather than merely reaching
  * the phone field.
  *
- * Cost: ~15 Umami API calls per run (1 form funnel + 1 per step for _complete +
- * 4 outcome funnels + 1 event-totals call covering all abandon/resume names).
+ * Cost: ~16 Umami API calls per run (2 for the form funnel — /reports/funnel accepts
+ * at most 8 steps and the form has 9, so it is pulled in chunks, see
+ * umami_funnel_chained() — plus 1 per step for _complete, 4 outcome funnels and
+ * 1 event-totals call covering all abandon/resume names).
  *
  * Secrets (real env vars or .env/.env.local at the project root):
  *   UMAMI_API_KEY       required — Umami Cloud API key (x-umami-api-key)
@@ -81,10 +83,15 @@ if (PHP_SAPI !== 'cli') {
 // Config
 // ---------------------------------------------------------------------------
 const UMAMI_API_BASE  = 'https://api.umami.is/v1';
-const DEFAULT_WEBSITE = '8ed84c35-51fe-4ede-8193-3ae61f46508d'; // must match config.php ['umami']['website_id']
+const DEFAULT_WEBSITE = '40f1f6d9-80c1-49cf-b6ef-0280ac052f83'; // must match config.php ['umami']['website_id']
 const REPORT_TZ       = 'America/New_York';
 const LOW_SAMPLE_MIN  = 15;   // below this many entrants, flag the numbers as noisy
 const HTTP_TIMEOUT    = 20;
+
+// Hard cap enforced by /reports/funnel — more than this and the whole request is
+// rejected with `Too big: expected array to have <=8 items`. Our form is 9 steps,
+// so every full-funnel pull goes through umami_funnel_chained() below.
+const UMAMI_MAX_FUNNEL_STEPS = 8;
 
 // The on-form funnel, in order: [field slug => human label]. The slugs mirror
 // STEP_FIELDS in assets/js/funnel.js — the two must stay in lockstep. Event names
@@ -225,6 +232,83 @@ function umami_funnel(string $apiKey, string $websiteId, array $events, string $
     return $data;
 }
 
+/**
+ * Same contract as umami_funnel(), but works for funnels longer than the API's
+ * 8-step ceiling. Under the limit it is a straight pass-through.
+ *
+ * Over it, the funnel is walked in chunks, each one re-anchored so the numbers stay
+ * comparable with the first chunk's:
+ *
+ *   chunk 1 : e1 e2 e3 e4 e5 e6 e7 e8
+ *   chunk 2 : e1 e8 | e9 …                (anchor, hand-off, then up to 6 new steps)
+ *
+ * The anchor (e1) keeps every chunk measuring the same population — visitors who
+ * entered the funnel — and the hand-off (the previous chunk's last step) keeps the
+ * ordering constraint across the seam. The intermediate steps e2…e7 are safe to omit
+ * because the form is strictly sequential: nobody reaches e8 without passing them.
+ *
+ * The prefix rows are dropped from the result, and the first row after a seam has its
+ * previous/dropped/dropoff/remaining recomputed against the STITCHED table rather than
+ * against its own chunk. Chunk 2's e8 count can come out a shade higher than chunk 1's
+ * (it isn't gated on e2…e7), and reusing it would let the table show a step gaining
+ * visitors. Recomputing keeps the report monotonic and self-consistent.
+ */
+function umami_funnel_chained(string $apiKey, string $websiteId, array $events, string $startIso, string $endIso): array
+{
+    $events = array_values($events);
+    if (count($events) <= UMAMI_MAX_FUNNEL_STEPS) {
+        return umami_funnel($apiKey, $websiteId, $events, $startIso, $endIso);
+    }
+
+    $rows = umami_funnel(
+        $apiKey, $websiteId, array_slice($events, 0, UMAMI_MAX_FUNNEL_STEPS), $startIso, $endIso
+    );
+    $entrants = (int) ($rows[0]['visitors'] ?? 0);
+    $next     = UMAMI_MAX_FUNNEL_STEPS;
+
+    while ($next < count($events)) {
+        // Anchor + hand-off. They coincide only if a chunk would carry a single new
+        // step off the very first event, which can't happen here, but guard anyway so
+        // a duplicated step never eats one of the eight slots.
+        $prefix = [$events[0]];
+        if ($events[$next - 1] !== $events[0]) {
+            $prefix[] = $events[$next - 1];
+        }
+        $take  = UMAMI_MAX_FUNNEL_STEPS - count($prefix);
+        $chunk = array_merge($prefix, array_slice($events, $next, $take));
+
+        $new = array_slice(
+            umami_funnel($apiKey, $websiteId, $chunk, $startIso, $endIso),
+            count($prefix)
+        );
+        if (!$new) {
+            warn(sprintf('funnel chunk starting at "%s" returned no rows; table truncated there.', $events[$next]));
+            break;
+        }
+
+        // Re-base the seam row on the last stitched row.
+        $prevVisitors  = (int) (end($rows)['visitors'] ?? 0);
+        $seamVisitors  = min((int) ($new[0]['visitors'] ?? 0), $prevVisitors);
+        $new[0]['visitors']  = $seamVisitors;
+        $new[0]['previous']  = $prevVisitors;
+        $new[0]['dropped']   = $prevVisitors - $seamVisitors;
+        $new[0]['dropoff']   = $prevVisitors > 0 ? ($prevVisitors - $seamVisitors) / $prevVisitors : null;
+        $new[0]['remaining'] = $entrants > 0 ? $seamVisitors / $entrants : 0;
+
+        // Steps after the seam are already chained correctly within their own chunk;
+        // only `remaining` needs re-basing, since the chunk computed it against e1's
+        // count in that chunk rather than against the report's entrant count.
+        for ($i = 1; $i < count($new); $i++) {
+            $new[$i]['remaining'] = $entrants > 0 ? ((int) ($new[$i]['visitors'] ?? 0)) / $entrants : 0;
+        }
+
+        $rows  = array_merge($rows, $new);
+        $next += $take;
+    }
+
+    return $rows;
+}
+
 /** Unique visitors reaching the LAST step of a 2+-step funnel (the conversion count). */
 function terminal_visitors(string $apiKey, string $websiteId, array $events, string $startIso, string $endIso): int
 {
@@ -356,7 +440,7 @@ $enterEvent = ev_enter();
 
 // --- Pull the on-form funnel (per-step view table + entered) ---
 $viewEvents = array_map('ev_view', array_keys(FORM_STEPS));
-$form       = by_event(umami_funnel($apiKey, $websiteId, $viewEvents, $startIso, $endIso));
+$form       = by_event(umami_funnel_chained($apiKey, $websiteId, $viewEvents, $startIso, $endIso));
 $entered    = (int) ($form[$enterEvent]['visitors'] ?? 0);
 
 // --- Per-step "advanced": visitors who reached step N and then completed it ---
