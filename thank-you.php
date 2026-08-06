@@ -23,6 +23,25 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
 // replayed. Persists across reloads/bookmarks of this page; index.php clears
 // it when a visitor starts the funnel over. Absent/zero hides the callout.
 $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
+
+/* Everflow conversion. submit.php stashes the affid here only after it accepted
+   the lead, so this can't fire for a visitor who merely opened the page. The
+   offer comes from that affid (includes/everflow.php); no affid stashed means
+   no offer and nothing is sent to Everflow at all.
+
+   Consumed on read — unset before rendering, so reloading or bookmarking this
+   page can't fire a second conversion for the same lead. Unlike prequal_savings
+   (which persists deliberately so the savings callout survives a reload), a
+   duplicated conversion would be a billing event. */
+require_once __DIR__ . '/includes/everflow.php';
+
+$efConversion = $_SESSION['ef_conversion'] ?? null;
+unset($_SESSION['ef_conversion']);
+
+$efOfferId = $efConversion
+    ? everflow_offer_for_affid($efConversion['affid'] ?? '', $cfg['everflow'])
+    : null;
+$efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -52,15 +71,26 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
         estimated_savings: <?= (int) $estimatedSavings ?>
     });</script>
 
-    <?php /*
-      Everflow conversion trigger goes here once the offer is live.
-      Conversion is fired client-side by a campaign trigger snippet Everflow
-      generates in their dashboard for this specific offer/thank-you page — it
-      reads the Everflow tracking cookie set by assets/js/tracking/everflow.js
-      on the landing page, so there is no server-side postback to wire up.
-      Paste that snippet here verbatim once EVERFLOW_OFFER_ID is set (see
-      config.php ['everflow'] / .env.example).
-    */ ?>
+    <?php /* Everflow conversion — fires against the offer this lead's affid maps
+             to (914 first party / 915 third party). Rendered only when an affid
+             was stashed at submit; unattributed leads emit nothing at all.
+
+             transaction_id is passed explicitly when the landing-page click
+             managed to resolve one, since that's a firmer match than letting the
+             SDK re-read the tracking cookie. When it's blank we omit the key and
+             fall back to the cookie, which is the SDK's normal path. */ ?>
+    <?php if ($efOfferId): ?>
+    <?php
+      $efPayload = ['offer_id' => $efOfferId];
+      if ($efTransactionId !== '') {
+          $efPayload['transaction_id'] = $efTransactionId;
+      }
+    ?>
+    <script type="text/javascript" src="https://<?= $e($cfg['everflow']['domain']) ?>/scripts/main.js"></script>
+    <script type="text/javascript">
+    EF.conversion(<?= json_encode($efPayload, JSON_UNESCAPED_SLASHES) ?>);
+    </script>
+    <?php endif; ?>
 </head>
 
 <body>

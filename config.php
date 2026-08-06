@@ -202,18 +202,35 @@ return [
         'timeout'    => (int) env('TURNSTILE_TIMEOUT', '10'),
     ],
 
-    // ---- Everflow affiliate tracking (client-side click attribution) ----
-    // Loaded lazily in assets/js/tracking/everflow.js: fires EF.click() on the
-    // landing page, then watches for the Everflow tracking cookie and writes
-    // affid/ef_transaction_id into hidden form fields so they ride along with
-    // the lead (see index.php and LEADPROSPER_TRACKING_PARAMS). Conversion
-    // itself is fired by an Everflow campaign trigger configured on their side
-    // for the thank-you page — no server-side postback. Leave offer_id empty
-    // to disable the script entirely.
+    // ---- Everflow affiliate tracking (client-side click + conversion) ----
+    // The ?affid= on the landing URL is what decides everything:
+    //
+    //   affid in first_party_affids  -> offer_first_party  (914, 1st party traffic)
+    //   affid present, not in list   -> offer_third_party  (915, 3rd party traffic)
+    //   affid absent/empty           -> Everflow is not touched at all. The SDK
+    //                                   is never even loaded, no click, no
+    //                                   conversion. Traffic we can't attribute
+    //                                   must not reach Everflow.
+    //
+    // The offer is derived from affid, NOT from the ?oid= in the URL — affid is
+    // the authoritative side of the mapping, and a link arriving with a missing
+    // or mismatched oid used to silently kill click attribution. ?oid= is still
+    // captured into a hidden field and forwarded to LeadProsper, it just has no
+    // say in which Everflow offer the click/conversion lands on.
+    //
+    // Click fires on the landing page (assets/js/tracking/everflow.js), which
+    // then writes the resolved transaction id into the ef_transaction_id hidden
+    // field so it rides along with the lead (see index.php and
+    // LEADPROSPER_TRACKING_PARAMS). Conversion fires on thank-you.php against
+    // the same offer, using the affid submit.php stashed in the session.
     'everflow' => [
-        'offer_id'     => env('EVERFLOW_OFFER_ID', ''),
-        'affiliate_id' => env('EVERFLOW_AFFILIATE_ID', ''),
-        'domain'       => env('EVERFLOW_DOMAIN', 'www.f0cg2trk.com'),
+        'offer_first_party' => env('EVERFLOW_OFFER_FIRST_PARTY', '914'),
+        'offer_third_party' => env('EVERFLOW_OFFER_THIRD_PARTY', '915'),
+        'first_party_affids' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', env('EVERFLOW_FIRST_PARTY_AFFIDS', '989,995,1024'))
+        ), fn($v) => $v !== '')),
+        'domain' => env('EVERFLOW_DOMAIN', 'www.f0cg2trk.com'),
     ],
 
     // ---- Branding -------------------------------------------------------

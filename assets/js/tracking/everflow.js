@@ -1,93 +1,133 @@
 /* ============================================================
-   Everflow Affiliate Tracking — LAZY
+   Everflow Affiliate Tracking — LAZY, affid-gated
    ------------------------------------------------------------
-   Exposes window.initEverflow(). The EF.click() call block below is
-   the exact snippet from the Everflow dashboard for this offer —
-   script src (scripts/main.js) and field list (sub1-10, uid,
-   transaction_id) must match it verbatim; don't "clean it up" against
-   a different Everflow integration's shape.
+   Fires the Everflow click for the landing page, then writes the resolved
+   transaction id into the funnel's hidden ef_transaction_id field so it rides
+   along with the lead to LeadProsper.
 
-   Wrapping is this funnel's own: lazy-load (first interaction / 4s
-   safety timeout / form submit, so a zero-interaction bounce never
-   loads it — fine on a CPA model since bounces don't convert anyway),
-   plus a cookie watcher that copies the resolved affiliate/transaction
-   id into the funnel's hidden fields (affid, efTransactionId) so they
-   ride along with the lead to LeadProsper.
+   Which offer? Decided by ?affid= alone (window.FUNNEL.everflow, from
+   config.php ['everflow']):
+
+     affid in firstPartyAffids -> offerFirstParty (914)
+     affid present, not listed -> offerThirdParty (915)
+     affid absent/empty        -> hard stop. We return before loading anything,
+                                  so the SDK never even hits the network and no
+                                  click is fired. Unattributed traffic must not
+                                  reach Everflow at all.
+
+   The EF.click() field list below (source_id, sub1-10, uid, transaction_id) is
+   the shape Everflow's dashboard snippet uses for this offer — don't "clean it
+   up" against a different integration. What differs from that raw snippet is
+   deliberate: offer_id comes from the affid mapping instead of ?oid= (a link
+   with a missing/mismatched oid used to fire a click with an undefined offer),
+   and the whole thing is lazy-loaded on first interaction / 4s / form submit so
+   a zero-interaction bounce never loads it — fine on a CPA model, since bounces
+   don't convert anyway.
+
+   Conversion is NOT here — that fires on thank-you.php, against the offer the
+   affid stashed in the session resolves to.
    ============================================================ */
 (function () {
     var cfg = (window.FUNNEL && window.FUNNEL.everflow) || {};
-    if (!cfg.offerId) return; // disabled — no offer configured
+
+    // Read affid ourselves rather than via EF.urlParameter(): the gate has to be
+    // decidable before we decide whether to load the SDK at all.
+    var affiliateId = '';
+    try {
+        affiliateId = (new URLSearchParams(location.search).get('affid') || '').trim();
+    } catch (e) {
+        affiliateId = '';
+    }
+    if (!affiliateId) return; // unattributed — nothing goes to Everflow
+
+    var firstParty = cfg.firstPartyAffids || [];
+    var offerId = firstParty.indexOf(affiliateId) !== -1
+        ? cfg.offerFirstParty
+        : cfg.offerThirdParty;
+    if (!offerId) return; // offer ids not configured — fail closed, don't guess
+
+    // Hand the resolved transaction id to the form so it posts with the lead.
+    function writeTransactionId(transactionId) {
+        if (!transactionId) return;
+        var attempts = 0;
+        (function write() {
+            var affField = document.getElementById('affid');
+            var tidField = document.getElementById('efTransactionId');
+            if (tidField) {
+                if (affField && !affField.value) affField.value = affiliateId;
+                tidField.value = transactionId;
+            } else if (++attempts < 20) {
+                setTimeout(write, 300);
+            }
+        })();
+    }
+
+    // Fallback for SDK builds where EF.click() doesn't return a promise: poll for
+    // the tracking cookie until its value stops changing, then take the last
+    // pipe-delimited segment. Prefers this offer's own cookie and falls back to
+    // any ef_tid_ cookie rather than guessing at prefix naming.
+    function watchCookie() {
+        var attempts = 0, lastSeen = '', stable = 0;
+        var interval = setInterval(function () {
+            var cookies = document.cookie.split(';').map(function (c) { return c.trim(); });
+            var match = cookies.filter(function (c) {
+                return c.indexOf('ef_tid_c_o_' + offerId + '=') === 0;
+            })[0] || cookies.filter(function (c) {
+                return c.indexOf('ef_tid_') === 0;
+            })[0];
+
+            if (match) {
+                var rawValue = match.split('=')[1] || '';
+                if (rawValue === lastSeen) {
+                    stable++;
+                } else {
+                    stable = 0;
+                    lastSeen = rawValue;
+                }
+                if (stable >= 2) {
+                    var parts = rawValue.split('|');
+                    writeTransactionId(parts[parts.length - 1]);
+                    clearInterval(interval);
+                    return;
+                }
+            }
+            if (++attempts >= 50) clearInterval(interval); // 10s timeout
+        }, 200);
+    }
 
     function runEverflowClick() {
         if (typeof EF === 'undefined') return;
 
-        var offer_id = EF.urlParameter('oid') || cfg.offerId;
-        var affiliate_id = EF.urlParameter('affid') || cfg.affiliateId || '';
-
-        // Fire click only if affiliate_id changed since last session.
-        if (affiliate_id !== sessionStorage.getItem('last_affid')) {
-            EF.click({
-                offer_id: offer_id,
-                affiliate_id: affiliate_id,
-                source_id: EF.urlParameter('source_id'),
-                sub1: EF.urlParameter('sub1'),
-                sub2: EF.urlParameter('sub2'),
-                sub3: EF.urlParameter('sub3'),
-                sub4: EF.urlParameter('sub4'),
-                sub5: EF.urlParameter('sub5'),
-                sub6: EF.urlParameter('sub6'),
-                sub7: EF.urlParameter('sub7'),
-                sub8: EF.urlParameter('sub8'),
-                sub9: EF.urlParameter('sub9'),
-                sub10: EF.urlParameter('sub10'),
-                uid: EF.urlParameter('uid'),
-                transaction_id: EF.urlParameter('_ef_transaction_id'),
-            });
-            sessionStorage.setItem('last_affid', affiliate_id);
+        // One click per affid per session — a reload shouldn't re-click.
+        if (sessionStorage.getItem('last_affid') === affiliateId) {
+            watchCookie(); // cookie already exists; still need the id on the form
+            return;
         }
+        sessionStorage.setItem('last_affid', affiliateId);
 
-        // Cookie watcher: poll for the Everflow tracking cookie, then write the
-        // resolved affiliate/transaction id into the funnel's hidden fields.
-        var expectedPrefix = affiliate_id && affiliate_id !== cfg.affiliateId
-            ? 'ef_tid_c_a_' : 'ef_tid_c_o_';
-        var attempts = 0;
-        var lastSeenValue = '';
-        var stableCount = 0;
+        var result = EF.click({
+            offer_id: offerId,
+            affiliate_id: affiliateId,
+            source_id: EF.urlParameter('source_id'),
+            sub1: EF.urlParameter('sub1'),
+            sub2: EF.urlParameter('sub2'),
+            sub3: EF.urlParameter('sub3'),
+            sub4: EF.urlParameter('sub4'),
+            sub5: EF.urlParameter('sub5'),
+            sub6: EF.urlParameter('sub6'),
+            sub7: EF.urlParameter('sub7'),
+            sub8: EF.urlParameter('sub8'),
+            sub9: EF.urlParameter('sub9'),
+            sub10: EF.urlParameter('sub10'),
+            uid: EF.urlParameter('uid'),
+            transaction_id: EF.urlParameter('_ef_transaction_id'),
+        });
 
-        var interval = setInterval(function () {
-            var cookies = document.cookie.split(';').map(function (c) { return c.trim(); });
-            var match = cookies.find(function (c) { return c.startsWith(expectedPrefix); });
-
-            if (match) {
-                var rawValue = match.split('=')[1] || '';
-                if (rawValue === lastSeenValue) {
-                    stableCount++;
-                } else {
-                    stableCount = 0;
-                    lastSeenValue = rawValue;
-                }
-
-                if (stableCount >= 2) {
-                    var parts = rawValue.split('|');
-                    var latestTransactionId = parts[parts.length - 1];
-
-                    var writeFields = function () {
-                        var affField = document.getElementById('affid');
-                        var tidField = document.getElementById('efTransactionId');
-                        if (affField && tidField) {
-                            if (!affField.value) affField.value = affiliate_id;
-                            tidField.value = latestTransactionId;
-                        } else {
-                            setTimeout(writeFields, 300);
-                        }
-                    };
-                    writeFields();
-                    clearInterval(interval);
-                }
-            }
-
-            if (++attempts >= 50) clearInterval(interval); // 10-second timeout
-        }, 200);
+        if (result && typeof result.then === 'function') {
+            result.then(writeTransactionId, watchCookie);
+        } else {
+            watchCookie();
+        }
     }
 
     function loadEverflowSDK() {
@@ -102,17 +142,16 @@
     }
 
     // Lazy gate: first interaction, 4s safety timeout, or form submit — whichever
-    // comes first. No separate lazy-tracking.js dependency needed for this funnel.
+    // comes first.
+    var events = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
     var fired = false;
     function fireOnce() {
         if (fired) return;
         fired = true;
         loadEverflowSDK();
-        ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(function (evt) {
-            document.removeEventListener(evt, fireOnce);
-        });
+        events.forEach(function (evt) { document.removeEventListener(evt, fireOnce); });
     }
-    ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach(function (evt) {
+    events.forEach(function (evt) {
         document.addEventListener(evt, fireOnce, { passive: true, once: true });
     });
     var form = document.getElementById('funnelForm');

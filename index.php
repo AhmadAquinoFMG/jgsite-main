@@ -13,7 +13,7 @@
 // A fresh funnel run invalidates any estimated savings from a prior
 // submission held in the session for thank-you.php (see submit.php).
 session_start();
-unset($_SESSION['prequal_savings']);
+unset($_SESSION['prequal_savings'], $_SESSION['ef_conversion']);
 
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
@@ -66,29 +66,14 @@ $landingJson = json_encode(
     <?php if (!empty($cfg['turnstile']['enabled'])): ?>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <?php endif; ?>
-    <!-- Everflow -->
-    <script type="text/javascript" src="https://www.f0cg2trk.com/scripts/main.js"></script>
-
-    <script type="text/javascript">
-    EF.click({
-        offer_id: EF.urlParameter('oid'),
-        affiliate_id: EF.urlParameter('affid'),
-        source_id: EF.urlParameter('source_id'),
-        sub1: EF.urlParameter('sub1'),
-        sub2: EF.urlParameter('sub2'),
-        sub3: EF.urlParameter('sub3'),
-        sub4: EF.urlParameter('sub4'),
-        sub5: EF.urlParameter('sub5'),
-        sub6: EF.urlParameter('sub6'),
-        sub7: EF.urlParameter('sub7'),
-        sub8: EF.urlParameter('sub8'),
-        sub9: EF.urlParameter('sub9'),
-        sub10: EF.urlParameter('sub10'),
-        uid: EF.urlParameter('uid'),
-        transaction_id: EF.urlParameter('_ef_transaction_id'),
-    });
-    </script>
-    <!-- Everflow End-->
+    <?php /*
+      No Everflow snippet in <head> on purpose. The click is fired by
+      assets/js/tracking/everflow.js at the bottom of this page, which gates on
+      ?affid= and resolves the offer id from it. A hardcoded snippet here used to
+      call EF.click() with offer_id: EF.urlParameter('oid'), which fired with an
+      undefined offer on any visit that didn't carry ?oid= — no offer to attribute
+      to, so no tracking cookie and nothing to convert against later.
+    */ ?>
 </head>
 <body>
 
@@ -427,15 +412,18 @@ $landingJson = json_encode(
         googlePlacesKey: <?= json_encode($cfg['google_places_key'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
         appEnv: <?= json_encode($cfg['app_env'] ?? 'production', JSON_UNESCAPED_SLASHES) ?>,
         everflow: {
-            offerId: <?= json_encode($cfg['everflow']['offer_id'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
-            affiliateId: <?= json_encode($cfg['everflow']['affiliate_id'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
+            offerFirstParty: <?= json_encode((string) ($cfg['everflow']['offer_first_party'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,
+            offerThirdParty: <?= json_encode((string) ($cfg['everflow']['offer_third_party'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,
+            firstPartyAffids: <?= json_encode(array_map('strval', $cfg['everflow']['first_party_affids'] ?? []), JSON_UNESCAPED_SLASHES) ?>,
             domain: <?= json_encode($cfg['everflow']['domain'] ?? 'www.f0cg2trk.com', JSON_UNESCAPED_SLASHES) ?>
         }
     };
 </script>
 <script src="assets/js/funnel.js?v=<?= $e($cfg['asset_version']) ?>"></script>
-<?php if (!empty($cfg['everflow']['offer_id'])): ?>
+<?php /* Loaded unconditionally — the script itself is the affid gate, and it
+         bails before touching the network when there's no affid to attribute to.
+         Gating here on a configured offer id would only re-introduce the old
+         "silently disabled in .env" failure. */ ?>
 <script src="assets/js/tracking/everflow.js?v=<?= $e($cfg['asset_version']) ?>"></script>
-<?php endif; ?>
 </body>
 </html>

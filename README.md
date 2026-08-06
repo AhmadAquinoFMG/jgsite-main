@@ -101,12 +101,21 @@ instead of coming back as a 422 from the final Submit.
   be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
   mode — set `LEADPROSPER_MODE=test` to validate field mapping without billing/delivering,
   `live` once you're ready.
-- **Everflow** — client-side click attribution (`assets/js/tracking/everflow.js`),
-  lazy-loaded on first interaction/4s timeout/form submit. Writes `affid` +
-  `ef_transaction_id` into hidden fields that ride along with the lead to
-  LeadProsper. Conversion fires separately, client-side, via an Everflow campaign
-  trigger configured for `thank-you.php` — no server-side postback. Disabled until
-  `EVERFLOW_OFFER_ID` is set.
+- **Everflow** — fully client-side; no server-side postback. The `?affid=` on the
+  landing URL decides the offer (`includes/everflow.php`, table in
+  `config.php ['everflow']`): a first-party affid
+  (`EVERFLOW_FIRST_PARTY_AFFIDS`, default `989,995,1024`) routes to offer **914**,
+  any other affid to **915**, and **no affid means Everflow is never contacted** —
+  the SDK isn't even loaded. Example link:
+  `https://jgdebtrelief.com/?oid=914&affid=989`. Note the offer is derived from
+  `affid`, not from `?oid=` — `oid` is still captured and forwarded to LeadProsper
+  but has no say in routing.
+  - *Click* — `assets/js/tracking/everflow.js`, lazy-loaded on first
+    interaction/4s timeout/form submit. Writes `affid` + `ef_transaction_id` into
+    hidden fields that ride along with the lead to LeadProsper.
+  - *Conversion* — `thank-you.php`, against the same offer. `submit.php` stashes
+    the affid in the session only after it accepts the lead, and `thank-you.php`
+    consumes it on read, so a reload can't double-fire a billable conversion.
 
 ## Backend
 
