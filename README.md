@@ -135,7 +135,25 @@ POST if JS is unavailable). `submit.php`:
    SSN — or another identifier the contract accepts — is supplied).
 5. **Posts to LeadProsper** and logs the request/response to `leadprosper_logs` —
    best-effort, same "log & continue" contract as Equifax. Ships in `off` mode.
-6. Returns `{ok:true}`; the client then redirects to **`thank-you.php`**.
+6. **Builds the redirect URL server-side** (`includes/redirect.php`) and returns
+   `{ok:true, redirect:"…"}`; the client follows that URL rather than hardcoding a
+   destination. The consumer's answers only reach the query string after passing
+   through validation here, so the appended values are the server's normalised
+   copies (phone as E.164, DOB as ISO, debt as an int) and can't be values the
+   client made up. Destination and param list are config, not code —
+   `config.php ['redirect']` (`REDIRECT_BASE`, default `thank-you.php`) maps
+   outgoing param name => field in `$row`; unanswered fields are dropped rather
+   than sent blank. Since `$row` also holds attribution, `affid`/`oid`/
+   `ef_transaction_id`/`utm_*` can be forwarded by naming them in that map.
+   A no-JS native POST gets a `303` to the same URL, so it lands on the page
+   instead of raw JSON.
+
+> ⚠ **PII in the URL.** Every param in `config.php ['redirect']['params']` ends up
+> in browser history, in the `Referer` sent to any third-party script on the
+> destination page, and in web-server access logs. The defaults are the full set
+> of form answers *including* name, street, DOB, email and phone. Trim that list
+> to what the destination genuinely needs, and prefer a destination that accepts
+> them over POST if one exists.
 
 > ⚠ **Compliance / PII.** With `EQUIFAX_REDACT=0`, `equifax_logs.request_body`
 > stores the full SSN and `response_body` stores the raw credit report in

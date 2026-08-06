@@ -25,6 +25,7 @@ require __DIR__ . '/includes/db.php';
 require __DIR__ . '/includes/equifax.php';
 require __DIR__ . '/includes/leadprosper.php';
 require __DIR__ . '/includes/turnstile.php';
+require __DIR__ . '/includes/redirect.php';
 
 logger($cfg); // initialise the operational file logger
 
@@ -451,4 +452,33 @@ if ($botReason !== null) {
     app_log('warning', 'lead', 'bot_suspected', ['rid' => $rid, 'lead_id' => $leadId, 'reason' => $botReason]);
 }
 
-echo json_encode(['ok' => true]);
+/* ---------------------------------------- redirect URL (built server-side)
+   The consumer's answers reach the redirect only after passing through here:
+   validated, normalised, stored. redirect_build_url() appends them from $row —
+   the server's copy — so the query string can't carry anything the client made
+   up, and the values are the canonical ones (E.164 phone, ISO dob, int debt).
+
+   funnel.js follows the `redirect` it gets back rather than hardcoding the
+   destination; the Location header below covers the no-JS native POST, which
+   would otherwise land the visitor on raw JSON. */
+$redirectUrl = redirect_build_url($row, $cfg['redirect'] ?? []);
+
+app_log('info', 'lead', 'redirect_built', [
+    'rid'     => $rid,
+    'lead_id' => $leadId,
+    // Path and param names only — the values are the consumer's PII and have no
+    // business in a log file.
+    'target'  => explode('?', $redirectUrl)[0],
+    'params'  => array_keys($cfg['redirect']['params'] ?? []),
+]);
+
+$wantsJson = str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
+
+if (!$wantsJson) {
+    // 303: turn the POST into a GET so a back/refresh can't re-submit the lead.
+    http_response_code(303);
+    header('Location: ' . $redirectUrl);
+    exit;
+}
+
+echo json_encode(['ok' => true, 'redirect' => $redirectUrl]);

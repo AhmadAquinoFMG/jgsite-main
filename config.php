@@ -233,6 +233,44 @@ return [
         'domain' => env('EVERFLOW_DOMAIN', 'www.f0cg2trk.com'),
     ],
 
+    // ---- Post-submit redirect -------------------------------------------
+    // The redirect URL is built server-side (includes/redirect.php) from the row
+    // submit.php validated and stored — never from the raw client POST. So the
+    // appended values are the normalised ones: phone as E.164, DOB as ISO,
+    // debt as an int, radio answers as their canonical option values.
+    //
+    // 'params' maps outgoing query-param name => field in submit.php's $row.
+    // Empty/unanswered fields are dropped rather than sent blank. $row also
+    // holds the attribution fields, so anything there can be forwarded by
+    // naming it here (e.g. 'affid' => 'affid', 'ef_tid' => 'ef_transaction_id').
+    //
+    // PRIVACY: everything listed here lands in a URL, which means browser
+    // history, the Referer header sent to any third party on the destination
+    // page, and web-server access logs. The defaults below are the full set of
+    // form answers as specified, PII included — trim this list to the minimum
+    // the destination genuinely needs, and prefer an off-site destination that
+    // reads them over POST if one is available.
+    'redirect' => [
+        'base' => env('REDIRECT_BASE', 'thank-you.php'),
+        'params' => [
+            // Step answers
+            'debt_amount'    => 'debt_amount',
+            'behind_payment' => 'behind_payment',
+            'employment'     => 'employment',
+            'income'         => 'income',
+            // Contact / identity
+            'first_name'     => 'first_name',
+            'last_name'      => 'last_name',
+            'street'         => 'street',
+            'city'           => 'city',
+            'state'          => 'state',
+            'zip'            => 'zip',
+            'dob'            => 'dob',
+            'email'          => 'email',
+            'phone'          => 'phone',
+        ],
+    ],
+
     // ---- Branding -------------------------------------------------------
     'brand' => [
         'name'         => 'JG Wentworth',

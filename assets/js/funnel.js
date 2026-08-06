@@ -964,7 +964,12 @@
             })
             .then(function (res) {
                 if (res.body && res.body.ok) {
-                    window.location.assign('thank-you.php');
+                    // submit.php builds the destination and appends the answers
+                    // it just validated (includes/redirect.php), so we follow
+                    // what it hands back rather than assembling a URL here from
+                    // client-side values. Bare 'thank-you.php' is the fallback
+                    // for an older/unexpected response shape with no redirect.
+                    window.location.assign(res.body.redirect || 'thank-you.php');
                     return;
                 }
                 submitting = false;
