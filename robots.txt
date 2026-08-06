@@ -1,0 +1,10 @@
+# robots.txt — allow search engines to crawl the site.
+# Page-level indexing is controlled by each page's <meta name="robots"> tag
+# (index.php = indexable; thank-you.php = noindex). The confirmation page is
+# intentionally left crawlable so bots can read its noindex directive.
+
+User-agent: *
+Allow: /
+
+# Add your sitemap once published, e.g.:
+# Sitemap: https://www.jgwentworth.com/sitemap.xml
