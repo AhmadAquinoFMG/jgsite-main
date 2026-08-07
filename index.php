@@ -76,9 +76,11 @@ $landingJson = json_encode(
 
     <!-- Funnel entry, queued by includes/track.php until the deferred Umami tag
          is live. Reported as "Landed" in bin/funnel-slack-report.php. -->
+
     <script>
         jgTrack('event_view_landing', <?= $landingJson ?>);
     </script>
+
 
     <?php if (!empty($cfg['turnstile']['enabled'])): ?>
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
