@@ -168,7 +168,7 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
                             <path d="M9 2h6" />
                         </svg>
                     </span>
-                    <p class="prequal-hold__label">Your specialist is<br>holding your file for:</p>
+                    <p class="prequal-hold__label">Your specialist is &nbsp;<br>holding your file for:</p>
                     <div class="prequal-hold__clock" role="timer" aria-live="off">
                         <span class="prequal-hold__unit"><strong id="holdMin"><?= $e(sprintf('%02d', intdiv($holdSecs, 60))) ?></strong><small>MIN</small></span>
                         <span class="prequal-hold__colon">:</span>
