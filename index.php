@@ -53,6 +53,11 @@ $landingJson = json_encode(
     $landingProps,
     JSON_FORCE_OBJECT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
 );
+// Canonical URL — strips query string so tracking params don't fragment SEO authority.
+$canonical_host = $_SERVER['HTTP_HOST'] ?? 'jgdebtrelief.com';
+// Get only the path portion, ignoring any query string
+$canonical_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '/';
+$canonical_url  = 'https://' . $canonical_host . $canonical_path;
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -64,6 +69,7 @@ $landingJson = json_encode(
     <meta name="description" content="Struggling with debt? J.G. Wentworth offers personalized debt relief and consolidation programs to help you take control of your financial future. Trusted, experienced, and here to help. Get your plan today.">
     <title><?= $e($cfg['brand']['name']) ?> — Debt Relief Program</title>
     <link rel="icon" type="image/png" href="assets/img/jg-icon.png?v=<?= $e($cfg['asset_version']) ?>">
+    <link rel="canonical" href="<?= htmlspecialchars($canonical_url, ENT_QUOTES, 'UTF-8') ?>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
