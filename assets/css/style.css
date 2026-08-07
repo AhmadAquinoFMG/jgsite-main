@@ -599,6 +599,12 @@ a { color: var(--green-deep); }
 .prequal-call:hover  { background: #00603f; box-shadow: 0 10px 24px rgba(37, 146, 181, .38); }
 .prequal-call:active { transform: translateY(1px); }
 
+/* One line on desktop; the narrow-screen rule below stacks it. nowrap on the
+   number is the important part at every width — a break inside the digits reads
+   as two different numbers. */
+.prequal-call__label  { display: inline; }
+.prequal-call__number { white-space: nowrap; }
+
 /* assurance row */
 .prequal-assurances {
     list-style: none; margin: 18px 0 0; padding: 0;
@@ -730,6 +736,15 @@ a { color: var(--green-deep); }
     .prequal-card__title { font-size: 16px; }
     .prequal-card__sub { font-size: 13px; margin-bottom: 18px; }
     .prequal-call { font-size: 15px; padding: 12px 16px; gap: 8px; }
+
+    /* Label over number on two lines — at 15px the single line couldn't fit the
+       button and was breaking mid-number. */
+    .prequal-call__label {
+        display: flex; flex-direction: column; align-items: center;
+        gap: 1px; line-height: 1.25;
+    }
+    .prequal-call__cta    { font-size: 13px; letter-spacing: .4px; opacity: .92; }
+    .prequal-call__number { font-size: 18px; }
     .prequal-hold { flex-wrap: wrap; justify-content: center; text-align: center; gap: 12px; }
     .prequal-hold__note { flex-basis: 100%; }
 }

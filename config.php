@@ -46,7 +46,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '33',
+    'asset_version' => '34',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which field
@@ -336,7 +336,7 @@ return [
 
     // ---- Post-submit "pre-qualified" page (thank-you.php) ---------------
     'prequal' => [
-        'cta_phone'    => '',  // number the assigned specialist line rings
+        'cta_phone'    => '(888) 471-0463',  // DID the assigned specialist line rings
         'hold_minutes' => 5,                 // countdown the file is "held" for
     ],
 

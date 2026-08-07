@@ -66,10 +66,12 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
          here, and it fires from a fresh pageview rather than from a beacon racing
          that redirect — so it can't be undercounted the way event_submit_attempt can.
          See bin/funnel-slack-report.php. -->
-    <script>jgTrack('event_view_thank_you', {
-        has_savings: <?= $estimatedSavings > 0 ? 'true' : 'false' ?>,
-        estimated_savings: <?= (int) $estimatedSavings ?>
-    });</script>
+    <script>
+        jgTrack('event_view_thank_you', {
+            has_savings: <?= $estimatedSavings > 0 ? 'true' : 'false' ?>,
+            estimated_savings: <?= (int) $estimatedSavings ?>
+        });
+    </script>
 
     <?php /* Everflow conversion — fires against the offer this lead's affid maps
              to (914 first party / 915 third party). Rendered only when an affid
@@ -80,16 +82,16 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
              SDK re-read the tracking cookie. When it's blank we omit the key and
              fall back to the cookie, which is the SDK's normal path. */ ?>
     <?php if ($efOfferId): ?>
-    <?php
-      $efPayload = ['offer_id' => $efOfferId];
-      if ($efTransactionId !== '') {
-          $efPayload['transaction_id'] = $efTransactionId;
-      }
-    ?>
-    <script type="text/javascript" src="https://<?= $e($cfg['everflow']['domain']) ?>/scripts/main.js"></script>
-    <script type="text/javascript">
-    EF.conversion(<?= json_encode($efPayload, JSON_UNESCAPED_SLASHES) ?>);
-    </script>
+        <?php
+        $efPayload = ['offer_id' => $efOfferId];
+        if ($efTransactionId !== '') {
+            $efPayload['transaction_id'] = $efTransactionId;
+        }
+        ?>
+        <script type="text/javascript" src="https://<?= $e($cfg['everflow']['domain']) ?>/scripts/main.js"></script>
+        <script type="text/javascript">
+            EF.conversion(<?= json_encode($efPayload, JSON_UNESCAPED_SLASHES) ?>);
+        </script>
     <?php endif; ?>
 </head>
 
@@ -143,12 +145,18 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
                      navigation until the event is away, so this survives the dialer
                      opening. Reported as "Called" (share of completions). -->
                 <a class="prequal-call" href="tel:<?= $e($ctaTel) ?>"
-                   data-umami-event="event_call_click">
+                    data-umami-event="event_call_click">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
                     </svg>
-                    <span>CALL NOW <?= $e($ctaPhone) ?></span>
+                    <?php /* Two spans so the narrow-screen rule can stack the label
+                             above the number, instead of letting the button wrap
+                             mid-number ("(888) 471-" / "0463"). */ ?>
+                    <span class="prequal-call__label">
+                        <span class="prequal-call__cta">CALL NOW:</span>
+                        <span class="prequal-call__number"><?= $e($ctaPhone) ?></span>
+                    </span>
                 </a>
 
                 <!-- Hold timer -->
