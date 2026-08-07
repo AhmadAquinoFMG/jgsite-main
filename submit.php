@@ -274,6 +274,7 @@ $row = [
     'gbraid'          => $post('gbraid') ?: null,
     'fbclid'          => $post('fbclid') ?: null,
     'fbp'             => $post('fbp') ?: null,
+    'fbc'             => $post('fbc') ?: null,
     'fb_adid'         => $post('fb_adid') ?: null,
     'ms_placement'    => $post('ms_placement') ?: null,
     'ms_publisher'    => $post('ms_publisher') ?: null,
@@ -497,6 +498,18 @@ if ($botReason !== null) {
    funnel.js follows the `redirect` it gets back rather than hardcoding the
    destination; the Location header below covers the no-JS native POST, which
    would otherwise land the visitor on raw JSON. */
+
+/* Two values the redirect can forward that aren't posted fields, so they were
+   never in $row: the row's own id, and the Equifax-verified total debt. Added
+   here — after the insert and after the credit pull — purely so the config map
+   can name them like any other field. Nothing downstream re-reads $row.
+
+   total_debt stays null when the pull didn't return a usable figure; the
+   builder drops empty values, so the param is simply absent rather than
+   carrying the self-reported bucket estimate under a "verified" name. */
+$row['lead_id']    = $leadId;
+$row['total_debt'] = $verifiedTotalDebt;
+
 $redirectUrl = redirect_build_url($row, $cfg['redirect'] ?? []);
 
 app_log('info', 'lead', 'redirect_built', [

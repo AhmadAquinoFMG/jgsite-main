@@ -264,11 +264,14 @@ return [
     // reads them over POST if one is available.
     'redirect' => [
         'base' => env('REDIRECT_BASE', 'thank-you.php'),
+        // Param names on the left match the tag names CallGrid captures off the
+        // thank-you page URL, so its webhook template ([[tag:employed]],
+        // [[tag:client_ip_address]], …) resolves without a mapping layer.
         'params' => [
             // Step answers
             'debt_amount'    => 'debt_amount',
             'behind_payment' => 'behind_payment',
-            'employment'     => 'employment',
+            'employed'       => 'employment',
             'income'         => 'income',
             // Contact / identity
             'first_name'     => 'first_name',
@@ -280,6 +283,20 @@ return [
             'dob'            => 'dob',
             'email'          => 'email',
             'phone'          => 'phone',
+            // Lead record. total_debt is the Equifax-verified figure and is
+            // absent when the pull returned nothing usable (see submit.php).
+            'lead_id'        => 'lead_id',
+            'total_debt'     => 'total_debt',
+            // Meta match keys, for the Conversions API event CallGrid fires off
+            // the call. fbc/fbp are the pixel's cookies; the request-level pair
+            // must be the *visitor's* ip/ua as we saw them at submit — CallGrid's
+            // own server would otherwise attach its own, which Meta rejects as a
+            // mismatch against the browser-side pixel event.
+            'fbclid'            => 'fbclid',
+            'fbp'               => 'fbp',
+            'fbc'               => 'fbc',
+            'client_ip_address' => 'ip',
+            'client_user_agent' => 'user_agent',
         ],
     ],
 

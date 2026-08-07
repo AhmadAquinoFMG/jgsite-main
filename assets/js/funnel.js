@@ -1149,6 +1149,26 @@
         var fbpEl = document.getElementById('fbp');
         if (fbpMatch && fbpEl) fbpEl.value = fbpMatch[1];
 
+        /* fbc, same idea — Meta's pixel writes the _fbc cookie when it sees an
+           fbclid. It only does that once it has loaded, so on a fast submit (or
+           with the pixel blocked) the cookie can still be missing while the
+           fbclid is sitting right there in the URL. In that case we build the
+           value ourselves in Meta's documented format:
+
+               fb.<subdomainIndex>.<creationTime>.<fbclid>
+
+           subdomainIndex 1 and a millisecond timestamp match what the pixel
+           would have written, so a later cookie-sourced fbc for the same click
+           dedupes against this one. Cookie wins when both exist — it carries
+           the pixel's own creation time. */
+        var fbcEl = document.getElementById('fbc');
+        if (fbcEl) {
+            var fbcMatch = document.cookie.match(/(?:^|;\s*)_fbc=([^;]+)/);
+            var fbclid = qs.get('fbclid');
+            if (fbcMatch) fbcEl.value = fbcMatch[1];
+            else if (fbclid) fbcEl.value = 'fb.1.' + Date.now() + '.' + fbclid;
+        }
+
         var landingEl = document.getElementById('landingPageUrl');
         if (landingEl) landingEl.value = location.href;
     })();

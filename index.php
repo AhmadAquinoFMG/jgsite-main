@@ -234,8 +234,11 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                 <input type="hidden" name="ttclid" id="ttclid">
 
                 <!-- fbp is NOT a URL param — funnel.js reads it from the _fbp cookie
-                 Meta's pixel sets, if present. -->
+                 Meta's pixel sets, if present. Same for fbc, except funnel.js
+                 falls back to building it from the fbclid when the pixel hasn't
+                 written the cookie yet. -->
                 <input type="hidden" name="fbp" id="fbp">
+                <input type="hidden" name="fbc" id="fbc">
 
                 <input type="hidden" name="landing_page_url" id="landingPageUrl">
 

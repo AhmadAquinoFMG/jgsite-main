@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `gbraid`          VARCHAR(255) DEFAULT NULL,
     `fbclid`          VARCHAR(255) DEFAULT NULL,
     `fbp`             VARCHAR(255) DEFAULT NULL,   -- Meta pixel's _fbp cookie value
+    `fbc`             VARCHAR(255) DEFAULT NULL,   -- Meta's _fbc cookie, or fb.1.<ts>.<fbclid>
     `fb_adid`         VARCHAR(128) DEFAULT NULL,
     `ms_placement`    VARCHAR(128) DEFAULT NULL,   -- Microsoft/Bing Ads
     `ms_publisher`    VARCHAR(128) DEFAULT NULL,
