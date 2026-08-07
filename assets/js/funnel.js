@@ -239,10 +239,49 @@
             .replace(/[​-‍⁠﻿]/g, ''); // zero-width padding
     }
 
+    /* ---- title case, name fields only -----------------------------------
+       Live typing only ever RAISES the first letter of each word; it never
+       lowercases what follows. That distinction is the whole trick: a rule that
+       also lowered the tail would rewrite "McDonald" into "Mcdonald" the moment
+       the visitor typed the D, and fight every DeAngelo and O'Connor keystroke
+       by keystroke. Word boundaries include the punctuation a name carries, so
+       o'brien -> O'Brien and mary-jane -> Mary-Jane. */
+    var WORD_START = urx('(^|[\\s\'.-])([' + L + '])', 'g');
+    var WORD       = urx('[' + L + M + ']+', 'g');
+
+    // ß uppercases to "SS" — two characters, which would break the caret maths
+    // below. No name starts with one, so leave anything that doesn't map 1:1.
+    function up(ch) { var u = ch.toUpperCase(); return u.length === 1 ? u : ch; }
+
+    function titleCase(v) {
+        if (!WORD_START) return v.replace(/(^|[\s'.-])([a-z])/g, function (m, sep, ch) { return sep + up(ch); });
+        return v.replace(WORD_START, function (m, sep, ch) { return sep + up(ch); });
+    }
+
+    // A name left in ALL CAPS ("JOHN SMITH") is the one case where lowering the
+    // tail is right. It runs on blur, never per keystroke, so a half-typed "MC"
+    // is not rewritten under the visitor's cursor mid-word.
+    function unshout(v) {
+        if (!WORD) return v;
+        return v.replace(WORD, function (w) {
+            var isShouted = w.length > 1 && w === w.toUpperCase() && w !== w.toLowerCase();
+            return isShouted ? w.charAt(0) + w.slice(1).toLowerCase() : w;
+        });
+    }
+
     function sanitize(v, kind) {
         v = fold(v);
         var re = DROP[kind];
-        return re ? v.replace(re, '') : v;
+        if (re) v = v.replace(re, '');
+        // Length-preserving, which is what lets scrub() reuse it for the caret.
+        if (kind === 'name') v = titleCase(v);
+        return v;
+    }
+
+    function settleName(el) {
+        if (!el || !el.dataset || el.dataset.validate !== 'name') return;
+        var v = unshout(el.value);
+        if (v !== el.value) el.value = v;
     }
 
     function scrub(el) {
@@ -273,6 +312,8 @@
     // 'change' as well: autofill and drag-and-drop don't always fire 'input'.
     form.addEventListener('input',  function (ev) { scrub(ev.target); }, true);
     form.addEventListener('change', function (ev) { scrub(ev.target); }, true);
+    // focusout, not blur — blur doesn't bubble, and Continue takes the focus.
+    form.addEventListener('focusout', function (ev) { settleName(ev.target); });
 
     var RX = {
         // Accented letters are real names — José, Ñuñez, Łukasz. The sanitiser
@@ -1050,7 +1091,7 @@
         // Last pass over every field: catches anything written programmatically
         // (autofill, a picked Places suggestion, a password manager) that never
         // raised an input event of its own.
-        form.querySelectorAll('input').forEach(scrub);
+        form.querySelectorAll('input').forEach(function (el) { scrub(el); settleName(el); });
 
         fetch('submit.php', {
             method: 'POST',
