@@ -6,10 +6,11 @@
        segregated street/city/state/zip. It uses the lazy-loaded Google Places
        (New) SDK (keyed from window.FUNNEL.googlePlacesKey) for autocomplete, with
        a submit-time Geocoder fallback; mock suggestions when no key is set.
-       The step will NOT advance on anything less than a whole address — street
-       (with a house number), city, state, ZIP and country. Two tests, because
-       either alone is fooled: checkAddressParts() reads Google's own components
-       (so a locality or a street NAME can't pass as a street), and
+       The step will NOT advance on anything less than a whole address — street,
+       city, state, ZIP and country. The house number is NOT required: a street
+       name is enough. Two tests, because either alone is fooled:
+       checkAddressParts() reads Google's own components (so a locality can't
+       pass itself off as a street), and
        partsNotInText() requires the city and ZIP to appear in the field itself (so
        a typed fragment Google silently COMPLETED can't pass either — picking a
        suggestion rewrites the field, which is what makes the text test fair).
@@ -397,26 +398,26 @@
     };
     var PART_ORDER = ['street', 'city', 'state', 'zip', 'country'];
 
-    // A typed street line must carry a NUMBER as well as a name — "Main St" is a
-    // street, not an address. PO/rural boxes carry their number the same way, so
-    // "contains a digit" accepts them too.
-    function isStreetLine(v) { return v.length >= 4 && /\d/.test(v); }
+    // The street NAME is enough — no house number required, so "NW 10th St,
+    // Miami, FL 33136" is a complete answer. What still has to be caught is a
+    // result with no street line at all, which is what a locality-level pick
+    // ("Miami, FL") resolves to.
+    function isStreetLine(v) { return v.length >= 4; }
 
     // p is {street, city, state, zip, country}, optionally with the has* flags
-    // parseComponents attaches. Returns {ok:true} or {ok:false, missing:[part,…],
-    // code}. Presence only — no country-specific format rules here, so a resolved
+    // parseComponents attaches. Returns {ok:true} or {ok:false, missing:[part,…]}.
+    // Presence only — no country-specific format rules here, so a resolved
     // address from anywhere passes as long as it is whole.
     function checkAddressParts(p) {
         p = p || {};
         function val(k) { return (p[k] || '').trim(); }
 
-        // Google-resolved parts state outright whether a house number and street
-        // name were found; typed parts (classic mode) only have the text, so they
-        // fall back to the digit heuristic.
+        // Google-resolved parts say outright whether a street was found; typed
+        // parts (classic mode) only have the text, so they fall back to length.
         var street     = val('street');
-        var fromGoogle = p.hasNumber !== undefined;
+        var fromGoogle = p.hasRoute !== undefined;
         var streetOk   = street && (fromGoogle
-            ? (p.hasPostBox || (p.hasNumber && p.hasRoute))
+            ? (p.hasPostBox || p.hasRoute)
             : isStreetLine(street));
 
         var missing = [];
@@ -427,29 +428,23 @@
         if (!val('country'))           missing.push('country');
 
         if (!missing.length) return { ok: true };
-        return {
-            ok: false,
-            missing: missing,
-            // A street with a name but no number is a different problem from a
-            // blank one, and worth its own message when it's the only gap.
-            code: (street && !streetOk && missing.length === 1) ? 'no_street_number' : ''
-        };
+        return { ok: false, missing: missing };
     }
 
     // "…we still need the city and ZIP code." Naming the gap beats a generic
     // "address is incomplete", which leaves the visitor guessing what to retype.
     function addressErrorMsg(res) {
-        if (res.code === 'no_street_number') {
-            return 'Please enter a full street address including the house or ' +
-                   'building number — e.g. 123 Main St.';
-        }
         var missing = res.missing;
         var names = PART_ORDER
             .filter(function (k) { return missing.indexOf(k) > -1; })
             .map(function (k) { return PART_LABELS[k]; });
-        var list = names.length > 1
-            ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]
-            : names[0];
+        // A single gap is now the common case (a locality-level pick misses only
+        // the street), so it gets its own grammar rather than "street address
+        // are required".
+        if (names.length === 1) {
+            return 'Please enter a complete address — the ' + names[0] + ' is missing.';
+        }
+        var list = names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
         return 'Please enter a complete address — ' + list + ' are required';
     }
 
@@ -759,9 +754,9 @@
                 state:     g.admin1 || '',
                 zip:       (g.zip || '').slice(0, 5),
                 country:   g.country || '',
-                // Flags, not guesses: a route with no street_number is a street
-                // NAME, not an address, and only Google can tell us which we got.
-                hasNumber:  !!g.num,
+                // Flags, not guesses: only Google can tell a street line apart
+                // from a locality that merely reads like one. The house number
+                // is kept when offered but never required — see isStreetLine.
                 hasRoute:   !!g.route,
                 hasPostBox: !!g.postBox
             };
@@ -935,12 +930,12 @@
             setParts(parts);
 
             // Judge the resolution itself, not the hidden inputs: the has* flags
-            // that distinguish a street from a street NAME live on `parts` and
+            // that tell a street apart from a locality live on `parts` and
             // cannot be read back out of the DOM.
             var res = checkAddressParts(parts);
             if (res.ok && !fromPick) {
                 var absent = partsNotInText(parts, text);
-                if (absent.length) res = { ok: false, missing: absent, code: '' };
+                if (absent.length) res = { ok: false, missing: absent };
             }
             resolvedFor = text;
             resolvedRes = res;
