@@ -58,6 +58,16 @@ $canonical_host = $_SERVER['HTTP_HOST'] ?? 'jgdebtrelief.com';
 // Get only the path portion, ignoring any query string
 $canonical_path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '/';
 $canonical_url  = 'https://' . $canonical_host . $canonical_path;
+$origin         = 'https://' . $canonical_host;
+
+/* ---- Shared SEO / social metadata ------------------------------------------
+   Declared once so the <meta name="description">, the Open Graph tags and the
+   Twitter card can never drift apart. og:image is an absolute URL (relative
+   paths are ignored by every crawler) and is 1200x630 — the aspect ratio
+   Facebook/LinkedIn/X render as a large card without cropping. */
+$page_title       = $cfg['brand']['name'] . ' — Debt Relief Program';
+$meta_description = 'Struggling with debt? J.G. Wentworth offers personalized debt relief and consolidation programs to help you take control of your financial future. Trusted, experienced, and here to help. Get your plan today.';
+$og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_version'];
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -65,11 +75,71 @@ $canonical_url  = 'https://' . $canonical_host . $canonical_path;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-    <meta name="robots" content="index, follow">
-    <meta name="description" content="Struggling with debt? J.G. Wentworth offers personalized debt relief and consolidation programs to help you take control of your financial future. Trusted, experienced, and here to help. Get your plan today.">
-    <title><?= $e($cfg['brand']['name']) ?> — Debt Relief Program</title>
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+    <meta name="description" content="<?= $e($meta_description) ?>">
+    <meta name="theme-color" content="#006846">
+    <title><?= $e($page_title) ?></title>
     <link rel="icon" type="image/png" href="assets/img/jg-icon.png?v=<?= $e($cfg['asset_version']) ?>">
-    <link rel="canonical" href="<?= htmlspecialchars($canonical_url, ENT_QUOTES, 'UTF-8') ?>">
+    <link rel="apple-touch-icon" href="assets/img/jg-icon.png?v=<?= $e($cfg['asset_version']) ?>">
+    <link rel="canonical" href="<?= $e($canonical_url) ?>">
+
+    <!-- Open Graph — Facebook, LinkedIn, iMessage, Slack link previews -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="<?= $e($cfg['brand']['name']) ?>">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:url" content="<?= $e($canonical_url) ?>">
+    <meta property="og:title" content="<?= $e($page_title) ?>">
+    <meta property="og:description" content="<?= $e($meta_description) ?>">
+    <meta property="og:image" content="<?= $e($og_image) ?>">
+    <meta property="og:image:secure_url" content="<?= $e($og_image) ?>">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="<?= $e($cfg['brand']['name']) ?> debt relief — see your plan in 60 seconds">
+
+    <!-- Twitter/X card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="<?= $e($page_title) ?>">
+    <meta name="twitter:description" content="<?= $e($meta_description) ?>">
+    <meta name="twitter:image" content="<?= $e($og_image) ?>">
+    <meta name="twitter:image:alt" content="<?= $e($cfg['brand']['name']) ?> debt relief — see your plan in 60 seconds">
+
+    <!-- Structured data — lets Google attach the brand, phone and address to the
+         result instead of guessing them from the page copy. Built from config so
+         it stays in sync with the footer. -->
+    <script type="application/ld+json">
+        <?= json_encode([
+            '@context' => 'https://schema.org',
+            '@graph'   => [
+                [
+                    '@type'       => 'Organization',
+                    '@id'         => $origin . '/#organization',
+                    'name'        => $cfg['brand']['name'],
+                    'url'         => $origin . '/',
+                    'logo'        => $origin . '/assets/img/footer-logo.png',
+                    'telephone'   => $cfg['brand']['phone'],
+                    'address'     => [
+                        '@type'           => 'PostalAddress',
+                        'streetAddress'   => $cfg['brand']['address'][0],
+                        'addressLocality' => 'Chesterbrook',
+                        'addressRegion'   => 'PA',
+                        'postalCode'      => '19087',
+                        'addressCountry'  => 'US',
+                    ],
+                ],
+                [
+                    '@type'       => 'WebPage',
+                    '@id'         => $canonical_url . '#webpage',
+                    'url'         => $canonical_url,
+                    'name'        => $page_title,
+                    'description' => $meta_description,
+                    'inLanguage'  => 'en-US',
+                    'publisher'   => ['@id' => $origin . '/#organization'],
+                    'primaryImageOfPage' => ['@id' => $og_image],
+                ],
+            ],
+        ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PRETTY_PRINT) ?>
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
