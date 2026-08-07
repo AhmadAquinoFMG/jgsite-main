@@ -233,6 +233,18 @@ return [
         'domain' => env('EVERFLOW_DOMAIN', 'www.f0cg2trk.com'),
     ],
 
+    // ---- CallGrid (call tracking on the post-submit page) ----------------
+    // Loaded on thank-you.php only — that's the one page with a click-to-call
+    // CTA, so it's the only place a tracking number has anything to swap. The
+    // SDK reads both ids off the script tag's data-* attributes.
+    // Set CALLGRID_ENABLED=0 to skip loading it (local dev / staging).
+    'callgrid' => [
+        'enabled'            => env('CALLGRID_ENABLED', '1') === '1',
+        'src'                => env('CALLGRID_SRC', 'https://cdn.callgrid.com/callgrid.js'),
+        'organization_id'    => env('CALLGRID_ORGANIZATION_ID', 'cmnopd1vu002k07iqj9hif1he'),
+        'campaign_source_id' => env('CALLGRID_CAMPAIGN_SOURCE_ID', 'cmsgf75n403x307lbj6dbmass'),
+    ],
+
     // ---- Post-submit redirect -------------------------------------------
     // The redirect URL is built server-side (includes/redirect.php) from the row
     // submit.php validated and stored — never from the raw client POST. So the
@@ -336,7 +348,13 @@ return [
 
     // ---- Post-submit "pre-qualified" page (thank-you.php) ---------------
     'prequal' => [
-        'cta_phone'    => '(888) 471-0463',  // DID the assigned specialist line rings
+        // CallGrid tracking number, NOT the specialist DID. Calls land on
+        // CallGrid's switch, get recorded against the campaign source, and are
+        // forwarded on from there. Rendered server-side so the tracked number
+        // is in the HTML from the first byte — a visitor who taps CALL NOW
+        // before callgrid.js finishes loading is still tracked. Changing this
+        // back to a raw DID silently ends call attribution.
+        'cta_phone'    => '(877) 627-1504',
         'hold_minutes' => 5,                 // countdown the file is "held" for
     ],
 

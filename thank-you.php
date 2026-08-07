@@ -42,6 +42,13 @@ $efOfferId = $efConversion
     ? everflow_offer_for_affid($efConversion['affid'] ?? '', $cfg['everflow'])
     : null;
 $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
+
+// CallGrid call tracking — only page that carries a click-to-call CTA, so the
+// only page where a swappable tracking number matters. Disabled (and not
+// emitted at all) when either id is missing, so a half-configured environment
+// can't load the SDK with a blank organization.
+$cg = $cfg['callgrid'];
+$cgOn = $cg['enabled'] && $cg['organization_id'] !== '' && $cg['campaign_source_id'] !== '';
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -56,6 +63,7 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <?php if ($cgOn): ?><link rel="preconnect" href="https://cdn.callgrid.com" crossorigin><?php endif; ?>
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
@@ -91,6 +99,27 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
         <script type="text/javascript" src="https://<?= $e($cfg['everflow']['domain']) ?>/scripts/main.js"></script>
         <script type="text/javascript">
             EF.conversion(<?= json_encode($efPayload, JSON_UNESCAPED_SLASHES) ?>);
+        </script>
+    <?php endif; ?>
+
+    <?php if ($cgOn): ?>
+        <?php /* CallGrid — injected rather than hard-coded as a <script src> so the
+                 guard can run: the SDK misbehaves if it's loaded twice, and a
+                 bfcache restore or a second include would otherwise do exactly
+                 that. loadCallGrid() is idempotent and safe to call again. */ ?>
+        <script>
+            function loadCallGrid() {
+                if (document.querySelector('script[src*="callgrid.com"]')) return;
+
+                const script = document.createElement('script');
+                script.src = <?= json_encode($cg['src'], JSON_UNESCAPED_SLASHES) ?>;
+                script.dataset.organizationId = <?= json_encode($cg['organization_id']) ?>;
+                script.dataset.campaignSourceId = <?= json_encode($cg['campaign_source_id']) ?>;
+                script.async = true;
+                document.head.appendChild(script);
+            }
+
+            loadCallGrid();
         </script>
     <?php endif; ?>
 </head>
