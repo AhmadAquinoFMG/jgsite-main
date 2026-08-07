@@ -184,8 +184,103 @@
         return false;
     }
 
+    /* ---- input sanitising -----------------------------------------------
+       "𝓈𝒶𝓂𝓅𝓁𝑒 𝓉𝑒𝓍𝓉" pasted into a field is not a font we can restyle. It is a
+       different set of CODEPOINTS — Mathematical Alphanumeric Symbols, fullwidth
+       forms, enclosed letters — and our stylesheet has no glyph for U+1D4C8, so
+       the browser silently falls back to whichever font does. No CSS fixes that;
+       the characters themselves have to be rewritten.
+
+       NFKC ("compatibility composition") is exactly that mapping — 𝓈→s, ｓ→s,
+       ⓢ→s, ﬁ→fi — and it deliberately leaves real letters alone: é stays é, and
+       a decomposed e + U+0301 is composed INTO é, which is the form the DB and
+       LeadProsper want anyway. So accented input keeps working; only the
+       decorative impostors get folded.
+
+       NFKC can't touch same-shape letters borrowed from another script
+       (Cyrillic "е", Greek "ο") or emoji — those are legitimately distinct
+       characters — so a second pass drops anything outside Latin plus the
+       punctuation each field actually uses. submit.php repeats both, since none
+       of this binds a client that skips the browser. */
+
+    // \p{Script=Latin} is every Latin letter INCLUDING the accented ones (é, ñ,
+    // ø, ł); \p{Mark} keeps the combining accents that ride on letters with no
+    // precomposed form. Digits are Script=Common, so a field that wants them has
+    // to say so. Feature-detected because a \p{…} literal is a PARSE error on a
+    // browser without Unicode property escapes (pre-2018) — that would take the
+    // whole funnel down, not just this. The fallback ranges still cover é and ñ.
+    var UNI = (function () {
+        try { new RegExp('\\p{Script=Latin}', 'u'); return true; } catch (e) { return false; }
+    })();
+    var L = UNI ? '\\p{Script=Latin}' : 'A-Za-z\\u00C0-\\u024F';
+    var M = UNI ? '\\p{Mark}'         : '\\u0300-\\u036F';
+
+    function urx(src, flags) {
+        try { return new RegExp(src, (flags || '') + 'u'); } catch (e) { return null; }
+    }
+
+    // What each kind of field KEEPS after folding; null means fold only.
+    var DROP = {
+        name:    urx('[^' + L + M + " .'-]", 'g'),
+        city:    urx('[^' + L + M + " .'-]", 'g'),
+        street:  urx('[^' + L + M + "0-9 .,'#/-]", 'g'),
+        address: urx('[^' + L + M + "0-9 .,'#/-]", 'g'),
+        email:   urx('[^A-Za-z0-9@._%+-]', 'g'),
+        zip:     urx('[^0-9]', 'g'),
+        dob:     urx('[^0-9/]', 'g'),
+        phone:   urx('[^0-9 ()+-]', 'g')
+    };
+
+    function fold(v) {
+        if (v.normalize) v = v.normalize('NFKC');
+        return v
+            .replace(/[‘’ʼ]/g, "'")        // curly apostrophes (iOS, Word)
+            .replace(/[‐-―]/g, '-')             // en/em dashes
+            .replace(/[​-‍⁠﻿]/g, ''); // zero-width padding
+    }
+
+    function sanitize(v, kind) {
+        v = fold(v);
+        var re = DROP[kind];
+        return re ? v.replace(re, '') : v;
+    }
+
+    function scrub(el) {
+        if (!el || el.tagName !== 'INPUT') return;
+        var type = (el.type || '').toLowerCase();
+        if (type === 'hidden' || type === 'radio' || type === 'checkbox') return;
+
+        var before = el.value;
+        if (!before) return;
+        var kind   = el.dataset.validate;
+        var after  = sanitize(before, kind);
+        if (after === before) return;
+
+        // Keep the caret where the visitor left it — sanitising just the text
+        // BEFORE it yields that same character's new index, so a paste into the
+        // middle of a filled field doesn't throw them to the end.
+        var pos = null;
+        try { pos = el.selectionStart; } catch (e) {}   // null on type=email
+        el.value = after;
+        if (pos !== null) {
+            var at = sanitize(before.slice(0, pos), kind).length;
+            try { el.setSelectionRange(at, at); } catch (e) {}
+        }
+    }
+
+    // Capture phase, so this runs BEFORE each field's own input listener (DOB
+    // and phone formatting, Places autocomplete) and they all see clean text.
+    // 'change' as well: autofill and drag-and-drop don't always fire 'input'.
+    form.addEventListener('input',  function (ev) { scrub(ev.target); }, true);
+    form.addEventListener('change', function (ev) { scrub(ev.target); }, true);
+
     var RX = {
-        name:  /^[A-Za-z][A-Za-z .'\-]{0,48}$/,
+        // Accented letters are real names — José, Ñuñez, Łukasz. The sanitiser
+        // has already removed anything that merely LOOKS like a letter, so this
+        // can afford to be script-wide rather than A–Z. Leading char excludes
+        // \p{Mark}: a name can't start with a bare combining accent.
+        name:  urx('^[' + L + '][' + L + M + " .'-]{0,48}$") ||
+               /^[A-Za-zÀ-ɏ][A-Za-zÀ-ɏ .'\-]{0,48}$/,
         zip:   /^\d{5}$/
     };
 
@@ -951,6 +1046,11 @@
         // network failures are in here too. The conversion signal is
         // event_view_thank_you, fired by thank-you.php after submit.php accepts.
         track('event_submit_attempt', stepProps(current));
+
+        // Last pass over every field: catches anything written programmatically
+        // (autofill, a picked Places suggestion, a password manager) that never
+        // raised an input event of its own.
+        form.querySelectorAll('input').forEach(scrub);
 
         fetch('submit.php', {
             method: 'POST',

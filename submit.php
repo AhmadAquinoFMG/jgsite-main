@@ -46,7 +46,37 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
 }
 
 /* --------------------------------------------------------------- helpers */
-$post = fn(string $k): string => trim((string) ($_POST[$k] ?? ''));
+
+/**
+ * Fold decorative Unicode back to plain letters — the server half of the
+ * sanitiser in assets/js/funnel.js (see the long note there).
+ *
+ * A name pasted as "𝓈𝒶𝓂𝓅𝓁𝑒" is Mathematical Alphanumeric Symbols, not a font,
+ * and would otherwise be stored and forwarded to Equifax/LeadProsper verbatim.
+ * NFKC maps every such variant (𝓈, ｓ, ⓢ) back to "s" and leaves genuinely
+ * accented letters alone, so José stays José.
+ *
+ * ext-intl is optional on shared hosts, so Normalizer is guarded: without it
+ * the styled forms are still REJECTED by $nameRx below (they are Script=Common,
+ * not Latin) — they just aren't repaired into something acceptable first.
+ */
+$fold = static function (string $v): string {
+    if (class_exists('Normalizer')) {
+        $n = Normalizer::normalize($v, Normalizer::FORM_KC);
+        if (is_string($n)) {
+            $v = $n;
+        }
+    }
+    // NFKC leaves these alone; the client rewrites them, so we must match.
+    // Each preg_replace returns null on malformed UTF-8 — keep the input then
+    // and let validation reject it rather than blanking the field.
+    $v = preg_replace('/[\x{2018}\x{2019}\x{02BC}]/u', "'", $v) ?? $v;  // curly apostrophes
+    $v = preg_replace('/[\x{2010}-\x{2015}]/u', '-', $v) ?? $v;         // en/em dashes
+    $v = preg_replace('/[\x{200B}-\x{200D}\x{2060}\x{FEFF}]/u', '', $v) ?? $v; // zero-width
+    return $v;
+};
+
+$post = fn(string $k): string => $fold(trim((string) ($_POST[$k] ?? '')));
 
 app_log('info', 'lead', 'received', ['rid' => $rid]);
 
@@ -115,7 +145,13 @@ $behindPayment = $post('behind_payment');
 $employment    = $post('employment');
 $income        = $post('income');
 
-$nameRx = "/^[A-Za-z][A-Za-z .'\\-]{0,48}$/";
+// Accented letters are real names (José, Ñuñez, Łukasz), so this matches by
+// SCRIPT rather than A–Z. That is also what keeps the decorative codepoints out:
+// "𝓈𝒶𝓂" is Script=Common, not Latin, so it fails here even on a host without
+// ext-intl to fold it, and on any client that skipped the browser entirely.
+// \p{M} allows the combining accents that ride on a preceding letter — never as
+// the first character. Keep in step with RX.name in assets/js/funnel.js.
+$nameRx = "/^\\p{Latin}[\\p{Latin}\\p{M} .'\\-]{0,48}$/u";
 
 if ($firstName === '')                       $errors['first_name'] = 'required';
 elseif (!preg_match($nameRx, $firstName))    $errors['first_name'] = 'invalid_format';
