@@ -26,6 +26,7 @@ require __DIR__ . '/includes/equifax.php';
 require __DIR__ . '/includes/leadprosper.php';
 require __DIR__ . '/includes/turnstile.php';
 require __DIR__ . '/includes/redirect.php';
+require __DIR__ . '/includes/zapier.php';
 
 logger($cfg); // initialise the operational file logger
 
@@ -455,6 +456,33 @@ try {
 } catch (Throwable $ex) {
     app_log('error', 'leadprosper', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
 }
+}
+
+/* ---------------------------------------- Zapier lead push (best-effort)
+   Posts the lead so the CallGrid call webhook can be joined back to it on the
+   caller's phone number. Runs after the Equifax pull so the verified total debt
+   rides along, and outside the bot guard's block for the same reason the rest
+   of this file skips suspected bots — see below.
+
+   Same log & continue contract as the two steps above: a Zapier outage must
+   never cost us a lead that is already stored. */
+if ($botReason === null) {
+    try {
+        $zap = zapier_send_lead($cfg, $row, $leadId, $verifiedTotalDebt);
+        if ($zap['skip']) {
+            app_log('debug', 'zapier', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
+        } else {
+            app_log($zap['ok'] ? 'info' : 'error', 'zapier', 'lead_push', [
+                'rid'      => $rid,
+                'lead_id'  => $leadId,
+                'status'   => $zap['status'],
+                'duration' => $zap['duration_ms'],
+                'error'    => $zap['error'],
+            ]);
+        }
+    } catch (Throwable $ex) {
+        app_log('error', 'zapier', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
+    }
 }
 
 /* ---------------------------------------- estimated savings (thank-you page)

@@ -233,6 +233,25 @@ return [
         'domain' => env('EVERFLOW_DOMAIN', 'www.f0cg2trk.com'),
     ],
 
+    // ---- Zapier lead push ------------------------------------------------
+    // The lead is posted here at submit time so the CallGrid call webhook can
+    // be joined back to it on the caller's phone number. Needed because there
+    // is no CallGrid number pool: without one, every visitor shares a single
+    // tracking number, no visitor session can be tied to a call, and the
+    // session-scoped tags on that webhook always arrive empty. See
+    // includes/zapier.php.
+    //
+    // Point ZAPIER_LEAD_WEBHOOK_URL at a SECOND catch hook — not the one the
+    // CallGrid webhook posts to. Empty (the default) disables the push
+    // entirely, so nothing is sent from an environment that isn't wired up.
+    'zapier' => [
+        'enabled'          => env('ZAPIER_ENABLED', '1') === '1',
+        'lead_webhook_url' => env('ZAPIER_LEAD_WEBHOOK_URL', ''),
+        // Short on purpose: this runs inline on the submit request, and a slow
+        // Zapier must not hold up the visitor's redirect.
+        'timeout'          => (int) env('ZAPIER_TIMEOUT', '8'),
+    ],
+
     // ---- CallGrid (call tracking on the post-submit page) ----------------
     // Loaded on thank-you.php only — that's the one page with a click-to-call
     // CTA, so it's the only place a tracking number has anything to swap. The
