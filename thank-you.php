@@ -34,6 +34,7 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
    (which persists deliberately so the savings callout survives a reload), a
    duplicated conversion would be a billing event. */
 require_once __DIR__ . '/includes/everflow.php';
+require_once __DIR__ . '/includes/redirect.php';   // redirect_param_names(), for the CallGrid tags below
 
 $efConversion = $_SESSION['ef_conversion'] ?? null;
 unset($_SESSION['ef_conversion']);
@@ -49,6 +50,28 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
 // can't load the SDK with a blank organization.
 $cg = $cfg['callgrid'];
 $cgOn = $cg['enabled'] && $cg['organization_id'] !== '' && $cg['campaign_source_id'] !== '';
+
+/* CallGrid custom tags — the lead's details, forwarded so its webhook template
+   ([[tag:lead_id]], [[tag:email]], …) resolves against a real call.
+
+   These have to be handed over explicitly. callgrid.js does NOT read the query
+   string for tags: it pulls `utm_source` out of location.search and nothing
+   else, and its only custom-tag inputs are this data-tags attribute and an
+   addTags() method on an instance auto-init keeps private. So the params
+   submit.php put in the redirect are read back here and passed through.
+
+   The names come from the redirect config rather than a second hardcoded list,
+   so adding a param there is enough to start sending it. Values are capped —
+   a tag is a short attribute, and the whole set rides in one HTML attribute. */
+$cgTags = [];
+if ($cgOn) {
+    foreach (redirect_param_names($cfg['redirect'] ?? []) as $name) {
+        $value = trim((string) ($_GET[$name] ?? ''));
+        if ($value !== '') {
+            $cgTags[$name] = substr($value, 0, 255);
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en-US">
@@ -115,6 +138,12 @@ $cgOn = $cg['enabled'] && $cg['organization_id'] !== '' && $cg['campaign_source_
                 script.src = <?= json_encode($cg['src'], JSON_UNESCAPED_SLASHES) ?>;
                 script.dataset.organizationId = <?= json_encode($cg['organization_id']) ?>;
                 script.dataset.campaignSourceId = <?= json_encode($cg['campaign_source_id']) ?>;
+                <?php if ($cgTags !== []): ?>
+                // Read as JSON by the SDK's config parser; it warns and drops
+                // the lot on a parse error, so it must survive a round trip
+                // through the attribute intact.
+                script.dataset.tags = <?= json_encode(json_encode($cgTags, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?>;
+                <?php endif; ?>
                 script.async = true;
                 document.head.appendChild(script);
             }

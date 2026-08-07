@@ -16,6 +16,27 @@
  */
 
 /**
+ * The outgoing query-param names this config produces.
+ *
+ * Same normalisation as the builder below: a numeric key means the config
+ * listed a bare field name, so the param is named after the field. Exists so
+ * the destination page can read back exactly what was sent without repeating
+ * the list (thank-you.php hands these to CallGrid as tags).
+ *
+ * @param  array $cfg  config.php ['redirect'] block.
+ * @return string[]
+ */
+function redirect_param_names(array $cfg): array
+{
+    $names = [];
+    foreach (($cfg['params'] ?? []) as $param => $rowKey) {
+        $names[] = is_int($param) ? $rowKey : $param;
+    }
+
+    return $names;
+}
+
+/**
  * Build the post-submit redirect URL.
  *
  * @param  array $row  submit.php's $row (validated + normalised lead data).
