@@ -1134,6 +1134,7 @@
         var qs = new URLSearchParams(location.search);
         [
             'affid', 'oid', 'source_id',
+            'sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'sub6',
             'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5',
             'adv1', 'adv2', 'adv3', 'adv4', 'adv5', 'subid',
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',

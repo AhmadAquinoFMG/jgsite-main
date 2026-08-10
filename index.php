@@ -203,6 +203,14 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                 <input type="hidden" name="oid" id="oid">
                 <input type="hidden" name="ef_transaction_id" id="efTransactionId">
                 <input type="hidden" name="source_id" id="source_id">
+                <?php /* Everflow click sub-parameters. Distinct from lp_subid1-5
+                     below, which are LeadProsper's own passthrough ids. */ ?>
+                <input type="hidden" name="sub1" id="sub1">
+                <input type="hidden" name="sub2" id="sub2">
+                <input type="hidden" name="sub3" id="sub3">
+                <input type="hidden" name="sub4" id="sub4">
+                <input type="hidden" name="sub5" id="sub5">
+                <input type="hidden" name="sub6" id="sub6">
                 <input type="hidden" name="lp_subid1" id="lp_subid1">
                 <input type="hidden" name="lp_subid2" id="lp_subid2">
                 <input type="hidden" name="lp_subid3" id="lp_subid3">

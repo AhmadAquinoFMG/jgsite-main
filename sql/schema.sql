@@ -80,6 +80,14 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `affid`             VARCHAR(64)  DEFAULT NULL,
     `oid`               VARCHAR(64)  DEFAULT NULL,
     `source_id`         VARCHAR(64)  DEFAULT NULL,
+    -- Everflow click sub-parameters. Affiliate-supplied free text, so sized
+    -- generously rather than to any known format.
+    `sub1`              VARCHAR(255) DEFAULT NULL,
+    `sub2`              VARCHAR(255) DEFAULT NULL,
+    `sub3`              VARCHAR(255) DEFAULT NULL,
+    `sub4`              VARCHAR(255) DEFAULT NULL,
+    `sub5`              VARCHAR(255) DEFAULT NULL,
+    `sub6`              VARCHAR(255) DEFAULT NULL,
     `ef_transaction_id` VARCHAR(128) DEFAULT NULL,
     `landing_page_url`  VARCHAR(512) DEFAULT NULL,
 

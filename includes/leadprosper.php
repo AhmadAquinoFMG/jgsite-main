@@ -205,8 +205,18 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
 // of fields actually configured on the LeadProsper campaign. affid/oid/
 // ef_transaction_id come from Everflow; softpull_returned is computed
 // server-side in submit.php (not a posted field).
+//
+// NOT forwarded: 'fbc'. It is captured (funnel.js reads the _fbc cookie, or
+// builds it from the fbclid) and stored, but the LeadProsper campaign has no
+// fbc field — so it would be an unknown key on a post that runs inline on every
+// submit. It exists for the Meta Conversions API event CallGrid fires off the
+// call, which gets it from the redirect params instead (config.php ['redirect']).
+// Add it here only if the campaign gains the field.
 const LEADPROSPER_TRACKING_PARAMS = [
     'affid', 'oid', 'source_id', 'ef_transaction_id',
+    // Everflow click sub-parameters — NOT the same thing as lp_subid1-5, which
+    // are LeadProsper's own passthrough ids and are populated independently.
+    'sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'sub6',
     'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5',
     'adv1', 'adv2', 'adv3', 'adv4', 'adv5', 'subid',
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
