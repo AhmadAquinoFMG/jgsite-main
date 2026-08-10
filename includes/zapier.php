@@ -27,9 +27,21 @@ if (!function_exists('zapier_lead_payload')) {
      */
     function zapier_lead_payload(array $row, int $leadId, ?int $totalDebt): array
     {
+        // Two formats of the same number, because the join happens at the Zap
+        // end against whatever CallGrid puts in CallerNumber — E.164, or
+        // 10 digits, or something punctuated. Matching on phone_digits is the
+        // robust choice: strip the caller's number to digits at the Zap and it
+        // lines up regardless of how either side formats it.
+        $phone       = (string) ($row['phone'] ?? '');
+        $phoneDigits = preg_replace('/\D/', '', $phone);
+        $phoneDigits = strlen((string) $phoneDigits) === 11 && str_starts_with((string) $phoneDigits, '1')
+            ? substr((string) $phoneDigits, 1)          // drop the US country code
+            : (string) $phoneDigits;
+
         $payload = [
             'lead_id'           => $leadId,
-            'phone'             => (string) ($row['phone'] ?? ''),
+            'phone'             => $phone,
+            'phone_digits'      => $phoneDigits,
             'email'             => (string) ($row['email'] ?? ''),
             'first_name'        => (string) ($row['first_name'] ?? ''),
             'last_name'         => (string) ($row['last_name'] ?? ''),
@@ -39,7 +51,7 @@ if (!function_exists('zapier_lead_payload')) {
             'city'              => (string) ($row['city'] ?? ''),
             'behind_payment'    => (string) ($row['behind_payment'] ?? ''),
             'employed'          => (string) ($row['employment'] ?? ''),
-            'total_debt'        => $totalDebt,
+            'total_debt'        => $totalDebt !== null ? (string) $totalDebt : '',
             'fbclid'            => (string) ($row['fbclid'] ?? ''),
             'fbp'               => (string) ($row['fbp'] ?? ''),
             'fbc'               => (string) ($row['fbc'] ?? ''),
@@ -48,9 +60,13 @@ if (!function_exists('zapier_lead_payload')) {
             'submitted_at'      => date('c'),
         ];
 
-        // Drop empties so a blank never overwrites a good stored value on a
-        // re-submit from the same phone number.
-        return array_filter($payload, static fn($v) => $v !== '' && $v !== null);
+        /* Every key ships on every submit, blank ones included — the shape has
+           to be identical each time. Zapier builds its field list from a sample
+           payload, and a spreadsheet joins by column position: a key that
+           vanished because the visitor left it empty silently shifts everything
+           after it into the wrong column. A blank string keeps the column
+           aligned and simply writes an empty cell. */
+        return $payload;
     }
 
     /**
