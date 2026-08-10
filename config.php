@@ -299,7 +299,10 @@ return [
             'city'           => 'city',
             'state'          => 'state',
             'zip'            => 'zip',
-            'dob'            => 'dob',
+            // Param name is date_of_birth, not dob, to match the tag the
+            // CallGrid webhook template reads ([[tag:date_of_birth]]). The
+            // stored field is still `dob` — only the outgoing name differs.
+            'date_of_birth'  => 'dob',
             'email'          => 'email',
             'phone'          => 'phone',
             // Lead record. total_debt is the Equifax-verified figure and is

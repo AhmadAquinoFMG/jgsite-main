@@ -148,6 +148,61 @@ if ($cgOn) {
                 document.head.appendChild(script);
             }
 
+            /* Number pool — swap the CTA to the DID CallGrid assigns this
+               visitor, so an inbound call carries the session (and therefore the
+               data-tags above) instead of landing on the one shared number.
+
+               Registered BEFORE loadCallGrid() and on `document`, because
+               callgrid:numberAssigned is a one-shot: the SDK can dispatch it as
+               soon as its request comes back, and a listener attached later in
+               the body would simply never hear it. The CTA itself doesn't exist
+               yet at this point in <head>, so the number is held and applied
+               once the DOM is up.
+
+               Only the tel: target is swapped — the number ON the button stays
+               the branded static one from config ['prequal']['cta_phone']. The
+               pooled DID is a routing detail, so there's no reason to show it
+               and no flicker from rewriting the label mid-read. Note this does
+               mean the dialer opens on a number the visitor didn't just read.
+
+               The button is NOT hidden until assignment. It ships rendered and
+               dialable with the static number, so it survives a blocked/slow
+               SDK and JS being off, and the money CTA never shifts or sits dead
+               under the visitor's thumb. The cost is that a tap inside the
+               assignment window reaches the same line on the shared number —
+               that call just isn't attributable. */
+            (function () {
+                var assigned = '';
+
+                function applyNumber() {
+                    if (!assigned) return;
+                    var link = document.getElementById('call-now');
+                    if (!link) return;
+
+                    link.href = 'tel:' + assigned.replace(/[^\d+]/g, '');
+                }
+
+                document.addEventListener('callgrid:numberAssigned', function (event) {
+                    var number = event && event.detail && event.detail.phoneNumber;
+                    if (!number) return;
+
+                    assigned = String(number).trim();
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', applyNumber, { once: true });
+                    } else {
+                        applyNumber();
+                    }
+                });
+
+                // A bfcache restore re-runs no scripts and re-fires no events,
+                // but it does rebuild the DOM from the snapshot — reassert the
+                // pooled number so a back-navigation doesn't silently revert the
+                // CTA to the static one.
+                window.addEventListener('pageshow', function (event) {
+                    if (event.persisted) applyNumber();
+                });
+            })();
+
             loadCallGrid();
         </script>
     <?php endif; ?>
@@ -202,7 +257,7 @@ if ($cgOn) {
                 <!-- The money click. Umami's declarative tracking holds the tel:
                      navigation until the event is away, so this survives the dialer
                      opening. Reported as "Called" (share of completions). -->
-                <a class="prequal-call" href="tel:<?= $e($ctaTel) ?>"
+                <a class="prequal-call" id="call-now" href="tel:<?= $e($ctaTel) ?>"
                     data-umami-event="event_call_click">
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none"
                         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
