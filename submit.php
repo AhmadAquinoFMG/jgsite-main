@@ -241,6 +241,8 @@ $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';        // Cloudways sits behind a
 $ip  = $xff !== '' ? trim(explode(',', $xff)[0]) : ($_SERVER['REMOTE_ADDR'] ?? '');
 $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
 
+$canonical_host = $_SERVER['HTTP_HOST'] ?? 'https://www.jgdebtrelief.com/';
+
 $row = [
     'debt_amount'        => $debtAmount,
     'self_assessed_debt' => $debtAmount, // the visitor's self-reported figure
@@ -304,7 +306,7 @@ $row = [
     'adv3'            => $post('adv3') ?: null,
     'adv4'            => $post('adv4') ?: null,
     'adv5'            => $post('adv5') ?: null,
-    'landing_page_url'  => $post('landing_page_url') ?: null,
+    'landing_page_url'  => $canonical_host
 ];
 
 /* -------------------------------------------------------------- persist */
