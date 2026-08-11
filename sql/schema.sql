@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `lp_subid3`       VARCHAR(128) DEFAULT NULL,
     `lp_subid4`       VARCHAR(128) DEFAULT NULL,
     `lp_subid5`       VARCHAR(128) DEFAULT NULL,
+    `lp_subid6`       VARCHAR(128) DEFAULT NULL,
     `adv1`            VARCHAR(128) DEFAULT NULL,
     `adv2`            VARCHAR(128) DEFAULT NULL,
     `adv3`            VARCHAR(128) DEFAULT NULL,

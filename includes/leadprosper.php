@@ -101,6 +101,24 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             }
         }
 
+        /* Everflow's sub1-sub6 ride out in LeadProsper's lp_subid1-6 fields.
+           The campaign defines lp_subid*, not sub*, so posting the Everflow
+           names verbatim would just be unknown keys — the values have to be
+           mapped across to land anywhere.
+
+           An explicit ?lp_subidN= on the landing URL WINS. The mapping only
+           fills a slot the URL left empty, so a partner already populating
+           lp_subid directly can't have its value silently replaced by an
+           Everflow sub that happens to share the index. */
+        for ($i = 1; $i <= 6; $i++) {
+            $lpKey = 'lp_subid' . $i;
+            $sub   = (string) ($row['sub' . $i] ?? '');
+
+            if ($sub !== '' && ($payload[$lpKey] ?? '') === '') {
+                $payload[$lpKey] = $sub;
+            }
+        }
+
         return array_filter($payload, static fn($v) => $v !== '' && $v !== null);
     }
 
@@ -214,10 +232,10 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
 // Add it here only if the campaign gains the field.
 const LEADPROSPER_TRACKING_PARAMS = [
     'affid', 'oid', 'source_id', 'ef_transaction_id',
-    // Everflow click sub-parameters — NOT the same thing as lp_subid1-5, which
-    // are LeadProsper's own passthrough ids and are populated independently.
-    'sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'sub6',
-    'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5',
+    // Everflow's sub1-sub6 are NOT listed here — the campaign has no sub* fields.
+    // They are stored on the lead and mapped into lp_subid1-6 by
+    // leadprosper_payload() instead.
+    'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5', 'lp_subid6',
     'adv1', 'adv2', 'adv3', 'adv4', 'adv5', 'subid',
     'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
     'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',

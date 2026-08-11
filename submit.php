@@ -93,8 +93,10 @@ if ($post('website') !== '') {
 }
 
 $renderedAt = (int) $post('form_rendered_at');
-if ($botReason === null && $renderedAt > 0
-    && (time() - $renderedAt) < (int) ($cfg['timing_min_seconds'] ?? 4)) {
+if (
+    $botReason === null && $renderedAt > 0
+    && (time() - $renderedAt) < (int) ($cfg['timing_min_seconds'] ?? 4)
+) {
     $botReason = 'timing';
 }
 
@@ -193,8 +195,10 @@ if ($email === '') {
     } else {
         $local  = substr($email, 0, $at);
         $domain = strtolower(substr($email, $at + 1));
-        if (!preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]*[A-Za-z0-9])?$/', $local)
-            || strpos($local, '..') !== false) {
+        if (
+            !preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]*[A-Za-z0-9])?$/', $local)
+            || strpos($local, '..') !== false
+        ) {
             $errors['email'] = 'invalid_email';
         } elseif (!preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9\-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/', $domain)) {
             $errors['email'] = 'invalid_email';
@@ -291,11 +295,12 @@ $row = [
     'sub5'            => $post('sub5') ?: null,
     'sub6'            => $post('sub6') ?: null,
     'ef_transaction_id' => $post('ef_transaction_id') ?: null,
-    'lp_subid1'       => $post('lp_subid1') ?: null,
-    'lp_subid2'       => $post('lp_subid2') ?: null,
-    'lp_subid3'       => $post('lp_subid3') ?: null,
-    'lp_subid4'       => $post('lp_subid4') ?: null,
-    'lp_subid5'       => $post('lp_subid5') ?: null,
+    'lp_subid1'       => $post('sub1') ?: null,
+    'lp_subid2'       => $post('sub2') ?: null,
+    'lp_subid3'       => $post('sub3') ?: null,
+    'lp_subid4'       => $post('sub4') ?: null,
+    'lp_subid5'       => $post('sub5') ?: null,
+    'lp_subid6'       => $post('sub6') ?: null,
     'adv1'            => $post('adv1') ?: null,
     'adv2'            => $post('adv2') ?: null,
     'adv3'            => $post('adv3') ?: null,
@@ -308,13 +313,14 @@ $row = [
 try {
     $cols = array_keys($row);
     $sql  = 'INSERT INTO leads (' . implode(', ', $cols) . ') VALUES (:'
-          . implode(', :', $cols) . ')';
+        . implode(', :', $cols) . ')';
     $pdo  = db($cfg);
     $stmt = $pdo->prepare($sql);
     $stmt->execute($row);
     $leadId = (int) $pdo->lastInsertId();
     app_log('info', 'lead', 'stored', [
-        'rid' => $rid, 'lead_id' => $leadId,
+        'rid' => $rid,
+        'lead_id' => $leadId,
         'state' => $row['state'],
     ]);
 } catch (Throwable $ex) {
@@ -343,68 +349,68 @@ try {
    so the lead — already stored — still succeeds. */
 $verifiedTotalDebt = null; // read by the LeadProsper post below
 if ($botReason === null) {
-try {
-    $eqLead = array_intersect_key($row, array_flip(
-        ['first_name', 'last_name', 'street', 'city', 'state', 'zip', 'email']
-    ));
-    $eqLead['dob'] = $dobIso;
+    try {
+        $eqLead = array_intersect_key($row, array_flip(
+            ['first_name', 'last_name', 'street', 'city', 'state', 'zip', 'email']
+        ));
+        $eqLead['dob'] = $dobIso;
 
-    $eq = equifax_pull($cfg, $eqLead, $ssnDigits);
-    if (empty($eq['skip'])) {
-        $log = [
-            'lead_id'         => $leadId,
-            'mode'            => $eq['mode'],
-            'request_url'     => $eq['request_url'],
-            'request_body'    => $eq['request_body'],
-            'response_status' => $eq['response_status'],
-            'response_body'   => $eq['response_body'],
-            'score'           => $eq['score'],
-            'decision'        => $eq['decision'],
-            'error'           => $eq['error'],
-            'duration_ms'     => $eq['duration_ms'],
-        ];
-        $cols = array_keys($log);
-        $sql  = 'INSERT INTO equifax_logs (' . implode(', ', $cols) . ') VALUES (:'
-              . implode(', :', $cols) . ')';
-        db($cfg)->prepare($sql)->execute($log);
+        $eq = equifax_pull($cfg, $eqLead, $ssnDigits);
+        if (empty($eq['skip'])) {
+            $log = [
+                'lead_id'         => $leadId,
+                'mode'            => $eq['mode'],
+                'request_url'     => $eq['request_url'],
+                'request_body'    => $eq['request_body'],
+                'response_status' => $eq['response_status'],
+                'response_body'   => $eq['response_body'],
+                'score'           => $eq['score'],
+                'decision'        => $eq['decision'],
+                'error'           => $eq['error'],
+                'duration_ms'     => $eq['duration_ms'],
+            ];
+            $cols = array_keys($log);
+            $sql  = 'INSERT INTO equifax_logs (' . implode(', ', $cols) . ') VALUES (:'
+                . implode(', :', $cols) . ')';
+            db($cfg)->prepare($sql)->execute($log);
 
-        // Denormalize the outcome onto the lead row for quick per-lead visibility
-        // (the full request/response bodies stay in equifax_logs). No SSN here.
-        db($cfg)->prepare(
-            'UPDATE leads SET equifax_mode = :mode, equifax_status = :status,
+            // Denormalize the outcome onto the lead row for quick per-lead visibility
+            // (the full request/response bodies stay in equifax_logs). No SSN here.
+            db($cfg)->prepare(
+                'UPDATE leads SET equifax_mode = :mode, equifax_status = :status,
                     equifax_score = :score, equifax_decision = :decision,
                     equifax_error = :error, equifax_pulled_at = :pulled_at,
                     total_debt = :total_debt
              WHERE id = :id'
-        )->execute([
-            'mode'       => $eq['mode'],
-            'status'     => $eq['response_status'],
-            'score'      => $eq['score'],
-            'decision'   => $eq['decision'],
-            'error'      => $eq['error'],
-            'pulled_at'  => date('Y-m-d H:i:s'),
-            'total_debt' => $eq['total_debt'] ?? null,
-            'id'         => $leadId,
-        ]);
-        $verifiedTotalDebt = is_numeric($eq['total_debt'] ?? null) ? (int) $eq['total_debt'] : null;
+            )->execute([
+                'mode'       => $eq['mode'],
+                'status'     => $eq['response_status'],
+                'score'      => $eq['score'],
+                'decision'   => $eq['decision'],
+                'error'      => $eq['error'],
+                'pulled_at'  => date('Y-m-d H:i:s'),
+                'total_debt' => $eq['total_debt'] ?? null,
+                'id'         => $leadId,
+            ]);
+            $verifiedTotalDebt = is_numeric($eq['total_debt'] ?? null) ? (int) $eq['total_debt'] : null;
 
-        // Ops log: outcome only — no SSN, no request/response bodies (those live
-        // in equifax_logs). Correlated to the lead via rid + lead_id.
-        app_log($eq['error'] ? 'error' : 'info', 'equifax', 'pull', [
-            'rid'      => $rid,
-            'lead_id'  => $leadId,
-            'mode'     => $eq['mode'],
-            'status'   => $eq['response_status'],
-            'score'    => $eq['score'],
-            'duration' => $eq['duration_ms'],
-            'error'    => $eq['error'],
-        ]);
-    } else {
-        app_log('debug', 'equifax', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
+            // Ops log: outcome only — no SSN, no request/response bodies (those live
+            // in equifax_logs). Correlated to the lead via rid + lead_id.
+            app_log($eq['error'] ? 'error' : 'info', 'equifax', 'pull', [
+                'rid'      => $rid,
+                'lead_id'  => $leadId,
+                'mode'     => $eq['mode'],
+                'status'   => $eq['response_status'],
+                'score'    => $eq['score'],
+                'duration' => $eq['duration_ms'],
+                'error'    => $eq['error'],
+            ]);
+        } else {
+            app_log('debug', 'equifax', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
+        }
+    } catch (Throwable $ex) {
+        app_log('error', 'equifax', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
     }
-} catch (Throwable $ex) {
-    app_log('error', 'equifax', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
-}
 }
 
 /* ---------------------------------------- LeadProsper direct-post (best-effort)
@@ -412,56 +418,56 @@ try {
    continue" contract as Equifax above — a forwarding failure is logged but
    never surfaced to the visitor; the lead is already stored. */
 if ($botReason === null) {
-try {
-    $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
-    // Not a posted field — reflects whether OUR OWN Equifax pull above (not an
-    // upstream one) returned a usable verified total debt.
-    $tracking['softpull_returned'] = $verifiedTotalDebt !== null ? '1' : '0';
+    try {
+        $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
+        // Not a posted field — reflects whether OUR OWN Equifax pull above (not an
+        // upstream one) returned a usable verified total debt.
+        $tracking['softpull_returned'] = $verifiedTotalDebt !== null ? '1' : '0';
 
-    $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt);
-    if (empty($lp['skip'])) {
-        db($cfg)->prepare(
-            'INSERT INTO leadprosper_logs (lead_id, mode, request_body, response_status, response_body, accepted, error, duration_ms)
+        $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt);
+        if (empty($lp['skip'])) {
+            db($cfg)->prepare(
+                'INSERT INTO leadprosper_logs (lead_id, mode, request_body, response_status, response_body, accepted, error, duration_ms)
              VALUES (:lead_id, :mode, :request_body, :response_status, :response_body, :accepted, :error, :duration_ms)'
-        )->execute([
-            'lead_id'         => $leadId,
-            'mode'            => $lp['mode'],
-            'request_body'    => $lp['sent'],
-            'response_status' => $lp['status'],
-            'response_body'   => $lp['response'],
-            'accepted'        => $lp['ok'] ? 1 : 0,
-            'error'           => $lp['error'],
-            'duration_ms'     => $lp['duration_ms'],
-        ]);
+            )->execute([
+                'lead_id'         => $leadId,
+                'mode'            => $lp['mode'],
+                'request_body'    => $lp['sent'],
+                'response_status' => $lp['status'],
+                'response_body'   => $lp['response'],
+                'accepted'        => $lp['ok'] ? 1 : 0,
+                'error'           => $lp['error'],
+                'duration_ms'     => $lp['duration_ms'],
+            ]);
 
-        db($cfg)->prepare(
-            'UPDATE leads SET lp_mode = :mode, lp_status = :status, lp_accepted = :accepted,
+            db($cfg)->prepare(
+                'UPDATE leads SET lp_mode = :mode, lp_status = :status, lp_accepted = :accepted,
                     lp_error = :error, lp_posted_at = :posted_at
              WHERE id = :id'
-        )->execute([
-            'mode'      => $lp['mode'],
-            'status'    => $lp['status'],
-            'accepted'  => $lp['ok'] ? 1 : 0,
-            'error'     => $lp['error'],
-            'posted_at' => date('Y-m-d H:i:s'),
-            'id'        => $leadId,
-        ]);
+            )->execute([
+                'mode'      => $lp['mode'],
+                'status'    => $lp['status'],
+                'accepted'  => $lp['ok'] ? 1 : 0,
+                'error'     => $lp['error'],
+                'posted_at' => date('Y-m-d H:i:s'),
+                'id'        => $leadId,
+            ]);
 
-        app_log($lp['error'] ? 'error' : 'info', 'leadprosper', 'post', [
-            'rid'      => $rid,
-            'lead_id'  => $leadId,
-            'mode'     => $lp['mode'],
-            'status'   => $lp['status'],
-            'accepted' => $lp['ok'],
-            'duration' => $lp['duration_ms'],
-            'error'    => $lp['error'],
-        ]);
-    } else {
-        app_log('debug', 'leadprosper', 'skipped', ['rid' => $rid, 'lead_id' => $leadId, 'reason' => $lp['error']]);
+            app_log($lp['error'] ? 'error' : 'info', 'leadprosper', 'post', [
+                'rid'      => $rid,
+                'lead_id'  => $leadId,
+                'mode'     => $lp['mode'],
+                'status'   => $lp['status'],
+                'accepted' => $lp['ok'],
+                'duration' => $lp['duration_ms'],
+                'error'    => $lp['error'],
+            ]);
+        } else {
+            app_log('debug', 'leadprosper', 'skipped', ['rid' => $rid, 'lead_id' => $leadId, 'reason' => $lp['error']]);
+        }
+    } catch (Throwable $ex) {
+        app_log('error', 'leadprosper', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
     }
-} catch (Throwable $ex) {
-    app_log('error', 'leadprosper', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
-}
 }
 
 /* ---------------------------------------- Zapier lead push (best-effort)

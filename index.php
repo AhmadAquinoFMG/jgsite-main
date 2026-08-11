@@ -216,6 +216,7 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                 <input type="hidden" name="lp_subid3" id="lp_subid3">
                 <input type="hidden" name="lp_subid4" id="lp_subid4">
                 <input type="hidden" name="lp_subid5" id="lp_subid5">
+                <input type="hidden" name="lp_subid6" id="lp_subid6">
                 <input type="hidden" name="adv1" id="adv1">
                 <input type="hidden" name="adv2" id="adv2">
                 <input type="hidden" name="adv3" id="adv3">
