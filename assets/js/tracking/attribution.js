@@ -55,7 +55,7 @@
         'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
         'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
         'gclid', 'gbraid', 'fbclid', 'fb_adid', 'ms_placement', 'ms_publisher', 'ttclid',
-        'fbclid', 'fbc', 'fbp'
+      'fbc', 'fbp'
     ];
 
     /* A visitor can start a second, different click in the same tab. These are
