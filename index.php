@@ -42,6 +42,7 @@ foreach (
         'gclid',
         'fbclid',
         'ttclid',
+        'fbp'
     ] as $param
 ) {
     $value = trim((string) ($_GET[$param] ?? ''));
