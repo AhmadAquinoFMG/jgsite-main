@@ -46,7 +46,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '36',
+    'asset_version' => '37',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which field
@@ -231,6 +231,46 @@ return [
             explode(',', env('EVERFLOW_FIRST_PARTY_AFFIDS', '989,995,1024'))
         ), fn($v) => $v !== '')),
         'domain' => env('EVERFLOW_DOMAIN', 'www.f0cg2trk.com'),
+    ],
+
+    // ---- Attribution persistence (assets/js/tracking/attribution.js) -----
+    // The traffic link is an Everflow tracking link:
+    //
+    //   https://sxcxm.ttrk.io/<id>?sub1={{ad.id}}&sub2={{adset.id}}&sub3={{campaign.id}}
+    //     &sub4={{ad.name}}&sub5={{adset.name}}&sub6={{campaign.name}}&sub7={{placement}}
+    //     &sub8={{site_source_name}}&utm_source=facebook&utm_medium=paid&…
+    //
+    // Everflow forwards only the params it owns (affid, oid, source_id,
+    // sub1-sub10, uid) plus whatever the offer's destination URL templates in.
+    // utm_* is neither, so the click redirect STRIPS every utm before the
+    // visitor lands here — which is why the utm hidden fields in index.php used
+    // to post empty.
+    //
+    // FIX THIS UPSTREAM FIRST: add the utm placeholders to the Everflow offer's
+    // destination URL (or enable its pass-through of unknown params). The map
+    // below is the fallback, and it rebuilds each missing utm from the sub that
+    // carries the same value — 'utm_campaign' => 'sub6' reads "if utm_campaign
+    // is missing and sub6 is present, utm_campaign = sub6". It mirrors the link
+    // above; a new source with a different sub layout is edited here.
+    //
+    // A utm that IS on the URL is never overwritten. 'defaults' are constants
+    // that only hold for traffic matching this mapping, so they're applied only
+    // when something was actually derived — direct traffic is never given an
+    // invented source.
+    'attribution' => [
+        'derive' => [
+            'utm_creative'  => 'sub1', // {{ad.id}}
+            'utm_term'      => 'sub2', // {{adset.id}}
+            'utm_content'   => 'sub4', // {{ad.name}}
+            'utm_adgroup'   => 'sub5', // {{adset.name}}
+            'utm_campaign'  => 'sub6', // {{campaign.name}}
+            'utm_placement' => 'sub7', // {{placement}}
+        ],
+        'defaults' => [
+            'utm_source'    => 'facebook',
+            'utm_medium'    => 'paid',
+            'utm_matchtype' => 'none',
+        ],
     ],
 
     // ---- Zapier lead push ------------------------------------------------

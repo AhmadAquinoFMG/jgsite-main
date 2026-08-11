@@ -104,6 +104,19 @@ if ($cgOn) {
         });
     </script>
 
+    <?php /* Attribution — restores the session's tracking params (utm_* included)
+             onto this page's URL. submit.php builds this redirect from the stored
+             lead row, which carries no utm params, so without this the page loses
+             the campaign the visitor arrived on. Kept in <head> and ahead of the
+             CallGrid block below on purpose: callgrid.js reads utm_source off
+             location.search when it initialises, and it can only read what's
+             already there. */ ?>
+    <script>
+        window.FUNNEL = window.FUNNEL || {};
+        window.FUNNEL.attribution = <?= json_encode($cfg['attribution'] ?? [], JSON_UNESCAPED_SLASHES | JSON_FORCE_OBJECT) ?>;
+    </script>
+    <script src="assets/js/tracking/attribution.js?v=<?= $e($cfg['asset_version']) ?>"></script>
+
     <?php /* Everflow conversion — fires against the offer this lead's affid maps
              to (914 first party / 915 third party). Rendered only when an affid
              was stashed at submit; unattributed leads emit nothing at all.

@@ -524,9 +524,15 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                 offerThirdParty: <?= json_encode((string) ($cfg['everflow']['offer_third_party'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,
                 firstPartyAffids: <?= json_encode(array_map('strval', $cfg['everflow']['first_party_affids'] ?? []), JSON_UNESCAPED_SLASHES) ?>,
                 domain: <?= json_encode($cfg['everflow']['domain'] ?? 'www.f0cg2trk.com', JSON_UNESCAPED_SLASHES) ?>
-            }
+            },
+            attribution: <?= json_encode($cfg['attribution'] ?? [], JSON_UNESCAPED_SLASHES | JSON_FORCE_OBJECT) ?>
         };
     </script>
+    <?php /* MUST stay ahead of funnel.js: it repairs the query string (restores
+         the utm_* Everflow's click redirect strips, and any param lost to an
+         in-session reload) BEFORE funnel.js copies location.search into the
+         hidden fields and records landing_page_url. */ ?>
+    <script src="assets/js/tracking/attribution.js?v=<?= $e($cfg['asset_version']) ?>"></script>
     <script src="assets/js/funnel.js?v=<?= $e($cfg['asset_version']) ?>"></script>
     <?php /* Loaded unconditionally — the script itself is the affid gate, and it
          bails before touching the network when there's no affid to attribute to.
