@@ -243,10 +243,11 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                 <input type="hidden" name="ms_publisher" id="ms_publisher">
                 <input type="hidden" name="ttclid" id="ttclid">
 
-                <!-- fbp is NOT a URL param — funnel.js reads it from the _fbp cookie
-                 Meta's pixel sets, if present. Same for fbc, except funnel.js
-                 falls back to building it from the fbclid when the pixel hasn't
-                 written the cookie yet. -->
+                <!-- Neither is a URL param — both are cookies, filled by
+                 captureMetaIds() in funnel.js at load and again at submit.
+                 There is no Meta pixel on this site, so attribution.js mints
+                 _fbp itself in the pixel's format; fbc is the _fbc cookie, or is
+                 built from the fbclid when there's no cookie to read. -->
                 <input type="hidden" name="fbp" id="fbp">
                 <input type="hidden" name="fbc" id="fbc">
 

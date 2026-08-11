@@ -1088,6 +1088,9 @@
         // raised an input event of its own.
         form.querySelectorAll('input').forEach(function (el) { scrub(el); settleName(el); });
 
+        // Late-arriving _fbp/_fbc: still empty at load, present by now.
+        captureMetaIds();
+
         fetch('submit.php', {
             method: 'POST',
             body: new FormData(form),
@@ -1124,6 +1127,37 @@
             });
     });
 
+    /* Meta's two match keys are cookies, not query params, so they are read here
+       rather than copied off the URL — and read again right before the POST,
+       because a cookie can appear after load (assets/js/tracking/attribution.js
+       mints _fbp synchronously, but a tag manager or a real pixel would not).
+       Reading at load only would ship an empty field on a fast submit.
+
+       Neither value is ever overwritten once set: the first one we resolved for
+       this pageview is the one the CAPI event should carry.
+
+       fbc is the click identifier, so unlike fbp it only exists when there is an
+       fbclid. The cookie wins when present — it carries the pixel's own creation
+       time — otherwise it is built in Meta's documented format,
+       fb.<subdomainIndex>.<creationTime>.<fbclid>, which dedupes against a
+       cookie-sourced value for the same click. */
+    function captureMetaIds() {
+        function cookie(name) {
+            var m = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+            return m ? m[1] : '';
+        }
+
+        var fbpEl = document.getElementById('fbp');
+        if (fbpEl && !fbpEl.value) fbpEl.value = cookie('_fbp');
+
+        var fbcEl = document.getElementById('fbc');
+        if (fbcEl && !fbcEl.value) {
+            var fbclid = new URLSearchParams(location.search).get('fbclid');
+            fbcEl.value = cookie('_fbc') ||
+                (fbclid ? 'fb.1.' + Date.now() + '.' + fbclid : '');
+        }
+    }
+
     // Attribution: copy every param below straight from the URL into its
     // same-named hidden field on load, so submit.php can store it and
     // includes/leadprosper.php can forward it. Every one of these has a hidden
@@ -1145,30 +1179,7 @@
             if (v && el) el.value = v;
         });
 
-        // fbp is not a URL param — Meta's pixel sets it as the _fbp cookie.
-        var fbpMatch = document.cookie.match(/(?:^|;\s*)_fbp=([^;]+)/);
-        var fbpEl = document.getElementById('fbp');
-        if (fbpMatch && fbpEl) fbpEl.value = fbpMatch[1];
-
-        /* fbc, same idea — Meta's pixel writes the _fbc cookie when it sees an
-           fbclid. It only does that once it has loaded, so on a fast submit (or
-           with the pixel blocked) the cookie can still be missing while the
-           fbclid is sitting right there in the URL. In that case we build the
-           value ourselves in Meta's documented format:
-
-               fb.<subdomainIndex>.<creationTime>.<fbclid>
-
-           subdomainIndex 1 and a millisecond timestamp match what the pixel
-           would have written, so a later cookie-sourced fbc for the same click
-           dedupes against this one. Cookie wins when both exist — it carries
-           the pixel's own creation time. */
-        var fbcEl = document.getElementById('fbc');
-        if (fbcEl) {
-            var fbcMatch = document.cookie.match(/(?:^|;\s*)_fbc=([^;]+)/);
-            var fbclid = qs.get('fbclid');
-            if (fbcMatch) fbcEl.value = fbcMatch[1];
-            else if (fbclid) fbcEl.value = 'fb.1.' + Date.now() + '.' + fbclid;
-        }
+        captureMetaIds();
 
         var landingEl = document.getElementById('landingPageUrl');
         if (landingEl) landingEl.value = location.href;

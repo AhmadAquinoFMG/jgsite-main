@@ -29,6 +29,12 @@
      3. PERSIST   Save the merged set to sessionStorage and rewrite the visible
                   URL with history.replaceState so it carries the full set.
 
+   Plus one job that has nothing to do with the URL: Meta's _fbp match key. No
+   pixel is installed on this site, so nothing would otherwise create that
+   cookie and every lead would report an empty fbp to the Conversions API. This
+   file mints it in the pixel's own format and format-compatible cookie, and
+   defers to a real pixel's value if one is ever installed. See section 2b.
+
    Ordering matters: this must run BEFORE assets/js/funnel.js, whose
    captureAttribution() copies location.search into the hidden fields — it reads
    the URL this file has already repaired, so nothing there needs to change.
@@ -54,9 +60,15 @@
         'adv1', 'adv2', 'adv3', 'adv4', 'adv5', 'subid',
         'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
         'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
-        'gclid', 'gbraid', 'fbclid', 'fb_adid', 'ms_placement', 'ms_publisher', 'ttclid',
-      'fbc', 'fbp'
+        'gclid', 'gbraid', 'fbclid', 'fb_adid', 'ms_placement', 'ms_publisher', 'ttclid'
     ];
+
+    /* fbp/fbc are deliberately NOT in PARAMS. They never arrive as query params —
+       they are cookies — so there is nothing for the URL-sourced merge above to
+       find, and pushing them onto the visible URL via replaceState would leak an
+       identifier into every shared/copied link. They get their own pass below,
+       and are excluded from the URL rewrite. */
+    var COOKIE_ONLY = ['fbp', 'fbc'];
 
     /* A visitor can start a second, different click in the same tab. These are
        the params that identify WHICH click — if any of them arrives with a
@@ -91,6 +103,23 @@
     function writeStore(values) {
         try {
             sessionStorage.setItem(STORE_KEY, JSON.stringify(values));
+        } catch (e) { /* non-fatal */ }
+    }
+
+    function readCookie(name) {
+        var match = document.cookie.match(
+            new RegExp('(?:^|;\\s*)' + name + '=([^;]*)')
+        );
+        return match ? clean(decodeURIComponent(match[1])) : '';
+    }
+
+    function writeCookie(name, value, days) {
+        try {
+            var expires = new Date(Date.now() + days * 86400000).toUTCString();
+            document.cookie = name + '=' + encodeURIComponent(value) +
+                '; expires=' + expires +
+                '; path=/; SameSite=Lax' +
+                (location.protocol === 'https:' ? '; Secure' : '');
         } catch (e) { /* non-fatal */ }
     }
 
@@ -149,11 +178,47 @@
         });
     }
 
+    /* ---- 2b. Meta browser identifiers ------------------------------------- */
+    /* There is no Meta pixel on this site, so nothing writes the _fbp cookie its
+       Conversions API expects as a match key. We mint it ourselves in Meta's
+       documented format —
+
+           fb.<subdomainIndex>.<creationTime>.<randomNumber>
+
+       — subdomainIndex 1 and a millisecond timestamp, exactly what the pixel
+       would have written. 90 days is the pixel's own expiry. If a real pixel is
+       ever installed it writes the same cookie name and we defer to its value
+       from that point on, since an existing cookie is never overwritten.
+
+       The cookie is the source of truth here, not sessionStorage: it outlives
+       the session and is shared with thank-you.php, so the same visitor reports
+       one stable fbp across the whole funnel. */
+    var fbp = readCookie('_fbp');
+    if (!fbp) {
+        fbp = 'fb.1.' + Date.now() + '.' + Math.floor(Math.random() * 1e10);
+        writeCookie('_fbp', fbp, 90);
+    }
+    values.fbp = fbp;
+
+    /* fbc identifies the CLICK, so unlike fbp it only exists when there is an
+       fbclid. Cookie first (a real pixel's creation time is authoritative),
+       then a build from the fbclid on this URL, then whatever a previous
+       pageview in this session already resolved. Minted here as well as in
+       funnel.js so thank-you.php — which has no funnel.js — reports it too. */
+    var fbc = readCookie('_fbc');
+    if (!fbc && values.fbclid) {
+        fbc = 'fb.1.' + Date.now() + '.' + values.fbclid;
+        writeCookie('_fbc', fbc, 90);
+    }
+    if (!fbc && stored.fbc) fbc = stored.fbc;
+    if (fbc) values.fbc = fbc;
+
     /* ---- 3. Persist ------------------------------------------------------- */
     writeStore(values);
 
     var added = false;
     Object.keys(values).forEach(function (name) {
+        if (COOKIE_ONLY.indexOf(name) !== -1) return; // cookie-borne, never on the URL
         if (!clean(qs.get(name))) {
             qs.set(name, values[name]);
             added = true;
