@@ -582,14 +582,17 @@ a { color: var(--green-deep); }
     padding: 34px 30px;
     box-shadow: 0 6px 24px rgba(17, 35, 55, .06);
 }
-.prequal-card__title { margin: 0 0 8px; font-size: 22px; font-weight: 700; color: var(--green-deep); line-height: 1.3; }
-.prequal-card__sub   { margin: 0 0 24px; color: var(--ink-soft); }
+.prequal-card__title { margin: 0 0 8px; font-size: clamp(16px, 4.4vw, 22px); font-weight: 700; color: var(--green-deep); line-height: 1.3; }
+.prequal-card__sub   { margin: 0 0 24px; font-size: clamp(13px, 3.4vw, 16px); color: var(--ink-soft); }
 
+/* The button's type is fluid: the desktop 19px is the ceiling and it eases down
+   with the viewport so the number never has to break mid-digits. The icon is
+   sized in em so it tracks the label instead of staying stuck at 22px. */
 .prequal-call {
     display: flex; align-items: center; justify-content: center; gap: 12px;
     width: 100%;
     padding: 16px 22px;
-    font-size: 19px; font-weight: 700; letter-spacing: .2px;
+    font-size: clamp(14px, 3.8vw, 19px); font-weight: 700; letter-spacing: .2px;
     color: #fff; text-decoration: none;
     background: #018053;             /* teal action accent */
     border-radius: 12px;
@@ -604,6 +607,7 @@ a { color: var(--green-deep); }
    as two different numbers. */
 .prequal-call__label  { display: inline; }
 .prequal-call__number { white-space: nowrap; }
+.prequal-call svg { flex: 0 0 auto; width: 1.16em; height: 1.16em; }
 
 /* assurance row */
 .prequal-assurances {
@@ -616,40 +620,50 @@ a { color: var(--green-deep); }
 }
 .prequal-assurances svg { color: var(--green); flex: 0 0 auto; }
 
-/* hold-file timer */
+/* hold-file timer — stacked and centred: label row, clock, then the note. The
+   clock is the thing the visitor is meant to watch, so it gets the middle of the
+   box on its own line rather than competing with the copy for horizontal room. */
 .prequal-hold {
-    display: flex; align-items: center; justify-content: center; gap: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
     text-align: center;
     margin-top: 24px;
     padding: 20px 22px;
     background: #fdf1eb;             /* soft peach */
     border-radius: 12px;
 }
-.prequal-hold__icon { flex: 0 0 auto; color: var(--green-deep); }
-.prequal-hold__label { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.3; }
-/* The label carries a hardcoded <br> for a tidy 2-line break. Centred and
-   competing with the timer for width it wrapped anyway, so the forced break only
-   added a ragged extra line — let it flow and wrap on its own. */
-.prequal-hold__label br { display: none; }
+.prequal-hold__head {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+.prequal-hold__icon { flex: 0 0 auto; color: var(--green-deep); display: flex; }
+.prequal-hold__icon svg { width: 1.7em; height: 1.7em; }
+.prequal-hold__label {
+    margin: 0;
+    font-size: clamp(13px, 3.4vw, 15px);
+    font-weight: 600; color: var(--ink); line-height: 1.3;
+}
 
 .prequal-hold__clock {
     flex: 0 0 auto;
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
 }
 .prequal-hold__unit {
     display: flex; flex-direction: column; align-items: center;
-    min-width: 56px;
+    min-width: clamp(48px, 14vw, 56px);
     padding: 6px 4px;
     background: #fbe3d8;
     border-radius: 8px;
 }
 .prequal-hold__unit strong {
-    font-size: 26px; font-weight: 700; color: #e0613f; line-height: 1;
+    font-size: clamp(21px, 6.4vw, 26px);
+    font-weight: 700; color: #e0613f; line-height: 1;
     font-variant-numeric: tabular-nums;
 }
-.prequal-hold__unit small { font-size: 10px; font-weight: 600; color: #e0613f; letter-spacing: .5px; margin-top: 3px; }
-.prequal-hold__colon { font-size: 24px; font-weight: 700; color: #e0613f; }
-.prequal-hold__note { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.prequal-hold__unit small {
+    font-size: clamp(9px, 2.4vw, 10px);
+    font-weight: 600; color: #e0613f; letter-spacing: .5px; margin-top: 3px;
+}
+.prequal-hold__colon { font-size: clamp(19px, 5.8vw, 24px); font-weight: 700; color: #e0613f; }
+.prequal-hold__note { margin: 0; font-size: clamp(11px, 2.9vw, 12px); color: var(--muted); line-height: 1.45; }
 
 /* Program disclosures, shown in the page body below the CTA card. */
 .prequal-disclosures {
@@ -737,20 +751,21 @@ a { color: var(--green-deep); }
     .prequal-assigned__title { font-size: 15px; }
     .prequal-assigned__body p { font-size: 12px; }
     .prequal-card { padding: 26px 18px; margin-top: 22px; }
-    .prequal-card__title { font-size: 16px; }
-    .prequal-card__sub { font-size: 13px; margin-bottom: 18px; }
-    .prequal-call { font-size: 15px; padding: 12px 16px; gap: 8px; }
+    .prequal-card__sub { margin-bottom: 18px; }
+    .prequal-call { padding: 12px 16px; gap: 8px; }
 
-    /* Label over number on two lines — at 15px the single line couldn't fit the
-       button and was breaking mid-number. */
+    /* Label over number on two lines — even at the fluid size the single line
+       couldn't fit the button and was breaking mid-number. Both parts stay
+       fluid, so the number keeps its emphasis over the "CALL NOW:" kicker all
+       the way down. */
     .prequal-call__label {
         display: flex; flex-direction: column; align-items: center;
         gap: 1px; line-height: 1.25;
     }
-    .prequal-call__cta    { font-size: 13px; letter-spacing: .4px; opacity: .92; }
-    .prequal-call__number { font-size: 18px; }
-    .prequal-hold { flex-wrap: wrap; justify-content: center; text-align: center; gap: 12px; }
-    .prequal-hold__note { flex-basis: 100%; }
+    .prequal-call__cta    { font-size: clamp(11px, 3.4vw, 13px); letter-spacing: .4px; opacity: .92; }
+    .prequal-call__number { font-size: clamp(15px, 4.8vw, 18px); }
+    .prequal-call svg { width: 1.4em; height: 1.4em; }   /* track the number, not the base */
+    .prequal-hold { gap: 10px; padding: 18px 14px; }
 }
 
 /* fine print */

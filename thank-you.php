@@ -287,14 +287,18 @@ if ($cgOn) {
 
                 <!-- Hold timer -->
                 <div class="prequal-hold" data-hold-secs="<?= $e($holdSecs) ?>">
-                    <span class="prequal-hold__icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="13" r="8" />
-                            <path d="M12 9v4l2.5 2.5" />
-                            <path d="M9 2h6" />
-                        </svg>
-                    </span>
-                    <p class="prequal-hold__label">Your specialist is &nbsp;<br>holding your file for:</p>
+                    <?php /* Icon + label ride together on their own row so the clock
+                             below them lands dead centre of the card at every width. */ ?>
+                    <div class="prequal-hold__head">
+                        <span class="prequal-hold__icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="13" r="8" />
+                                <path d="M12 9v4l2.5 2.5" />
+                                <path d="M9 2h6" />
+                            </svg>
+                        </span>
+                        <p class="prequal-hold__label">Your specialist is holding your file for:</p>
+                    </div>
                     <div class="prequal-hold__clock" role="timer" aria-live="off">
                         <span class="prequal-hold__unit"><strong id="holdMin"><?= $e(sprintf('%02d', intdiv($holdSecs, 60))) ?></strong><small>MIN</small></span>
                         <span class="prequal-hold__colon">:</span>
