@@ -101,6 +101,23 @@ instead of coming back as a 422 from the final Submit.
   be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
   mode — set `LEADPROSPER_MODE=test` to validate field mapping without billing/delivering,
   `live` once you're ready.
+- **QA test mode** — a test visit runs the funnel for real (real validation, a
+  real row in `leads`) but posts the lead to LeadProsper with `lp_action=test`:
+  it appears in the campaign's lead log flagged **TEST** and is never billed or
+  delivered. Two independent triggers, both in `config.php ['test_mode']`:
+  - `?test=fmg_true` — `funnel.js` copies the param into a hidden `test` field
+    and `submit.php` compares it to `TEST_MODE_TOKEN` (empty disables it).
+  - `?affid=300` — JG's test affiliate id (`TEST_MODE_AFFIDS`), so their QA link
+    `?oid=914&affid=300` needs no extra param. Matched on **affid only**: `914`
+    is the live first-party *offer* id that real links carry too
+    (`?oid=914&affid=989`), so treating it as a test marker would flag genuine
+    leads as tests.
+
+  The post happens even when `LEADPROSPER_MODE=off`. The campaign requires
+  `affid`, so a test visit that carried none has `TEST_MODE_AFFID` (default
+  `300`) substituted **into the post only** — an `?affid=` actually on the URL
+  always wins, and the stored lead is untouched. QA rows are identifiable
+  afterwards by `leads.lp_mode = 'test'`.
 - **Everflow** — fully client-side; no server-side postback. The `?affid=` on the
   landing URL decides the offer (`includes/everflow.php`, table in
   `config.php ['everflow']`): a first-party affid
@@ -173,4 +190,5 @@ The confirmation page's phone number and hold-timer length are configurable in
 See `.env.example` for the full list. Groups: `GOOGLE_PLACES_KEY`; `APP_ENV`;
 database (`DB_*`); compliance (`TRUSTEDFORM_ENABLED`, `JORNAYA_*`); Equifax
 (`EQUIFAX_*`); LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
-(`EVERFLOW_*`). `.env` is gitignored.
+(`EVERFLOW_*`); QA test mode (`TEST_MODE_TOKEN`, `TEST_MODE_AFFIDS`,
+`TEST_MODE_AFFID`). `.env` is gitignored.

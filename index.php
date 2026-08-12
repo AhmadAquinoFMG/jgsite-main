@@ -253,6 +253,15 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
 
                 <input type="hidden" name="landing_page_url" id="landingPageUrl">
 
+                <!-- QA test mode. Filled by funnel.js from ?test= on the landing URL
+                 (https://jgdebtrelief.com/?test=fmg_true). submit.php checks it
+                 against config.php ['test_mode']['token'] and, on a match, posts the
+                 lead to LeadProsper with lp_action=test — logged and visible in the
+                 campaign, never billed or delivered. It carries the token itself
+                 rather than a bare 1 so a bot filling every field it can find can't
+                 turn a real lead into an unbilled test one. -->
+                <input type="hidden" name="test" id="test">
+
                 <!-- Honeypot: invisible to real visitors (see .hp-field in style.css). Real
                  bot-form-fillers often populate any input they can find, including ones
                  with no visible label — this one silently marks the submission as a bot

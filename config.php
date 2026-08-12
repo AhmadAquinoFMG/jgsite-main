@@ -190,6 +190,54 @@ return [
         'timeout'     => (int) env('LP_TIMEOUT', '20'),
     ],
 
+    // ---- QA test mode (?test=fmg_true) -----------------------------------
+    // A landing URL that runs the real funnel end to end but lands in
+    // LeadProsper as a TEST lead:
+    //
+    //   https://jgdebtrelief.com/?test=fmg_true
+    //
+    // funnel.js copies the param into the hidden `test` field like any other
+    // attribution param, submit.php compares it to the token below, and
+    // includes/leadprosper.php posts with lp_action=test — LeadProsper logs the
+    // lead against the campaign, shows it flagged TEST, and never bills or
+    // delivers it. That post happens even when LEADPROSPER_MODE=off, because a
+    // test URL that silently sends nothing is the worse failure mode.
+    //
+    // JG's own test affiliate id does the same thing without the param, so
+    // their QA link is a test lead as it stands:
+    //
+    //   https://jgdebtrelief.com/?oid=914&affid=300
+    //
+    // An empty TEST_MODE_TOKEN turns the ?test= half off (no value of ?test=
+    // can then flag anything); an empty TEST_MODE_AFFIDS turns the affid half
+    // off. They are independent — either one alone flags the lead.
+    'test_mode' => [
+        'token' => env('TEST_MODE_TOKEN', 'fmg_true'),
+
+        // Test affiliate ids. Traffic arriving on one of these is QA traffic by
+        // definition, so the lead is posted as a test whether or not ?test= is
+        // on the URL.
+        //
+        // Deliberately affid ONLY — the ?oid= on that link is NOT part of the
+        // check. 914 is the live first-party OFFER id (EVERFLOW_OFFER_FIRST_PARTY
+        // above); real first-party links carry it too (?oid=914&affid=989), so
+        // treating it as a test marker would flag genuine leads as tests and
+        // stop them being billed or delivered.
+        'affids' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', env('TEST_MODE_AFFIDS', '300'))
+        ), fn($v) => $v !== '')),
+
+        // The campaign has affid as a REQUIRED field, so a test post that
+        // arrived without one is rejected ("field `affid` is required") before
+        // any of the mapping being tested is even looked at. Used ONLY on test
+        // posts, and only when the visit carried no ?affid= of its own (so a
+        // lead that came in on the QA link above keeps its real 300) — it is
+        // never stored on the lead and never reaches Everflow. Empty = don't
+        // substitute.
+        'affid' => env('TEST_MODE_AFFID', '300'),
+    ],
+
     // ---- Cloudflare Turnstile (bot protection on the final funnel step) -------
     // Verified server-side in submit.php via includes/turnstile.php. Leave
     // TURNSTILE_ENABLED=0 (default) to skip rendering the widget and skip

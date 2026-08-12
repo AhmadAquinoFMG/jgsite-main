@@ -88,8 +88,10 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
         ];
 
         // Post as a test when the global mode is 'test' OR this specific visit is
-        // QA-flagged, so LeadProsper never bills/delivers the lead.
-        if (($lp['mode'] ?? 'off') === 'test' || !empty($tracking['is_test'])) {
+        // QA-flagged (?test=fmg_true — see config.php ['test_mode']), so
+        // LeadProsper never bills/delivers the lead.
+        $isTest = !empty($tracking['is_test']);
+        if (($lp['mode'] ?? 'off') === 'test' || $isTest) {
             $payload['lp_action'] = 'test';
         }
 
@@ -119,6 +121,20 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             }
         }
 
+        /* The campaign marks affid REQUIRED, so a QA test URL opened without one
+           is rejected outright ("field `affid` is required") before any of the
+           field mapping under test is looked at. Substitute the configured QA
+           affid — test posts only, and only when the visit genuinely carried no
+           affid of its own, so a real one is never overwritten. This touches the
+           payload alone: the stored lead keeps its empty affid and Everflow (which
+           reads the URL, not this) is not involved either way. */
+        if ($isTest && ($payload['affid'] ?? '') === '') {
+            $testAffid = trim((string) ($cfg['test_mode']['affid'] ?? ''));
+            if ($testAffid !== '') {
+                $payload['affid'] = $testAffid;
+            }
+        }
+
         return array_filter($payload, static fn($v) => $v !== '' && $v !== null);
     }
 
@@ -132,6 +148,16 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
     {
         $lp   = $cfg['leadprosper'] ?? [];
         $mode = $lp['mode'] ?? 'off';
+
+        /* A QA test visit (?test=fmg_true) always posts, and always posts as a
+           test — even where the deployment runs LEADPROSPER_MODE=off. A test URL
+           that silently sends nothing is the worse failure: there'd be nothing in
+           the campaign's lead log to look at, and no way to tell that from a
+           mapping bug. Recorded as 'test' too, so leadprosper_logs.mode and
+           leads.lp_mode identify the QA rows. */
+        if (!empty($tracking['is_test'])) {
+            $mode = 'test';
+        }
 
         $result = [
             'skip'        => false,

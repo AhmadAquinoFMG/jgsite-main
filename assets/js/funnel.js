@@ -1173,7 +1173,11 @@
             'adv1', 'adv2', 'adv3', 'adv4', 'adv5', 'subid',
             'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
             'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
-            'gclid', 'gbraid', 'fbclid', 'fb_adid', 'ms_placement', 'ms_publisher', 'ttclid'
+            'gclid', 'gbraid', 'fbclid', 'fb_adid', 'ms_placement', 'ms_publisher', 'ttclid',
+            // Not attribution: the QA test-mode token (?test=fmg_true). Rides in
+            // the same way because it needs exactly the same thing — the landing
+            // URL's value carried through to the POST. submit.php validates it.
+            'test'
         ].forEach(function (k) {
             var v = qs.get(k), el = document.getElementById(k);
             if (v && el) el.value = v;

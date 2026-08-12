@@ -81,6 +81,35 @@ $post = fn(string $k): string => $fold(trim((string) ($_POST[$k] ?? '')));
 
 app_log('info', 'lead', 'received', ['rid' => $rid]);
 
+/* ------------------------------------------------------------- test mode
+   Two independent ways in (config.php ['test_mode']):
+
+     ?test=fmg_true   the QA token, copied into the hidden `test` field by
+                      funnel.js. Compared against the configured token rather
+                      than accepting any truthy value, so an empty
+                      TEST_MODE_TOKEN disables it outright and a bot filling
+                      every field it finds can't downgrade a real lead into an
+                      unbilled test one.
+     ?affid=300       JG's test affiliate id (TEST_MODE_AFFIDS). Their QA link
+                      is ?oid=914&affid=300 — note the OFFER id plays no part
+                      here, since 914 is the live first-party offer that real
+                      links carry too.
+
+   Either way the lead is still validated, still stored and still posted — it
+   just goes to LeadProsper flagged lp_action=test, so it lands in the
+   campaign's lead log as a TEST lead and is never billed or delivered.
+   Everything else on this page behaves identically, so what a test exercises
+   is the real path. */
+$testToken  = trim((string) ($cfg['test_mode']['token'] ?? ''));
+$testAffids = $cfg['test_mode']['affids'] ?? [];
+
+$isTestLead = ($testToken !== '' && $post('test') === $testToken)
+    || in_array($post('affid'), $testAffids, true);
+
+if ($isTestLead) {
+    app_log('info', 'lead', 'test_mode', ['rid' => $rid, 'affid' => $post('affid')]);
+}
+
 /* --------------------------------------------------------- bot detection */
 // Aggregates all three signals below (honeypot / timing / Turnstile). When
 // set, the lead is still stored (flagged) but never reaches Equifax/LeadProsper,
@@ -423,6 +452,10 @@ if ($botReason === null) {
         // Not a posted field — reflects whether OUR OWN Equifax pull above (not an
         // upstream one) returned a usable verified total debt.
         $tracking['softpull_returned'] = $verifiedTotalDebt !== null ? '1' : '0';
+        // Not a posted field either, and not part of LEADPROSPER_TRACKING_PARAMS,
+        // so it is never sent as a campaign field — it only tells
+        // includes/leadprosper.php to post this one as lp_action=test.
+        $tracking['is_test'] = $isTestLead;
 
         $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt);
         if (empty($lp['skip'])) {
