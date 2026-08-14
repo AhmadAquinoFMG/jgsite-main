@@ -182,6 +182,16 @@ the logging pipeline without credentials, or `live` for the real OAuth2 +
 credit-report call — **confirm the endpoint paths and request schema in
 `includes/equifax.php` against your Equifax contract first.**
 
+**Verified total debt is unsecured debt only, with student loans excluded.**
+Equifax has no request-level account-type filter, so the report comes back
+complete and `includes/equifax.php` classifies each trade line when it computes
+the total: credit cards, charge accounts, unsecured notes/lines of credit,
+personal loans and medical debt count; mortgages, HELOCs, autos, leases,
+timeshares and every student/education loan are dropped. Classification is
+fail-closed — a trade line that can't be positively identified as unsecured
+doesn't count. Set `EQUIFAX_DEBT_SCOPE=all` to sum every trade line instead
+(debugging only; that figure is not settleable debt).
+
 The confirmation page's phone number and hold-timer length are configurable in
 `config.php` → `['prequal']` (`cta_phone`, `hold_minutes`).
 

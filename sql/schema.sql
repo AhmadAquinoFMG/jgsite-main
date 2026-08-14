@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `equifax_decision` VARCHAR(64) DEFAULT NULL,
     `equifax_error`   VARCHAR(255) DEFAULT NULL,   -- NULL = success
     `equifax_pulled_at` DATETIME   DEFAULT NULL,
-    `total_debt`      INT UNSIGNED DEFAULT NULL,    -- Equifax-verified total debt
+    `total_debt`      INT UNSIGNED DEFAULT NULL,    -- Equifax-verified UNSECURED debt (no student loans)
 
     -- ---- Compliance / proof-of-consent (TCPA) ----
     `trustedform_url` VARCHAR(255) DEFAULT NULL,
