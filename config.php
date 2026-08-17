@@ -194,15 +194,23 @@ return [
     //         'mock' → synthetic response, DOES log (test the pipeline).
     //         'live' → real POST with JGW_API_TOKEN.
     //
-    // ⚠ Ships 'off' on purpose. JG is ALSO a buyer on the LeadProsper campaign,
-    // so a lead scored here and then posted to LeadProsper can reach JG twice.
-    // Confirm with JG that this endpoint dedupes (or offers a score-only mode)
-    // before setting JGW_MODE=live. QA test visits (?test=fmg_true) never call
-    // the live endpoint — the API has no test flag, so it would create a real
-    // lead with a real credit pull.
+    // ⚠ This endpoint is JG's LEAD INTAKE, not a scoring lookup — every call
+    // creates a real lead on their side. JG is ALSO a buyer on the LeadProsper
+    // campaign, so running both delivers the same consumer to JG twice and
+    // LeadProsper's copy (the one that pays) comes back "duplicated by buyer".
+    // Observed in production, hence the guard: with LEADPROSPER_MODE=live the
+    // call is SKIPPED unless JGW_ALLOW_WITH_LEADPROSPER=1 says JG has been
+    // removed from the LP campaign and is sold direct instead.
+    // QA test visits (?test=fmg_true) never call the live endpoint either — the
+    // API has no test flag, so it would create a real lead with a real pull.
     'jgscoring' => [
         'mode'     => strtolower(env('JGW_MODE', 'off')),
         'token'    => env('JGW_API_TOKEN', ''),
+        // Escape hatch for the duplicate-delivery guard in includes/jgscoring.php.
+        // Leave OFF unless JG has been removed as a buyer from the LeadProsper
+        // campaign (i.e. we sell to JG direct). With LeadProsper live and this
+        // off, the scoring call is skipped rather than duplicating the lead.
+        'allow_with_leadprosper' => (env('JGW_ALLOW_WITH_LEADPROSPER', '0') === '1'),
         'endpoint' => env('JGW_ENDPOINT', 'https://leadscoring.jgwentworth.com/api/leads/dr/'),
         // JG's own sample took 4.2s to answer (they pull credit inline), and
         // this call sits in the visitor's submit request — hence the generous
@@ -249,6 +257,22 @@ return [
         'key'         => env('LP_KEY', ''),
         'endpoint'    => env('LP_ENDPOINT', 'https://api.leadprosper.io/direct_post'),
         'timeout'     => (int) env('LP_TIMEOUT', '20'),
+        /* Key under which LeadProsper echoes a BUYER's returned value back to us
+           ("Customize Supplier API Response" → "Pass data from your buyer's API
+           response back to the supplier"). Set to the Key configured on campaign
+           35954; it carries JG Wentworth's own `total_debt_included`, which is
+           how we get their figure without ever calling JG ourselves.
+
+           Requires the per-buyer mapping too — the campaign toggle alone returns
+           nothing — and LeadProsper documents the feature as working only for
+           EXCLUSIVE leads sold to one buyer. Map it for JG ONLY: InCharge Debt
+           Solutions qualifies on the figure WE send, so it has nothing to return
+           and an unmapped buyer keeps the key unambiguous (present ⇒ JG's).
+
+           This value never becomes the total_debt we POST — see submit.php. It
+           arrives with the response, i.e. after the post, and it is JG's rule
+           applied to JG's product, not a figure to hand InCharge. */
+        'buyer_total_debt_key' => env('LP_BUYER_TOTAL_DEBT_KEY', 'total_debt_included'),
     ],
 
     // ---- QA test mode (?test=fmg_true) -----------------------------------

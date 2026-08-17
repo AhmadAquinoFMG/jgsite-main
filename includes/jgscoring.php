@@ -21,11 +21,13 @@
  *   'mock' → returns a synthetic response (no network); caller DOES log it.
  *   'live' → real POST to the scoring endpoint with the API token.
  *
- * ⚠ DUPLICATE LEADS: JG is also a buyer on the LeadProsper campaign, so a lead
- * that scores here and then posts to LeadProsper can reach JG twice — once from
- * us, once from LeadProsper's delivery. Confirm with JG that this endpoint
- * either dedupes or offers a score-only mode before switching mode to 'live'.
- * That is why this ships 'off'.
+ * ⚠ DUPLICATE LEADS: this endpoint is JG's LEAD INTAKE — the only API they
+ * expose — so every call creates a real lead on their side. JG is also a buyer
+ * on the LeadProsper campaign, so running both delivers the same consumer twice
+ * and LeadProsper's copy (the one that pays) is rejected "duplicated by buyer".
+ * The guard in jgscoring_submit() therefore skips the call whenever LeadProsper
+ * is posting live, unless JGW_ALLOW_WITH_LEADPROSPER=1 declares that JG has been
+ * removed from the LP campaign and is sold direct instead. Ships mode 'off'.
  *
  * ⚠ QA test visits (?test=fmg_true) never call this endpoint — see
  * jgscoring_submit(). The API has no documented test flag, so a QA submission
@@ -155,6 +157,28 @@ if (!function_exists('jgscoring_submit')) {
         if ($isTest && $mode !== 'mock') {
             $result['skip']  = true;
             $result['error'] = 'skipped_test_visit';
+            return $result;
+        }
+
+        /* ---- duplicate-delivery guard ------------------------------------
+           This endpoint is JG's LEAD INTAKE, not a scoring lookup: every call
+           creates a real lead there (it returns an id, a disposition and a
+           credit pull). JG is also a buyer on the LeadProsper campaign, so
+           calling it while LeadProsper is delivering live means JG receives the
+           same consumer twice — ours first, LeadProsper's ~4s later — and
+           rejects the second as a duplicate. The rejected one is the one that
+           pays. This happened in production; it is not hypothetical.
+
+           So: refuse to run alongside a live LeadProsper post unless somebody
+           has explicitly said the conflict is resolved (JG removed from the LP
+           campaign and sold direct instead) via
+           JGW_ALLOW_WITH_LEADPROSPER=1. A LeadProsper 'test' post is not
+           delivered to buyers, so it can't collide and isn't blocked. */
+        if ($mode !== 'mock'
+            && strtolower((string) ($cfg['leadprosper']['mode'] ?? 'off')) === 'live'
+            && empty($jg['allow_with_leadprosper'])) {
+            $result['skip']  = true;
+            $result['error'] = 'skipped_leadprosper_live_would_duplicate';
             return $result;
         }
 

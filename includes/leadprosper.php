@@ -71,7 +71,15 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             'state'                => strtoupper((string) ($row['state'] ?? '')),
             'zip_code'             => $row['zip'] ?? '',
             'ip_address'           => $row['ip'] ?? '',
-            'total_debt'           => $totalDebt ?? 0,
+            /* OMITTED, not zeroed, when we have no verified figure. This field
+               is what InCharge Debt Solutions qualifies on, and `0` asserts "this
+               consumer has no debt" — a disqualification — where absence
+               correctly reads as "we don't know". The funnel collects no SSN, so
+               an empty Equifax pull is routine, not exceptional. The
+               self-reported estimate still ships as self_assessed_debt, and
+               softpull_returned tells the buyer which of the two they're looking
+               at. (array_filter below drops the '' — and would NOT drop a 0.) */
+            'total_debt'           => $totalDebt ?? '',
             'self_assessed_debt'   => leadprosper_debt_bucket_amount((string) ($row['debt_amount'] ?? '')),
             'employed'             => $row['employment'] ?? '',
             'behind_payment'       => $row['behind_payment'] ?? '',
@@ -142,7 +150,8 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
      * Post a lead to LeadProsper. Returns a structured result; never throws.
      *
      * @return array{skip:bool, ok:bool, mode:string, status:int, sent:?string,
-     *               response:?string, error:?string, duration_ms:int}
+     *               response:?string, buyer_total_debt:?int, accepted_buyer:?string,
+     *               error:?string, duration_ms:int}
      */
     function leadprosper_submit(array $cfg, array $row, array $tracking, ?int $totalDebt): array
     {
@@ -160,14 +169,18 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
         }
 
         $result = [
-            'skip'        => false,
-            'ok'          => false,
-            'mode'        => $mode,
-            'status'      => 0,
-            'sent'        => null,
-            'response'    => null,
-            'error'       => null,
-            'duration_ms' => 0,
+            'skip'             => false,
+            'ok'               => false,
+            'mode'             => $mode,
+            'status'           => 0,
+            'sent'             => null,
+            'response'         => null,
+            // Value the BUYER returned, echoed back to us by LeadProsper's
+            // supplier-API-response feature (see leadprosper_buyer_value()).
+            'buyer_total_debt' => null,
+            'accepted_buyer'   => null,
+            'error'            => null,
+            'duration_ms'      => 0,
         ];
 
         if ($mode === 'off') {
@@ -209,11 +222,101 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             );
         $result['ok'] = $result['status'] >= 200 && $result['status'] < 300 && ($accepted || $decoded === null);
 
+        /* Buyer-returned values ride on the SAME response as the accept/reject —
+           delivery is synchronous — so there's nothing to poll for afterwards.
+           Read regardless of $accepted: a buyer can return a figure on a lead
+           LeadProsper still classes as rejected, and it costs nothing to look. */
+        $result['buyer_total_debt'] = leadprosper_buyer_total_debt(
+            $decoded,
+            (string) ($lp['buyer_total_debt_key'] ?? '')
+        );
+        $result['accepted_buyer'] = leadprosper_accepted_buyer($decoded);
+
         if (!$result['ok'] && $result['error'] === null) {
             $result['error'] = 'http_' . $result['status'];
         }
 
         return $result;
+    }
+
+    /**
+     * Pull a buyer-returned value out of a decoded direct_post response.
+     *
+     * LeadProsper's "Customize Supplier API Response" feature (campaign setting
+     * "Pass data from your buyer's API response back to the supplier") extracts a
+     * field from the BUYER's response and echoes it back to us under a key we
+     * name on the campaign. That is how we obtain JG Wentworth's
+     * `total_debt_included` without ever calling JG ourselves — LeadProsper is
+     * already making that call, and this hands us the answer.
+     *
+     * ⚠ LeadProsper documents this as working only for EXCLUSIVE leads sold to a
+     * single buyer. On a multi-sell campaign the key may simply never appear;
+     * absence is therefore treated as "no value", never as an error.
+     *
+     * The article doesn't specify where the key lands in the response envelope,
+     * so all three plausible shapes are checked: top level, inside each
+     * buyers[] entry, and inside a nested response/response_body object. First
+     * non-empty match wins.
+     */
+    function leadprosper_buyer_value($decoded, string $key)
+    {
+        if (!is_array($decoded) || $key === '') {
+            return null;
+        }
+
+        $pick = static function ($node) use ($key) {
+            return is_array($node) && isset($node[$key]) && $node[$key] !== '' ? $node[$key] : null;
+        };
+
+        $found = $pick($decoded);
+        if ($found !== null) {
+            return $found;
+        }
+        foreach ((array) ($decoded['buyers'] ?? []) as $buyer) {
+            $found = $pick($buyer);
+            if ($found !== null) {
+                return $found;
+            }
+            foreach (['response', 'response_body', 'custom_properties'] as $nested) {
+                $found = $pick($buyer[$nested] ?? null);
+                if ($found !== null) {
+                    return $found;
+                }
+            }
+        }
+        foreach (['response', 'response_body'] as $nested) {
+            $found = $pick($decoded[$nested] ?? null);
+            if ($found !== null) {
+                return $found;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The buyer-returned verified debt figure, as a whole-dollar int, or null.
+     * Arrives as a float (11238.0) or a numeric string depending on how
+     * LeadProsper serializes it. 0 is a real answer and is preserved.
+     */
+    function leadprosper_buyer_total_debt($decoded, string $key): ?int
+    {
+        $raw = leadprosper_buyer_value($decoded, $key);
+        return is_numeric($raw) ? (int) round((float) $raw) : null;
+    }
+
+    /**
+     * Name of the buyer that took the lead, for attributing the value above.
+     * Only meaningful on exclusive campaigns (one accepted buyer per lead).
+     */
+    function leadprosper_accepted_buyer($decoded): ?string
+    {
+        foreach ((array) ($decoded['buyers'] ?? []) as $buyer) {
+            $status = strtolower((string) ($buyer['status'] ?? ''));
+            if (in_array($status, ['accepted', 'success', 'ok'], true)) {
+                return (string) ($buyer['name'] ?? ($buyer['id'] ?? 'unknown'));
+            }
+        }
+        return null;
     }
 
     /** Minimal curl wrapper. Returns ['status'=>int, 'body'=>?string, 'error'=>?string]. */

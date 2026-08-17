@@ -44,17 +44,24 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `equifax_decision` VARCHAR(64) DEFAULT NULL,
     `equifax_error`   VARCHAR(255) DEFAULT NULL,   -- NULL = success
     `equifax_pulled_at` DATETIME   DEFAULT NULL,
-    -- The debt figure actually posted downstream (LeadProsper, Zapier, the
-    -- thank-you page): JG's total_debt_included when their scoring call returned
-    -- one, else our Equifax-verified UNSECURED total (no student loans).
+    -- What we SENT to LeadProsper: our Equifax-verified UNSECURED total (no
+    -- student loans). Kept as the record of what the buyers were actually told —
+    -- InCharge Debt Solutions qualifies on this figure, so a buyer's own number
+    -- must never overwrite it.
     `total_debt`      INT UNSIGNED DEFAULT NULL,
-    `total_debt_source` VARCHAR(10) DEFAULT NULL,   -- 'jgw' | 'equifax' | NULL
+    -- Which figure fed our records / the consumer-facing math (thank-you savings,
+    -- redirect params, Zapier): 'buyer' when a buyer returned their own verified
+    -- total, else 'equifax'. NULL when neither produced one.
+    `total_debt_source` VARCHAR(10) DEFAULT NULL,
 
     -- ---- JG Wentworth scoring outcome (denormalized from jgscoring_logs;
     --      NULL when mode=off / no call happened) ----
     `jgw_mode`          VARCHAR(10)  DEFAULT NULL,  -- 'mock' | 'live'
     `jgw_status`        SMALLINT     DEFAULT NULL,  -- HTTP status (0 = no response)
-    `jgw_total_debt`    INT UNSIGNED DEFAULT NULL,  -- JG's raw total_debt_included
+    -- JG's own total_debt_included, from EITHER source: their scoring API
+    -- (includes/jgscoring.php, normally off) or — the supported path —
+    -- LeadProsper echoing the buyer's response back to us.
+    `jgw_total_debt`    INT UNSIGNED DEFAULT NULL,
     `jgw_prequalified`  TINYINT(1)   DEFAULT NULL,
     `jgw_accepted`      TINYINT(1)   DEFAULT NULL,
     `jgw_disposition`   VARCHAR(64)  DEFAULT NULL,

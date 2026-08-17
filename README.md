@@ -103,9 +103,24 @@ instead of coming back as a 422 from the final Submit.
   estimates. That debt figure is what LeadProsper receives as `total_debt` — it
   supersedes ours, since it's the buyer's own view of what's settleable. Logs every
   attempt to `jgscoring_logs`. Ships in `off` mode; `JGW_MODE=mock` exercises the
-  path without a call. **Before going live:** JG is also a buyer on the LeadProsper
-  campaign, so confirm with them that scoring here plus LeadProsper's delivery won't
-  create a duplicate lead on their side.
+  path without a call.
+
+  > ✅ **Preferred path — no direct call at all.** LeadProsper's *Customize Supplier
+  > API Response* feature echoes a buyer's response field back to us on the
+  > `direct_post` reply, under a Key set on the campaign (`total_debt_included`).
+  > That yields JG's figure with no second delivery and no credentials — see
+  > `leadprosper_buyer_total_debt()` and `LP_BUYER_TOTAL_DEBT_KEY`. Requires the
+  > per-buyer mapping in JG's buyer setup, and LeadProsper documents it as working
+  > only for **exclusive leads sold to one buyer**. Map it for JG only.
+  >
+  > ⚠ **This is JG's lead intake, not a scoring lookup.** Every call creates a real
+  > lead on their side, and JG is also a buyer on the LeadProsper campaign — so
+  > running both delivers the same consumer twice and LeadProsper's copy (the one
+  > that pays) comes back **"duplicated by buyer"**. That happened in production.
+  > The client therefore **skips itself** whenever `LEADPROSPER_MODE=live`, unless
+  > `JGW_ALLOW_WITH_LEADPROSPER=1` declares that JG has been removed from the
+  > LeadProsper campaign and is sold direct instead. Using this integration and
+  > selling to JG through LeadProsper are mutually exclusive.
 - **LeadProsper** — direct-post lead distribution (`includes/leadprosper.php`), posted
   after the lead is stored and after the Equifax pull and JG scoring so the verified
   total debt can be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`

@@ -387,6 +387,13 @@ try {
        settleable. */
 $equifaxTotalDebt  = null;
 $verifiedTotalDebt = null;
+/* A BUYER's own verified figure (JG Wentworth's total_debt_included), when one
+   comes back. Deliberately separate from $verifiedTotalDebt: it must never be
+   posted to LeadProsper, because the other buyer on the campaign (InCharge Debt
+   Solutions) qualifies on OUR number and would otherwise be handed a figure
+   computed under JG's rules for JG's product. It drives what WE record and what
+   the consumer is shown, nothing outbound. */
+$buyerTotalDebt = null;
 if ($botReason === null) {
     try {
         $eqLead = array_intersect_key($row, array_flip(
@@ -500,19 +507,20 @@ if ($botReason === null) {
                 'duration_ms'     => $jg['duration_ms'],
             ]);
 
-            /* JG's figure wins when present. total_debt on the lead row is the
-               number we actually post downstream, and total_debt_source records
-               which integration produced it — without that, a JG-scored lead
-               and an Equifax-scored one are indistinguishable after the fact. */
+            /* JG's figure does NOT replace what we post to LeadProsper. InCharge
+               Debt Solutions qualifies on OUR Equifax number, so overwriting the
+               outbound value would hand InCharge a figure computed under JG's
+               rules for JG's own product. It feeds $buyerTotalDebt instead —
+               our own records and what the consumer is shown. */
             if ($jg['total_debt'] !== null) {
-                $verifiedTotalDebt = $jg['total_debt'];
+                $buyerTotalDebt = $jg['total_debt'];
             }
 
             db($cfg)->prepare(
                 'UPDATE leads SET jgw_mode = :mode, jgw_status = :status, jgw_prequalified = :prequalified,
                     jgw_accepted = :accepted, jgw_disposition = :disposition, jgw_credit_rating = :credit_rating,
                     jgw_total_debt = :jgw_total_debt, jgw_external_id = :external_id, jgw_error = :error,
-                    jgw_scored_at = :scored_at, total_debt = :total_debt, total_debt_source = :source
+                    jgw_scored_at = :scored_at
                  WHERE id = :id'
             )->execute([
                 'mode'           => $jg['mode'],
@@ -525,10 +533,6 @@ if ($botReason === null) {
                 'external_id'    => $jg['external_id'],
                 'error'          => $jg['error'],
                 'scored_at'      => date('Y-m-d H:i:s'),
-                'total_debt'     => $verifiedTotalDebt,
-                'source'         => $verifiedTotalDebt === null
-                    ? null
-                    : ($jg['total_debt'] !== null ? 'jgw' : 'equifax'),
                 'id'             => $leadId,
             ]);
 
@@ -601,14 +605,43 @@ if ($botReason === null) {
                 'id'        => $leadId,
             ]);
 
+            /* A buyer-returned verified figure (JG's total_debt_included, echoed
+               back by LeadProsper's supplier-API-response feature) beats both our
+               Equifax total and the direct JG call for OUR OWN use: it's the
+               buyer's own underwriting of this consumer, obtained without a second
+               delivery. Recorded, never re-posted — the LeadProsper post already
+               happened by this point, which is exactly why it's safe. */
+            if ($lp['buyer_total_debt'] !== null) {
+                $buyerTotalDebt = $lp['buyer_total_debt'];
+            }
+
+            /* total_debt_source describes the figure the CONSUMER-facing math and
+               our records use — 'buyer' when a buyer returned one, else 'equifax'.
+               leads.total_debt itself stays as what we SENT, so the audit trail of
+               what InCharge was told survives. */
+            if ($buyerTotalDebt !== null || $verifiedTotalDebt !== null) {
+                db($cfg)->prepare(
+                    'UPDATE leads SET jgw_total_debt = COALESCE(:buyer_debt, jgw_total_debt),
+                        total_debt_source = :source
+                     WHERE id = :id'
+                )->execute([
+                    'buyer_debt' => $buyerTotalDebt,
+                    'source'     => $buyerTotalDebt !== null ? 'buyer' : 'equifax',
+                    'id'         => $leadId,
+                ]);
+            }
+
             app_log($lp['error'] ? 'error' : 'info', 'leadprosper', 'post', [
-                'rid'      => $rid,
-                'lead_id'  => $leadId,
-                'mode'     => $lp['mode'],
-                'status'   => $lp['status'],
-                'accepted' => $lp['ok'],
-                'duration' => $lp['duration_ms'],
-                'error'    => $lp['error'],
+                'rid'              => $rid,
+                'lead_id'          => $leadId,
+                'mode'             => $lp['mode'],
+                'status'           => $lp['status'],
+                'accepted'         => $lp['ok'],
+                'accepted_buyer'   => $lp['accepted_buyer'],
+                'total_debt_sent'  => $verifiedTotalDebt,
+                'buyer_total_debt' => $lp['buyer_total_debt'],
+                'duration'         => $lp['duration_ms'],
+                'error'            => $lp['error'],
             ]);
         } else {
             app_log('debug', 'leadprosper', 'skipped', ['rid' => $rid, 'lead_id' => $leadId, 'reason' => $lp['error']]);
@@ -628,7 +661,7 @@ if ($botReason === null) {
    never cost us a lead that is already stored. */
 if ($botReason === null) {
     try {
-        $zap = zapier_send_lead($cfg, $row, $leadId, $verifiedTotalDebt);
+        $zap = zapier_send_lead($cfg, $row, $leadId, $buyerTotalDebt ?? $verifiedTotalDebt);
         if ($zap['skip']) {
             app_log('debug', 'zapier', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
         } else {
@@ -646,11 +679,12 @@ if ($botReason === null) {
 }
 
 /* ---------------------------------------- estimated savings (thank-you page)
-   40% of the debt used for the LeadProsper post: JG's scored total_debt_included
-   when their call returned one, else the Equifax-verified unsecured total, else
-   the same self-reported bucket estimate LeadProsper itself falls back to
-   (leadprosper_debt_bucket_amount()). */
-$debtForSavings   = $verifiedTotalDebt ?? leadprosper_debt_bucket_amount((string) $row['debt_amount']);
+   40% of the best debt figure we have, in descending order of authority: the
+   buyer's own verified total (JG's total_debt_included, returned through
+   LeadProsper), then our Equifax-verified unsecured total, then the self-reported
+   bucket estimate (leadprosper_debt_bucket_amount()). */
+$debtForConsumer  = $buyerTotalDebt ?? $verifiedTotalDebt;
+$debtForSavings   = $debtForConsumer ?? leadprosper_debt_bucket_amount((string) $row['debt_amount']);
 $estimatedSavings = (int) round($debtForSavings * 0.4);
 
 // Handed to thank-you.php via session, not the redirect URL, so the visitor
@@ -689,15 +723,17 @@ if ($botReason !== null) {
    would otherwise land the visitor on raw JSON. */
 
 /* Two values the redirect can forward that aren't posted fields, so they were
-   never in $row: the row's own id, and the Equifax-verified total debt. Added
-   here — after the insert and after the credit pull — purely so the config map
-   can name them like any other field. Nothing downstream re-reads $row.
+   never in $row: the row's own id, and the verified total debt. Added here —
+   after the insert, the credit pull and the LeadProsper post — purely so the
+   config map can name them like any other field. Nothing downstream re-reads $row.
 
-   total_debt stays null when the pull didn't return a usable figure; the
-   builder drops empty values, so the param is simply absent rather than
-   carrying the self-reported bucket estimate under a "verified" name. */
+   The buyer's own figure wins when we got one ($debtForConsumer), so the
+   thank-you page and the redirect agree on a single number. Stays null when
+   neither source produced one; the builder drops empty values, so the param is
+   simply absent rather than carrying the self-reported bucket estimate under a
+   "verified" name. */
 $row['lead_id']    = $leadId;
-$row['total_debt'] = $verifiedTotalDebt;
+$row['total_debt'] = $debtForConsumer;
 
 $redirectUrl = redirect_build_url($row, $cfg['redirect'] ?? []);
 
