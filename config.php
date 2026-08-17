@@ -183,6 +183,55 @@ return [
         ];
     })(),
 
+    // ---- JG Wentworth Lead Scoring API ----------------------------------
+    // submit.php posts the lead to JG's scoring endpoint AFTER the Equifax pull
+    // and BEFORE the LeadProsper post, because the `total_debt_included` it
+    // returns is what LeadProsper receives as `total_debt`. JG runs their own
+    // credit pull and their own settleable-debt classification, so their figure
+    // wins; our Equifax-derived total is the fallback (includes/jgscoring.php).
+    //
+    //   mode: 'off'  → skip entirely, no log row (default).
+    //         'mock' → synthetic response, DOES log (test the pipeline).
+    //         'live' → real POST with JGW_API_TOKEN.
+    //
+    // ⚠ Ships 'off' on purpose. JG is ALSO a buyer on the LeadProsper campaign,
+    // so a lead scored here and then posted to LeadProsper can reach JG twice.
+    // Confirm with JG that this endpoint dedupes (or offers a score-only mode)
+    // before setting JGW_MODE=live. QA test visits (?test=fmg_true) never call
+    // the live endpoint — the API has no test flag, so it would create a real
+    // lead with a real credit pull.
+    'jgscoring' => [
+        'mode'     => strtolower(env('JGW_MODE', 'off')),
+        'token'    => env('JGW_API_TOKEN', ''),
+        'endpoint' => env('JGW_ENDPOINT', 'https://leadscoring.jgwentworth.com/api/leads/dr/'),
+        // JG's own sample took 4.2s to answer (they pull credit inline), and
+        // this call sits in the visitor's submit request — hence the generous
+        // timeout. A timeout is not fatal: the Equifax figure is used instead.
+        'timeout'  => (int) env('JGW_TIMEOUT', '25'),
+        // additional_fields values that identify us as the source. Defaults are
+        // the values JG has on file for this white-label funnel.
+        'utm_source'         => env('JGW_UTM_SOURCE', 'FMGWhiteLabel-Posted'),
+        'lead_source_detail' => env('JGW_LEAD_SOURCE_DETAIL', 'FMGWhiteLabel'),
+        'lead_source'        => env('JGW_LEAD_SOURCE', 'Affiliate'),
+        'campaign_id'        => env('JGW_CAMPAIGN_ID', ''),
+        'campaign_source'    => env('JGW_CAMPAIGN_SOURCE', ''),
+        // JG's samples post income empty even for funnels that collect it. Set
+        // JGW_SEND_INCOME=1 to forward our income label instead.
+        'send_income'        => (env('JGW_SEND_INCOME', '0') === '1'),
+        // Fallback User-Agent when the submit request carried none (a direct
+        // API call, a stripped proxy header). Real visitors' UAs pass through.
+        'user_agent'         => env('JGW_USER_AGENT', 'FMGWhiteLabel-Funnel/1.0 (+https://www.jgwentworth.com)'),
+        // Our stored employment keys → JG's `employement_status` vocabulary.
+        // 'Full Time' is confirmed from JG's own sample payload; the other three
+        // are best guesses — confirm the accepted enum with JG.
+        'employment_map'     => [
+            'employed'   => 'Full Time',
+            'unemployed' => 'Unemployed',
+            'disability' => 'Disability',
+            'retired'    => 'Retired',
+        ],
+    ],
+
     // ---- LeadProsper direct-post (lead distribution) --------------------
     // submit.php posts the lead to LeadProsper AFTER it's stored (and after the
     // Equifax pull, so the verified total debt can be included). Best-effort —

@@ -38,6 +38,7 @@ complete. Set `APP_ENV=production` on staging/live so the phone gate is enforced
 | `includes/firebase.php` | Verifies the Firebase phone-auth ID token (native openssl, no Admin SDK). |
 | `includes/compliance.php` | TrustedForm + Jornaya (LeadiD) tags, rendered into `<head>` when configured. |
 | `includes/equifax.php` | Equifax Consumer Credit Report client + logger (`off`/`mock`/`live` modes). |
+| `includes/jgscoring.php` | JG Wentworth Lead Scoring client + logger (`off`/`mock`/`live` modes). Supplies the `total_debt` posted to LeadProsper. |
 | `includes/leadprosper.php` | LeadProsper direct-post client + logger (`off`/`test`/`live` modes). |
 | `assets/js/tracking/everflow.js` | Everflow click attribution (lazy-loaded SDK + cookie watcher); conversion fires client-side on `thank-you.php` via an Everflow campaign trigger. |
 | `sql/schema.sql` | `leads` + `equifax_logs` + `leadprosper_logs` table definitions. |
@@ -96,9 +97,18 @@ instead of coming back as a 422 from the final Submit.
   funnel works locally without billing.
 - **TrustedForm + Jornaya** — TCPA proof-of-consent scripts (`includes/compliance.php`),
   rendered only when configured; their hidden cert/token fields are stored with the lead.
+- **JG Wentworth Lead Scoring** — `includes/jgscoring.php` posts the lead to
+  `leadscoring.jgwentworth.com/api/leads/dr/`, which runs JG's own credit pull and
+  returns `total_debt_included`, `prequalified`, `credit_rating` and the program
+  estimates. That debt figure is what LeadProsper receives as `total_debt` — it
+  supersedes ours, since it's the buyer's own view of what's settleable. Logs every
+  attempt to `jgscoring_logs`. Ships in `off` mode; `JGW_MODE=mock` exercises the
+  path without a call. **Before going live:** JG is also a buyer on the LeadProsper
+  campaign, so confirm with them that scoring here plus LeadProsper's delivery won't
+  create a duplicate lead on their side.
 - **LeadProsper** — direct-post lead distribution (`includes/leadprosper.php`), posted
-  after the lead is stored and after the Equifax pull so the verified total debt can
-  be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
+  after the lead is stored and after the Equifax pull and JG scoring so the verified
+  total debt can be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
   mode — set `LEADPROSPER_MODE=test` to validate field mapping without billing/delivering,
   `live` once you're ready.
 - **QA test mode** — a test visit runs the funnel for real (real validation, a
@@ -150,9 +160,15 @@ POST if JS is unavailable). `submit.php`:
    but never blocks the lead. **Note:** the funnel no longer collects an SSN, so
    the pull currently runs without one (it won't return a real report until an
    SSN — or another identifier the contract accepts — is supplied).
-5. **Posts to LeadProsper** and logs the request/response to `leadprosper_logs` —
+5. **Scores the lead with JG Wentworth** (`includes/jgscoring.php`) and logs to
+   `jgscoring_logs`. JG runs their own credit pull and returns
+   `total_debt_included` — their classification of settleable debt — which
+   **replaces** our Equifax figure as the `total_debt` posted downstream. Runs
+   before step 6 for exactly that reason. Best-effort: a failure falls back to
+   the Equifax total. Ships in `off` mode.
+6. **Posts to LeadProsper** and logs the request/response to `leadprosper_logs` —
    best-effort, same "log & continue" contract as Equifax. Ships in `off` mode.
-6. **Builds the redirect URL server-side** (`includes/redirect.php`) and returns
+7. **Builds the redirect URL server-side** (`includes/redirect.php`) and returns
    `{ok:true, redirect:"…"}`; the client follows that URL rather than hardcoding a
    destination. The consumer's answers only reach the query string after passing
    through validation here, so the appended values are the server's normalised
@@ -199,6 +215,7 @@ The confirmation page's phone number and hold-timer length are configurable in
 
 See `.env.example` for the full list. Groups: `GOOGLE_PLACES_KEY`; `APP_ENV`;
 database (`DB_*`); compliance (`TRUSTEDFORM_ENABLED`, `JORNAYA_*`); Equifax
-(`EQUIFAX_*`); LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
+(`EQUIFAX_*`); JG Wentworth scoring (`JGW_MODE`, `JGW_API_TOKEN`, `JGW_*`);
+LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
 (`EVERFLOW_*`); QA test mode (`TEST_MODE_TOKEN`, `TEST_MODE_AFFIDS`,
 `TEST_MODE_AFFID`). `.env` is gitignored.
