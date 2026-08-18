@@ -66,11 +66,13 @@ if (!function_exists('jgscoring_submit')) {
         $employmentOut = $employmentMap[$employment] ?? $employment;
 
         $additional = [
-            'campaign_id'          => (string) ($jg['campaign_id'] ?? 'JG Debt Relief'),
+            'campaign_id'          => (string) ($jg['campaign_id'] ?? '35954'),
             'utm_source' => (string) ($jg['utm_source'] ?? (
                 'LP-' . ['Posted', 'Sent', 'Direct', 'Route'][array_rand(['Posted', 'Sent', 'Direct', 'Route'])] . '-' . mt_rand(1000, 9999)
             )),
-            'lead_source_detail'   => (string) ($jg['lead_source_detail'] ?? ''),
+            'lead_source_detail'   => (string) ($jg['lead_source_detail'] ?? (
+                'FMG' . 'Whitelabel' . '-' . mt_rand(1000, 9999)
+            )),
             'lead_source'          => (string) ($jg['lead_source'] ?? ''),
             // JG's sample posts income empty even when the funnel collected it,
             // so it stays empty unless jgscoring.send_income is switched on.
@@ -80,8 +82,10 @@ if (!function_exists('jgscoring_submit')) {
             // Correcting it here would just make the value invisible to them.
             'employement_status'   => $employmentOut,
             'client_ip'            => (string) ($row['ip'] ?? ''),
-            'campaign_source'      => (string) ($jg['campaign_source'] ?? ''),
+            'campaign_source'      => (string) ($jg['campaign_source'] ?? 'Internet'),
             'trustedform_cert_url' => (string) ($row['trustedform_url'] ?? ''),
+            'user_agent' => $_SERVER['HTTP_USER_AGENT']
+                ?? env('JGW_USER_AGENT', 'FMGWhiteLabel-Funnel/1.0 (+https://www.jgwentworth.com)'),
         ];
 
         return [

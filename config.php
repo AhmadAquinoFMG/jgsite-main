@@ -218,17 +218,18 @@ return [
         'timeout'  => (int) env('JGW_TIMEOUT', '25'),
         // additional_fields values that identify us as the source. Defaults are
         // the values JG has on file for this white-label funnel.
-        'utm_source'         => env('JGW_UTM_SOURCE', 'FMGWhiteLabel-Posted'),
-        'lead_source_detail' => env('JGW_LEAD_SOURCE_DETAIL', 'FMGWhiteLabel'),
+        'utm_source'         => env('JGW_UTM_SOURCE', 'LP-Posted-' . mt_rand(1000, 9999)),
+        'lead_source_detail' => env('JGW_LEAD_SOURCE_DETAIL', 'FMGWhitelabel-' . mt_rand(1000, 9999)),
         'lead_source'        => env('JGW_LEAD_SOURCE', 'Affiliate'),
-        'campaign_id'        => env('JGW_CAMPAIGN_ID', ''),
-        'campaign_source'    => env('JGW_CAMPAIGN_SOURCE', ''),
+        'campaign_id'        => env('JGW_CAMPAIGN_ID', '35954'),
+        'campaign_source'    => env('JGW_CAMPAIGN_SOURCE', 'Online'),
         // JG's samples post income empty even for funnels that collect it. Set
         // JGW_SEND_INCOME=1 to forward our income label instead.
         'send_income'        => (env('JGW_SEND_INCOME', '0') === '1'),
         // Fallback User-Agent when the submit request carried none (a direct
         // API call, a stripped proxy header). Real visitors' UAs pass through.
-        'user_agent'         => env('JGW_USER_AGENT', 'FMGWhiteLabel-Funnel/1.0 (+https://www.jgwentworth.com)'),
+        'user_agent' => $_SERVER['HTTP_USER_AGENT']
+            ?? env('JGW_USER_AGENT', 'FMGWhiteLabel-Funnel/1.0 (+https://www.jgwentworth.com)'),
         // Our stored employment keys → JG's `employement_status` vocabulary.
         // 'Full Time' is confirmed from JG's own sample payload; the other three
         // are best guesses — confirm the accepted enum with JG.
