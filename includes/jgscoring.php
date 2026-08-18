@@ -66,8 +66,10 @@ if (!function_exists('jgscoring_submit')) {
         $employmentOut = $employmentMap[$employment] ?? $employment;
 
         $additional = [
-            'campaign_id'          => (string) ($jg['campaign_id'] ?? ''),
-            'utm_source'           => (string) ($jg['utm_source'] ?? ''),
+            'campaign_id'          => (string) ($jg['campaign_id'] ?? 'JG Debt Relief'),
+            'utm_source' => (string) ($jg['utm_source'] ?? (
+                'LP-' . ['Posted', 'Sent', 'Direct', 'Route'][array_rand(['Posted', 'Sent', 'Direct', 'Route'])] . '-' . mt_rand(1000, 9999)
+            )),
             'lead_source_detail'   => (string) ($jg['lead_source_detail'] ?? ''),
             'lead_source'          => (string) ($jg['lead_source'] ?? ''),
             // JG's sample posts income empty even when the funnel collected it,
@@ -174,9 +176,11 @@ if (!function_exists('jgscoring_submit')) {
            campaign and sold direct instead) via
            JGW_ALLOW_WITH_LEADPROSPER=1. A LeadProsper 'test' post is not
            delivered to buyers, so it can't collide and isn't blocked. */
-        if ($mode !== 'mock'
+        if (
+            $mode !== 'mock'
             && strtolower((string) ($cfg['leadprosper']['mode'] ?? 'off')) === 'live'
-            && empty($jg['allow_with_leadprosper'])) {
+            && empty($jg['allow_with_leadprosper'])
+        ) {
             $result['skip']  = true;
             $result['error'] = 'skipped_leadprosper_live_would_duplicate';
             return $result;
