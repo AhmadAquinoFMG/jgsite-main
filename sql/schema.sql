@@ -44,7 +44,31 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `equifax_decision` VARCHAR(64) DEFAULT NULL,
     `equifax_error`   VARCHAR(255) DEFAULT NULL,   -- NULL = success
     `equifax_pulled_at` DATETIME   DEFAULT NULL,
-    `total_debt`      INT UNSIGNED DEFAULT NULL,    -- Equifax-verified UNSECURED debt (no student loans)
+    -- What we SENT to LeadProsper: our Equifax-verified UNSECURED total (no
+    -- student loans). Kept as the record of what the buyers were actually told —
+    -- InCharge Debt Solutions qualifies on this figure, so a buyer's own number
+    -- must never overwrite it.
+    `total_debt`      INT UNSIGNED DEFAULT NULL,
+    -- Which figure fed our records / the consumer-facing math (thank-you savings,
+    -- redirect params, Zapier): 'buyer' when a buyer returned their own verified
+    -- total, else 'equifax'. NULL when neither produced one.
+    `total_debt_source` VARCHAR(10) DEFAULT NULL,
+
+    -- ---- JG Wentworth scoring outcome (denormalized from jgscoring_logs;
+    --      NULL when mode=off / no call happened) ----
+    `jgw_mode`          VARCHAR(10)  DEFAULT NULL,  -- 'mock' | 'live'
+    `jgw_status`        SMALLINT     DEFAULT NULL,  -- HTTP status (0 = no response)
+    -- JG's own total_debt_included, from EITHER source: their scoring API
+    -- (includes/jgscoring.php, normally off) or — the supported path —
+    -- LeadProsper echoing the buyer's response back to us.
+    `jgw_total_debt`    INT UNSIGNED DEFAULT NULL,
+    `jgw_prequalified`  TINYINT(1)   DEFAULT NULL,
+    `jgw_accepted`      TINYINT(1)   DEFAULT NULL,
+    `jgw_disposition`   VARCHAR(64)  DEFAULT NULL,
+    `jgw_credit_rating` VARCHAR(32)  DEFAULT NULL,
+    `jgw_external_id`   VARCHAR(64)  DEFAULT NULL,
+    `jgw_error`         VARCHAR(255) DEFAULT NULL,  -- NULL = usable result
+    `jgw_scored_at`     DATETIME     DEFAULT NULL,
 
     -- ---- Compliance / proof-of-consent (TCPA) ----
     `trustedform_url` VARCHAR(255) DEFAULT NULL,
@@ -122,6 +146,43 @@ CREATE TABLE IF NOT EXISTS `leads` (
     KEY `idx_created_at` (`created_at`),
     KEY `idx_email`      (`email`),
     KEY `idx_phone`      (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ---------------------------------------------------------------------------
+-- JG Wentworth Lead Scoring call log.
+--
+-- One row per scoring post made from submit.php (includes/jgscoring.php), for
+-- audit + debugging. Runs between the Equifax pull and the LeadProsper post
+-- because `total_debt` here is what LeadProsper receives. Best-effort: a failure
+-- is logged and the Equifax figure is used instead.
+--
+-- ⚠ COMPLIANCE: `request_body` carries the consumer's full identity (name, DOB,
+-- address, email, phone) and authorizes a credit pull (ok_to_pull_credit). No
+-- API token is stored — it travels in the Authorization header, not the body.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `jgscoring_logs` (
+    `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `lead_id`         BIGINT UNSIGNED DEFAULT NULL,
+    `mode`            VARCHAR(10)  NOT NULL DEFAULT 'live',   -- 'mock' | 'live'
+    `request_body`    LONGTEXT     DEFAULT NULL,              -- ⚠ full PII
+    `response_status` SMALLINT     DEFAULT NULL,              -- HTTP status (0 = no response)
+    `response_body`   LONGTEXT     DEFAULT NULL,
+    `total_debt`      INT UNSIGNED DEFAULT NULL,              -- parsed total_debt_included
+    `prequalified`    TINYINT(1)   DEFAULT NULL,
+    `accepted`        TINYINT(1)   DEFAULT NULL,
+    `credit_rating`   VARCHAR(32)  DEFAULT NULL,
+    `jgw_id`          VARCHAR(64)  DEFAULT NULL,              -- JG's own lead id
+    `external_id`     VARCHAR(64)  DEFAULT NULL,
+    `error`           VARCHAR(255) DEFAULT NULL,              -- NULL = usable result
+    `duration_ms`     INT UNSIGNED DEFAULT NULL,
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+    KEY `idx_lead_id`    (`lead_id`),
+    KEY `idx_created_at` (`created_at`),
+    CONSTRAINT `fk_jgscoring_lead` FOREIGN KEY (`lead_id`)
+        REFERENCES `leads` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
