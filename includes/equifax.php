@@ -16,8 +16,8 @@
  * DEBT SCOPE: Equifax has no request-level filter for account types — the
  * report always comes back with every trade line — so the "only unsecured, no
  * student loans" rule is applied when the total is extracted from the response
- * (equifax_trade_is_unsecured()). Config equifax.debt_scope = 'all' turns the
- * filter off for debugging.
+ * (equifax_trade_is_unsecured()). The production pull always enforces this;
+ * there is no environment override that can send all-debt downstream.
  *
  * ⚠ The request body contains the SSN + identity and the response contains the
  * raw credit report. Both are returned for logging; set config equifax.redact
@@ -155,11 +155,7 @@ if (!function_exists('equifax_pull')) {
                 ]]],
                 '_mock' => true,
             ], JSON_UNESCAPED_SLASHES);
-            $mockDebt = equifax_extract_total_debt(
-                json_decode($mockResponse, true),
-                '', // never short-circuit the mock — the point is to run the filter
-                (string) ($eq['debt_scope'] ?? 'unsecured')
-            );
+            $mockDebt = equifax_extract_total_debt(json_decode($mockResponse, true));
             return $result + [
                 'response_status' => 200,
                 'response_body'   => $mockResponse,
@@ -199,11 +195,7 @@ if (!function_exists('equifax_pull')) {
         if ($http['status'] >= 200 && $http['status'] < 300 && $http['body']) {
             $parsed    = json_decode($http['body'], true);
             $score     = equifax_extract_score($parsed);
-            $totalDebt = equifax_extract_total_debt(
-                $parsed,
-                (string) ($eq['total_debt_path'] ?? ''),
-                (string) ($eq['debt_scope'] ?? 'unsecured')
-            );
+            $totalDebt = equifax_extract_total_debt($parsed);
         }
 
         return $result + [
@@ -223,38 +215,14 @@ if (!function_exists('equifax_pull')) {
      * That's the only debt a debt-relief program can actually settle, so it's
      * the only figure this funnel reports downstream.
      *
-     * $scope 'all' restores the old behaviour (every trade line, secured and
-     * student included) for debugging/comparison. Default 'unsecured'.
-     *
-     * A configured dot-path (equifax.total_debt_path) short-circuits the sum,
-     * but ONLY under scope 'all' — a precomputed report total is all-debt and
-     * cannot be filtered, so honouring it under 'unsecured' would silently
-     * inflate the figure with mortgages, autos and student loans.
-     *
      * Returns null when no qualifying trade line carried a balance.
      */
-    function equifax_extract_total_debt($decoded, string $path = '', string $scope = 'unsecured'): ?int
+    function equifax_extract_total_debt($decoded): ?int
     {
         if (!is_array($decoded)) {
             return null;
         }
-        $unsecuredOnly = strtolower($scope) !== 'all';
-
-        if ($path !== '' && !$unsecuredOnly) {
-            $node = $decoded;
-            foreach (explode('.', $path) as $seg) {
-                if (is_array($node) && array_key_exists($seg, $node)) {
-                    $node = $node[$seg];
-                } else {
-                    $node = null;
-                    break;
-                }
-            }
-            if (is_numeric($node)) {
-                return (int) round((float) $node);
-            }
-        }
-        [$sum, $found] = equifax_sum_trade_balances($decoded, $unsecuredOnly);
+        [$sum, $found] = equifax_sum_trade_balances($decoded, true);
         return $found ? (int) round($sum) : null;
     }
 

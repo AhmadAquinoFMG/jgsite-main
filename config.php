@@ -153,21 +153,6 @@ return [
             'ecoa_inquiry_type'         => env('EQUIFAX_ECOA_INQUIRY_TYPE', 'Individual'),
             'multiple_report_indicator' => env('EQUIFAX_MULTIPLE_REPORT_INDICATOR', '1'),
             'timeout'       => (int) env('EQUIFAX_TIMEOUT', '20'),
-            // Which trade lines count toward the verified total debt.
-            //   'unsecured' (default) → unsecured accounts ONLY, and student /
-            //                           education loans excluded outright. This
-            //                           is the debt a relief program can settle.
-            //   'all'                 → every trade line (mortgage, auto and
-            //                           student included) — debugging only.
-            // Equifax can't filter this server-side; includes/equifax.php
-            // classifies each trade line off its account/portfolio type.
-            'debt_scope'      => strtolower(env('EQUIFAX_DEBT_SCOPE', 'unsecured')),
-            // Optional dot-path to a precomputed total-debt figure in the report
-            // JSON (e.g. 'summary.totalDebt'). Empty → sum trade-line balances.
-            // IGNORED under debt_scope 'unsecured': a precomputed report total
-            // is all-debt and can't be filtered, so using it would quietly
-            // inflate the figure with secured and student balances.
-            'total_debt_path' => env('EQUIFAX_TOTAL_DEBT_PATH', ''),
             // Redact SSN + account secrets in the stored request_body.
             'redact'        => (env('EQUIFAX_REDACT', '0') === '1'),
             // Optional CA-chain PEM to pin cURL's trust to (includes/equifax.php).

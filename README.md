@@ -189,8 +189,9 @@ the total: credit cards, charge accounts, unsecured notes/lines of credit,
 personal loans and medical debt count; mortgages, HELOCs, autos, leases,
 timeshares and every student/education loan are dropped. Classification is
 fail-closed — a trade line that can't be positively identified as unsecured
-doesn't count. Set `EQUIFAX_DEBT_SCOPE=all` to sum every trade line instead
-(debugging only; that figure is not settleable debt).
+doesn't count. This is enforced in the production pull and cannot be changed to
+all-debt through an environment setting, so the `total_debt` sent to LeadProsper
+remains unsecured-only.
 
 The confirmation page's phone number and hold-timer length are configurable in
 `config.php` → `['prequal']` (`cta_phone`, `hold_minutes`).
