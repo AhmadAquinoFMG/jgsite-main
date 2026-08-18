@@ -228,7 +228,8 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
            LeadProsper still classes as rejected, and it costs nothing to look. */
         $result['buyer_total_debt'] = leadprosper_buyer_total_debt(
             $decoded,
-            (string) ($lp['buyer_total_debt_key'] ?? '')
+            (string) ($lp['buyer_total_debt_key'] ?? ''),
+            (string) ($lp['buyer_total_debt_from'] ?? '')
         );
         $result['accepted_buyer'] = leadprosper_accepted_buyer($decoded);
 
@@ -260,48 +261,100 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
      */
     function leadprosper_buyer_value($decoded, string $key)
     {
+        return leadprosper_buyer_value_detail($decoded, $key)['value'];
+    }
+
+    /**
+     * As leadprosper_buyer_value(), but also reports WHICH buyer the value came
+     * from — needed because more than one buyer sits on the campaign and only
+     * JG's figure is meaningful to us (InCharge Debt Solutions consumes the
+     * number we send rather than producing one).
+     *
+     * $fromBuyer filters the buyers[] scan by name (case-insensitive substring).
+     * It must be applied DURING the scan, not to the result: with both buyers
+     * mapped to the same key, taking the first entry that carries it and then
+     * rejecting it on name would discard JG's value sitting in a later entry.
+     * Entries with no name are always candidates — unverifiable, not excluded.
+     *
+     * @return array{value:mixed, buyer:?string} `buyer` is the name when the
+     *         value was found inside a buyers[] entry (exact attribution), or
+     *         null when it was found at the envelope's top level, where the
+     *         response doesn't say who produced it.
+     */
+    function leadprosper_buyer_value_detail($decoded, string $key, string $fromBuyer = ''): array
+    {
+        $none = ['value' => null, 'buyer' => null];
         if (!is_array($decoded) || $key === '') {
-            return null;
+            return $none;
         }
 
         $pick = static function ($node) use ($key) {
             return is_array($node) && isset($node[$key]) && $node[$key] !== '' ? $node[$key] : null;
         };
 
-        $found = $pick($decoded);
-        if ($found !== null) {
-            return $found;
-        }
+        // Attributed matches first: knowing the source is worth more than
+        // finding the value one nesting level sooner.
         foreach ((array) ($decoded['buyers'] ?? []) as $buyer) {
+            $name = isset($buyer['name']) ? (string) $buyer['name'] : null;
+            if ($fromBuyer !== '' && $name !== null && stripos($name, $fromBuyer) === false) {
+                continue;
+            }
             $found = $pick($buyer);
             if ($found !== null) {
-                return $found;
+                return ['value' => $found, 'buyer' => $name];
             }
             foreach (['response', 'response_body', 'custom_properties'] as $nested) {
                 $found = $pick($buyer[$nested] ?? null);
                 if ($found !== null) {
-                    return $found;
+                    return ['value' => $found, 'buyer' => $name];
                 }
             }
+        }
+        $found = $pick($decoded);
+        if ($found !== null) {
+            return ['value' => $found, 'buyer' => null];
         }
         foreach (['response', 'response_body'] as $nested) {
             $found = $pick($decoded[$nested] ?? null);
             if ($found !== null) {
-                return $found;
+                return ['value' => $found, 'buyer' => null];
             }
         }
-        return null;
+        return $none;
     }
 
     /**
      * The buyer-returned verified debt figure, as a whole-dollar int, or null.
      * Arrives as a float (11238.0) or a numeric string depending on how
      * LeadProsper serializes it. 0 is a real answer and is preserved.
+     *
+     * $fromBuyer restricts whose figure we will accept — a case-insensitive
+     * substring of the buyer's name in LeadProsper (config
+     * leadprosper.buyer_total_debt_from, e.g. 'wentworth'). This is the code-side
+     * half of "only JG's response"; the other half is mapping the key for JG
+     * alone in LeadProsper, which is what actually keeps other buyers from
+     * writing to it. Belt and braces, because the two buyers' debt figures mean
+     * different things and a silent mix-up would be invisible in the data.
+     *
+     * When the response attributes the value to a named buyer, that name must
+     * match. When it doesn't (value at the top level), the accepted buyer's name
+     * is used instead. If neither is available the value is accepted — the
+     * mapping is buyer-scoped in LeadProsper regardless, so refusing an
+     * unattributable value would just discard the figure we came for.
      */
-    function leadprosper_buyer_total_debt($decoded, string $key): ?int
+    function leadprosper_buyer_total_debt($decoded, string $key, string $fromBuyer = ''): ?int
     {
-        $raw = leadprosper_buyer_value($decoded, $key);
-        return is_numeric($raw) ? (int) round((float) $raw) : null;
+        $detail = leadprosper_buyer_value_detail($decoded, $key, $fromBuyer);
+        if (!is_numeric($detail['value'])) {
+            return null;
+        }
+        if ($fromBuyer !== '') {
+            $name = $detail['buyer'] ?? leadprosper_accepted_buyer($decoded);
+            if ($name !== null && stripos($name, $fromBuyer) === false) {
+                return null;
+            }
+        }
+        return (int) round((float) $detail['value']);
     }
 
     /**

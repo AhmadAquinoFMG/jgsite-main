@@ -273,6 +273,17 @@ return [
            arrives with the response, i.e. after the post, and it is JG's rule
            applied to JG's product, not a figure to hand InCharge. */
         'buyer_total_debt_key' => env('LP_BUYER_TOTAL_DEBT_KEY', 'total_debt_included'),
+        /* WHOSE figure we accept under that key — case-insensitive substring of
+           the buyer's name in LeadProsper. The campaign has two buyers whose debt
+           numbers mean different things: JG returns their own underwritten total,
+           InCharge Debt Solutions qualifies on the number WE send. Accepting the
+           wrong one would be invisible in the data, so the value is ignored
+           unless it is attributable to this buyer.
+
+           Belt and braces: the real protection is mapping the key for JG ALONE in
+           LeadProsper's per-buyer setup, which is what stops anyone else writing
+           to it. Set empty to accept the key from any buyer. */
+        'buyer_total_debt_from' => env('LP_BUYER_TOTAL_DEBT_FROM', 'wentworth'),
     ],
 
     // ---- QA test mode (?test=fmg_true) -----------------------------------

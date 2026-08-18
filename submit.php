@@ -387,12 +387,12 @@ try {
        settleable. */
 $equifaxTotalDebt  = null;
 $verifiedTotalDebt = null;
-/* A BUYER's own verified figure (JG Wentworth's total_debt_included), when one
-   comes back. Deliberately separate from $verifiedTotalDebt: it must never be
-   posted to LeadProsper, because the other buyer on the campaign (InCharge Debt
-   Solutions) qualifies on OUR number and would otherwise be handed a figure
-   computed under JG's rules for JG's product. It drives what WE record and what
-   the consumer is shown, nothing outbound. */
+/* A BUYER's own verified figure (JG Wentworth's total_debt_included), whether
+   it came from our own scoring call below or was echoed back through the
+   LeadProsper response. Kept separate from $verifiedTotalDebt so the two
+   sources stay distinguishable in the logs and in total_debt_source: a figure
+   that arrives WITH the LeadProsper response landed too late to have been
+   posted, whereas the scoring call's figure sets both. */
 $buyerTotalDebt = null;
 if ($botReason === null) {
     try {
@@ -507,22 +507,27 @@ if ($botReason === null) {
                 'duration_ms'     => $jg['duration_ms'],
             ]);
 
-            /* JG's figure does NOT replace what we post to LeadProsper. InCharge
-               Debt Solutions qualifies on OUR Equifax number, so overwriting the
-               outbound value would hand InCharge a figure computed under JG's
-               rules for JG's own product. It feeds $buyerTotalDebt instead —
-               our own records and what the consumer is shown. */
+            /* JG's figure IS the total_debt we post to LeadProsper. They pull
+               credit themselves and apply their own settleable-debt rule, so
+               their number supersedes our Equifax-derived one wherever a debt
+               figure is needed downstream — the outbound post, our records, and
+               the consumer-facing savings estimate alike.
+
+               $equifaxTotalDebt is deliberately left alone: it still reports
+               whether OUR OWN softpull returned something (see softpull_returned
+               below) and remains the fallback when this call is off, fails, or
+               scores nothing. */
             if ($jg['total_debt'] !== null) {
-                $buyerTotalDebt = $jg['total_debt'];
+                $buyerTotalDebt    = $jg['total_debt'];
+                $verifiedTotalDebt = $jg['total_debt'];
             }
 
-            db($cfg)->prepare(
-                'UPDATE leads SET jgw_mode = :mode, jgw_status = :status, jgw_prequalified = :prequalified,
-                    jgw_accepted = :accepted, jgw_disposition = :disposition, jgw_credit_rating = :credit_rating,
-                    jgw_total_debt = :jgw_total_debt, jgw_external_id = :external_id, jgw_error = :error,
-                    jgw_scored_at = :scored_at
-                 WHERE id = :id'
-            )->execute([
+            /* leads.total_debt follows what we actually POST, so the audit trail
+               of the figure the buyers were told stays honest. Only appended when
+               JG scored something — otherwise the Equifax value written above
+               stands, and so does its source. */
+            $jgSets   = '';
+            $jgParams = [
                 'mode'           => $jg['mode'],
                 'status'         => $jg['status'],
                 'prequalified'   => $jg['prequalified'] === null ? null : ($jg['prequalified'] ? 1 : 0),
@@ -534,7 +539,19 @@ if ($botReason === null) {
                 'error'          => $jg['error'],
                 'scored_at'      => date('Y-m-d H:i:s'),
                 'id'             => $leadId,
-            ]);
+            ];
+            if ($jg['total_debt'] !== null) {
+                $jgSets = ", total_debt = :posted_total_debt, total_debt_source = 'buyer'";
+                $jgParams['posted_total_debt'] = $jg['total_debt'];
+            }
+
+            db($cfg)->prepare(
+                'UPDATE leads SET jgw_mode = :mode, jgw_status = :status, jgw_prequalified = :prequalified,
+                    jgw_accepted = :accepted, jgw_disposition = :disposition, jgw_credit_rating = :credit_rating,
+                    jgw_total_debt = :jgw_total_debt, jgw_external_id = :external_id, jgw_error = :error,
+                    jgw_scored_at = :scored_at' . $jgSets . '
+                 WHERE id = :id'
+            )->execute($jgParams);
 
             app_log($jg['error'] ? 'error' : 'info', 'jgscoring', 'score', [
                 'rid'           => $rid,
