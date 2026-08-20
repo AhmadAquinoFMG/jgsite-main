@@ -555,24 +555,30 @@ a { color: var(--green-deep); }
     font-variant-numeric: tabular-nums;
 }
 
-/* buyer logo, directly under the savings callout. Sits in the savings block's
-   own bottom margin: .prequal-savings keeps its 32px, so this pulls up to read
-   as attached to the figure rather than as a third free-floating element. */
+/* buyer match box, below the CTA card. Borrows the card's radius/border weight
+   so the two read as siblings, but tinted with the brand green instead of the
+   card's white — enough to register as its own panel without competing with the
+   green CALL NOW button for attention. The peach .prequal-hold inside the card
+   is the loud element on this page; this one stays quiet. */
 .prequal-buyer {
     display: flex; flex-direction: column; align-items: center;
-    gap: 8px;
-    margin: -20px 0 32px;
+    gap: 12px;
+    margin-top: 22px;
+    padding: 22px 26px;
+    background: rgba(27, 151, 106, .07);       /* --green at 7% */
+    border: 1px solid rgba(27, 151, 106, .22);
+    border-radius: 16px;
 }
 .prequal-buyer__label {
     font-size: 12px; font-weight: 600;
-    letter-spacing: .04em; text-transform: uppercase;
-    color: var(--ink-soft);
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--green-deep);
 }
 .prequal-buyer__logo {
     /* height-capped, width-free: the logos are different aspect ratios and this
        keeps them optically the same size without distorting any of them. */
-    height: 34px; width: auto;
-    max-width: 210px;
+    height: 56px; width: auto;
+    max-width: 300px;
     object-fit: contain;
 }
 
@@ -769,9 +775,9 @@ a { color: var(--green-deep); }
     .prequal-lede { font-size: 13px; margin-bottom: 18px; }
     .prequal-savings { padding: 12px 20px; margin-bottom: 20px; }
     .prequal-savings__amount { font-size: 26px; }
-    .prequal-buyer { margin: -12px 0 20px; gap: 6px; }
-    .prequal-buyer__label { font-size: 11px; }
-    .prequal-buyer__logo { height: 26px; max-width: 170px; }
+    .prequal-buyer { margin-top: 16px; padding: 16px 18px; gap: 9px; }
+    .prequal-buyer__label { font-size: 10px; letter-spacing: .06em; }
+    .prequal-buyer__logo { height: 40px; max-width: 220px; }
     .prequal-assigned__title { font-size: 15px; }
     .prequal-assigned__body p { font-size: 12px; }
     .prequal-card { padding: 26px 18px; margin-top: 22px; }

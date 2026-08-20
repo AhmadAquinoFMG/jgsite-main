@@ -258,17 +258,6 @@ if ($cgOn) {
                 </div>
             <?php endif; ?>
 
-            <?php if ($buyerLogo !== null): ?>
-                <!-- Buyer logo, directly under the savings figure. Not nested in
-                     the savings block: it renders on its own merits, so a lead
-                     with no debt figure still shows who is calling. -->
-                <div class="prequal-buyer">
-                    <span class="prequal-buyer__label">Your program is provided by</span>
-                    <img class="prequal-buyer__logo" src="<?= $e($buyerLogo['path']) ?>"
-                        alt="<?= $e($buyerLogo['label']) ?>" loading="lazy" decoding="async">
-                </div>
-            <?php endif; ?>
-
             <!-- Assigned specialist -->
             <!-- <div class="prequal-assigned">
                 <span class="prequal-assigned__icon" aria-hidden="true">
@@ -354,6 +343,19 @@ if ($cgOn) {
                     </li>
                 </ul>
             </section>
+
+            <?php if ($buyerLogo !== null): ?>
+                <!-- Buyer match, below the CTA card. Deliberately AFTER the call
+                     button: the visitor's next action is the call, and naming the
+                     provider above it competes with that. Sits on its own rather
+                     than inside the card so it reads as a fact about the match,
+                     not another line of the call-now pitch. -->
+                <div class="prequal-buyer">
+                    <span class="prequal-buyer__label">You have been matched with</span>
+                    <img class="prequal-buyer__logo" src="<?= $e($buyerLogo['path']) ?>"
+                        alt="<?= $e($buyerLogo['label']) ?>" loading="lazy" decoding="async">
+                </div>
+            <?php endif; ?>
 
             <!-- Legal disclosures, shown in the page body (also present in the footer). -->
             <!-- <section class="prequal-disclosures" aria-label="Program disclosures">
