@@ -368,7 +368,7 @@
             case 'zip':    return RX.zip.test(v)   ? { ok: true } : { ok: false, code: 'invalid_format' };
             case 'email':  return checkEmail(v);
             case 'dob':    return checkDob(v);
-            case 'phone':  return phoneDigits(v).length === 10 ? { ok: true } : { ok: false, code: 'invalid_length' };
+            case 'phone':  return checkPhone(v);
         }
         return { ok: true };
     }
@@ -381,6 +381,7 @@
         out_of_range:   'Please enter a valid calendar date.',
         underage:       'You must be at least 18 years old.',
         invalid_length: 'Please enter a valid 10-digit phone number.',
+        invalid_area:   'Please enter a valid phone number — it cannot start with 0 or 1.',
         invalid_email:  'Please enter a valid email address.'
     };
 
@@ -627,9 +628,26 @@
         if (d.length > 0) return '(' + d;
         return '';
     }
+    // NANP area codes never begin with 0 or 1, so a number that does is a typo or
+    // junk. Checked here as well as in submit.php, which returns the same code.
+    function checkPhone(v) {
+        var d = phoneDigits(v);
+        if (d.length !== 10) return { ok: false, code: 'invalid_length' };
+        if (d.charAt(0) === '0' || d.charAt(0) === '1') return { ok: false, code: 'invalid_area' };
+        return { ok: true };
+    }
     var phone = document.getElementById('phone');
     if (phone) {
-        phone.addEventListener('input', function () { phone.value = formatPhone(phone.value); });
+        phone.addEventListener('input', function () {
+            phone.value = formatPhone(phone.value);
+            var scope = phone.closest('.step');
+            if (!scope) return;
+            clearError(scope);
+            // Flag the bad area code as soon as all ten digits are in — waiting for
+            // Submit means a round trip to submit.php just to say the same thing.
+            var r = checkPhone(phone.value);
+            if (!r.ok && r.code === 'invalid_area') fail(scope, phone, MSG[r.code]);
+        });
     }
 
     /* ===================================================================
