@@ -98,7 +98,8 @@ if ($cgOn) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <?php if ($cgOn): ?><link rel="preconnect" href="https://cdn.callgrid.com" crossorigin><?php endif; ?>
+    <?php if ($cgOn): ?>
+        <link rel="preconnect" href="https://cdn.callgrid.com" crossorigin><?php endif; ?>
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
@@ -164,10 +165,10 @@ if ($cgOn) {
                 script.dataset.organizationId = <?= json_encode($cg['organization_id']) ?>;
                 script.dataset.campaignSourceId = <?= json_encode($cg['campaign_source_id']) ?>;
                 <?php if ($cgTags !== []): ?>
-                // Read as JSON by the SDK's config parser; it warns and drops
-                // the lot on a parse error, so it must survive a round trip
-                // through the attribute intact.
-                script.dataset.tags = <?= json_encode(json_encode($cgTags, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?>;
+                    // Read as JSON by the SDK's config parser; it warns and drops
+                    // the lot on a parse error, so it must survive a round trip
+                    // through the attribute intact.
+                    script.dataset.tags = <?= json_encode(json_encode($cgTags, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?>;
                 <?php endif; ?>
                 script.async = true;
                 document.head.appendChild(script);
@@ -196,7 +197,7 @@ if ($cgOn) {
                under the visitor's thumb. The cost is that a tap inside the
                assignment window reaches the same line on the shared number —
                that call just isn't attributable. */
-            (function () {
+            (function() {
                 var assigned = '';
 
                 function applyNumber() {
@@ -207,13 +208,15 @@ if ($cgOn) {
                     link.href = 'tel:' + assigned.replace(/[^\d+]/g, '');
                 }
 
-                document.addEventListener('callgrid:numberAssigned', function (event) {
+                document.addEventListener('callgrid:numberAssigned', function(event) {
                     var number = event && event.detail && event.detail.phoneNumber;
                     if (!number) return;
 
                     assigned = String(number).trim();
                     if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', applyNumber, { once: true });
+                        document.addEventListener('DOMContentLoaded', applyNumber, {
+                            once: true
+                        });
                     } else {
                         applyNumber();
                     }
@@ -223,7 +226,7 @@ if ($cgOn) {
                 // but it does rebuild the DOM from the snapshot — reassert the
                 // pooled number so a back-navigation doesn't silently revert the
                 // CTA to the static one.
-                window.addEventListener('pageshow', function (event) {
+                window.addEventListener('pageshow', function(event) {
                     if (event.persisted) applyNumber();
                 });
             })();
@@ -257,6 +260,20 @@ if ($cgOn) {
                     <span class="prequal-savings__amount">$<?= $e(number_format($estimatedSavings)) ?></span>
                 </div>
             <?php endif; ?>
+
+            <?php if ($buyerLogo !== null): ?>
+                <!-- Buyer match, below the CTA card. Deliberately AFTER the call
+                     button: the visitor's next action is the call, and naming the
+                     provider above it competes with that. Sits on its own rather
+                     than inside the card so it reads as a fact about the match,
+                     not another line of the call-now pitch. -->
+                <div class="prequal-buyer">
+                    <span class="prequal-buyer__label">You have been matched with</span>
+                    <img class="prequal-buyer__logo" src="<?= $e($buyerLogo['path']) ?>"
+                        alt="<?= $e($buyerLogo['label']) ?>" loading="lazy" decoding="async">
+                </div>
+            <?php endif; ?>
+
 
             <!-- Assigned specialist -->
             <!-- <div class="prequal-assigned">
@@ -344,18 +361,7 @@ if ($cgOn) {
                 </ul>
             </section>
 
-            <?php if ($buyerLogo !== null): ?>
-                <!-- Buyer match, below the CTA card. Deliberately AFTER the call
-                     button: the visitor's next action is the call, and naming the
-                     provider above it competes with that. Sits on its own rather
-                     than inside the card so it reads as a fact about the match,
-                     not another line of the call-now pitch. -->
-                <div class="prequal-buyer">
-                    <span class="prequal-buyer__label">You have been matched with</span>
-                    <img class="prequal-buyer__logo" src="<?= $e($buyerLogo['path']) ?>"
-                        alt="<?= $e($buyerLogo['label']) ?>" loading="lazy" decoding="async">
-                </div>
-            <?php endif; ?>
+
 
             <!-- Legal disclosures, shown in the page body (also present in the footer). -->
             <!-- <section class="prequal-disclosures" aria-label="Program disclosures">
