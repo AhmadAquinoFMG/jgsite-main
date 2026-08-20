@@ -243,6 +243,10 @@ $phoneDigits = preg_replace('/\D/', '', $phoneRaw);
 $phoneE164   = '';
 if ($phoneRaw === '') {
     $errors['phone'] = 'required';
+} elseif ($phoneDigits !== '' && ($phoneDigits[0] === '0' || $phoneDigits[0] === '1')) {
+    // NANP area codes never begin with 0 or 1. Reported ahead of the length check,
+    // matching the order the funnel's checkPhone() uses.
+    $errors['phone'] = 'invalid_area';
 } elseif (strlen($phoneDigits) !== 10) {
     $errors['phone'] = 'invalid_length';
 } else {
