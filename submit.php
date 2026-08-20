@@ -398,6 +398,11 @@ $verifiedTotalDebt = null;
    that arrives WITH the LeadProsper response landed too late to have been
    posted, whereas the scoring call's figure sets both. */
 $buyerTotalDebt = null;
+/* Name of the buyer that ACCEPTED the lead, as LeadProsper reported it. Declared
+   out here because the redirect (built much further down) forwards it, and the
+   block that sets it is skipped entirely for bots and when LeadProsper is off —
+   in which cases it stays null and the param is simply absent. */
+$acceptedBuyer = null;
 if ($botReason === null) {
     try {
         $eqLead = array_intersect_key($row, array_flip(
@@ -636,6 +641,18 @@ if ($botReason === null) {
                 $buyerTotalDebt = $lp['buyer_total_debt'];
             }
 
+            /* Which buyer took the lead. Only meaningful on an exclusive
+               campaign (one accepted buyer per lead) — a multi-sell response has
+               no single answer and leadprosper_accepted_buyer() returns the first
+               accepted entry. Stored so the ?buyer= on the thank-you URL can be
+               reconciled against the row later; that param is visitor-editable,
+               this column is not. */
+            $acceptedBuyer = $lp['accepted_buyer'];
+            if ($acceptedBuyer !== null) {
+                db($cfg)->prepare('UPDATE leads SET lp_accepted_buyer = :buyer WHERE id = :id')
+                    ->execute(['buyer' => $acceptedBuyer, 'id' => $leadId]);
+            }
+
             /* total_debt_source describes the figure the CONSUMER-facing math and
                our records use — 'buyer' when a buyer returned one, else 'equifax'.
                leads.total_debt itself stays as what we SENT, so the audit trail of
@@ -755,6 +772,11 @@ if ($botReason !== null) {
    "verified" name. */
 $row['lead_id']    = $leadId;
 $row['total_debt'] = $debtForConsumer;
+/* Third such value: the accepted buyer's name, so thank-you.php can look up
+   whose logo to show (includes/buyers.php). Null when no buyer accepted, when
+   LeadProsper is off, or on a bot-flagged submit — the builder drops empties, so
+   the param is absent rather than blank. */
+$row['accepted_buyer'] = $acceptedBuyer;
 
 $redirectUrl = redirect_build_url($row, $cfg['redirect'] ?? []);
 

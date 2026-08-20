@@ -24,6 +24,18 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
 // it when a visitor starts the funnel over. Absent/zero hides the callout.
 $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
 
+/* Buyer logo. submit.php appends ?buyer=<name as LeadProsper reported it> to the
+   redirect; the `buyers` table says whether that buyer has a logo and whether to
+   show it. Null — no row, show_logo off (JG Wentworth: the whole funnel is
+   already JG-branded, so their logo here adds nothing), no path, or the file is
+   missing — renders nothing at all rather than an empty slot.
+
+   Unlike prequal_savings this rides in the URL, so a visitor can hand-type
+   another buyer's name and see their logo. Fine for decoration; see the note in
+   includes/buyers.php before reading this param for anything that matters. */
+require_once __DIR__ . '/includes/buyers.php';
+$buyerLogo = buyer_logo($cfg, (string) ($_GET['buyer'] ?? ''));
+
 /* Everflow conversion. submit.php stashes the affid here only after it accepted
    the lead, so this can't fire for a visitor who merely opened the page. The
    offer comes from that affid (includes/everflow.php); no affid stashed means
@@ -243,6 +255,17 @@ if ($cgOn) {
                 <div class="prequal-savings">
                     <span class="prequal-savings__label">You can save up to:</span>
                     <span class="prequal-savings__amount">$<?= $e(number_format($estimatedSavings)) ?></span>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($buyerLogo !== null): ?>
+                <!-- Buyer logo, directly under the savings figure. Not nested in
+                     the savings block: it renders on its own merits, so a lead
+                     with no debt figure still shows who is calling. -->
+                <div class="prequal-buyer">
+                    <span class="prequal-buyer__label">Your program is provided by</span>
+                    <img class="prequal-buyer__logo" src="<?= $e($buyerLogo['path']) ?>"
+                        alt="<?= $e($buyerLogo['label']) ?>" loading="lazy" decoding="async">
                 </div>
             <?php endif; ?>
 

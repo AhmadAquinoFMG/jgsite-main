@@ -460,6 +460,11 @@ return [
             // absent when the pull returned nothing usable (see submit.php).
             'lead_id'        => 'lead_id',
             'total_debt'     => 'total_debt',
+            // Buyer that accepted the lead at LeadProsper. thank-you.php looks
+            // this up in the `buyers` table to decide whose logo to show under
+            // the savings callout (includes/buyers.php). Absent when no buyer
+            // accepted, or when LeadProsper is off. Not PII — a company name.
+            'buyer'          => 'accepted_buyer',
             // Meta match keys, for the Conversions API event CallGrid fires off
             // the call. fbc/fbp are the pixel's cookies; the request-level pair
             // must be the *visitor's* ip/ua as we saw them at submit — CallGrid's
