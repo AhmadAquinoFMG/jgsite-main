@@ -249,9 +249,6 @@ if ($phoneRaw === '') {
     $errors['phone'] = 'invalid_area';
 } elseif (strlen($phoneDigits) !== 10) {
     $errors['phone'] = 'invalid_length';
-} elseif ($phoneDigits[0] === '0' || $phoneDigits[0] === '1') {
-    // NANP area codes never begin with 0 or 1 — mirrors the funnel's client check.
-    $errors['phone'] = 'invalid_area';
 } else {
     $phoneE164 = '+1' . $phoneDigits;
 }

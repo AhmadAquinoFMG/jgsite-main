@@ -629,11 +629,15 @@
         return '';
     }
     // NANP area codes never begin with 0 or 1, so a number that does is a typo or
-    // junk. Checked here as well as in submit.php, which returns the same code.
+    // junk — and it is knowable from the very first digit.
+    function badLeadDigit(d) { return d.charAt(0) === '0' || d.charAt(0) === '1'; }
+    // Checked here as well as in submit.php, which returns the same codes. The
+    // lead digit is reported ahead of the length: it is the more specific
+    // complaint, and it holds however many digits have been typed so far.
     function checkPhone(v) {
         var d = phoneDigits(v);
-        if (d.length !== 10) return { ok: false, code: 'invalid_length' };
-        if (d.charAt(0) === '0' || d.charAt(0) === '1') return { ok: false, code: 'invalid_area' };
+        if (badLeadDigit(d)) return { ok: false, code: 'invalid_area' };
+        if (d.length !== 10)  return { ok: false, code: 'invalid_length' };
         return { ok: true };
     }
     var phone = document.getElementById('phone');
@@ -643,10 +647,9 @@
             var scope = phone.closest('.step');
             if (!scope) return;
             clearError(scope);
-            // Flag the bad area code as soon as all ten digits are in — waiting for
-            // Submit means a round trip to submit.php just to say the same thing.
-            var r = checkPhone(phone.value);
-            if (!r.ok && r.code === 'invalid_area') fail(scope, phone, MSG[r.code]);
+            // Fires on the FIRST keystroke, not the tenth: no reason to let someone
+            // type nine more digits onto an area code that can never be valid.
+            if (badLeadDigit(phoneDigits(phone.value))) fail(scope, phone, MSG.invalid_area);
         });
     }
 
