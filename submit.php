@@ -385,10 +385,9 @@ try {
    so the lead — already stored — still succeeds. */
 /* Two separate figures, deliberately:
      $equifaxTotalDebt — OUR pull's unsecured total (drives softpull_returned).
-     $verifiedTotalDebt — the number actually posted downstream. Starts as the
-       Equifax one and is REPLACED by JG's total_debt_included when the scoring
-       call below returns one, since that's their own classification of what is
-       settleable. */
+     $verifiedTotalDebt — the number actually posted downstream. Currently
+       always the Equifax one: JG's total_debt_included used to replace it, and
+       is reverted for now (see the JG scoring step below). */
 $equifaxTotalDebt  = null;
 $verifiedTotalDebt = null;
 /* A BUYER's own verified figure (JG Wentworth's total_debt_included), whether
@@ -471,13 +470,14 @@ if ($botReason === null) {
 
 /* ---------------------------------------- JG Wentworth lead scoring (best-effort)
    Post the lead to JG's scoring API and log it to jgscoring_logs. Runs HERE —
-   after the Equifax pull, before the LeadProsper post — because the
-   total_debt_included it returns is what LeadProsper receives as total_debt.
+   after the Equifax pull, before the LeadProsper post. Their
+   total_debt_included USED to become the total_debt LeadProsper receives; that
+   is reverted for now, so the figure it returns is recorded but not posted, and
+   the number on the wire is our Equifax unsecured total.
 
-   JG pulls credit themselves and apply their own settleable-debt rule, so their
-   figure supersedes ours whenever it arrives. Same "log & continue" contract as
-   the steps around it: a failure (timeout, 4xx, no figure in the response)
-   leaves $verifiedTotalDebt on the Equifax value and the lead proceeds.
+   Same "log & continue" contract as the steps around it: a failure (timeout,
+   4xx, no figure in the response) changes nothing downstream and the lead
+   proceeds.
 
    The debt we SEND is our own best estimate — the Equifax unsecured total when
    we have one, else the self-reported bucket — since JG's answer can't be an
@@ -516,27 +516,31 @@ if ($botReason === null) {
                 'duration_ms'     => $jg['duration_ms'],
             ]);
 
-            /* JG's figure IS the total_debt we post to LeadProsper. They pull
-               credit themselves and apply their own settleable-debt rule, so
-               their number supersedes our Equifax-derived one wherever a debt
-               figure is needed downstream — the outbound post, our records, and
-               the consumer-facing savings estimate alike.
+            /* TEMPORARILY REVERTED (see 11f00e4): JG's figure no longer becomes
+               the total_debt we post. The outbound number is our Equifax
+               unsecured total again, because the other buyer on the campaign
+               (InCharge Debt Solutions) qualifies on OUR figure and posting JG's
+               would hand them a number computed under JG's rules for JG's own
+               product.
 
-               $equifaxTotalDebt is deliberately left alone: it still reports
-               whether OUR OWN softpull returned something (see softpull_returned
-               below) and remains the fallback when this call is off, fails, or
-               scores nothing. */
+               JG's figure still feeds $buyerTotalDebt — our own records and the
+               consumer-facing savings estimate — which changes nothing outbound.
+               To put it back on the wire, restore the $verifiedTotalDebt
+               assignment here and the total_debt SET clause that followed. */
             if ($jg['total_debt'] !== null) {
-                $buyerTotalDebt    = $jg['total_debt'];
-                $verifiedTotalDebt = $jg['total_debt'];
+                $buyerTotalDebt = $jg['total_debt'];
             }
 
-            /* leads.total_debt follows what we actually POST, so the audit trail
-               of the figure the buyers were told stays honest. Only appended when
-               JG scored something — otherwise the Equifax value written above
-               stands, and so does its source. */
-            $jgSets   = '';
-            $jgParams = [
+            /* leads.total_debt stays as what we SENT (the Equifax figure written
+               above), so the audit trail of what the buyers were told survives.
+               JG's own number is recorded separately, in jgw_total_debt. */
+            db($cfg)->prepare(
+                'UPDATE leads SET jgw_mode = :mode, jgw_status = :status, jgw_prequalified = :prequalified,
+                    jgw_accepted = :accepted, jgw_disposition = :disposition, jgw_credit_rating = :credit_rating,
+                    jgw_total_debt = :jgw_total_debt, jgw_external_id = :external_id, jgw_error = :error,
+                    jgw_scored_at = :scored_at
+                 WHERE id = :id'
+            )->execute([
                 'mode'           => $jg['mode'],
                 'status'         => $jg['status'],
                 'prequalified'   => $jg['prequalified'] === null ? null : ($jg['prequalified'] ? 1 : 0),
@@ -548,19 +552,7 @@ if ($botReason === null) {
                 'error'          => $jg['error'],
                 'scored_at'      => date('Y-m-d H:i:s'),
                 'id'             => $leadId,
-            ];
-            if ($jg['total_debt'] !== null) {
-                $jgSets = ", total_debt = :posted_total_debt, total_debt_source = 'buyer'";
-                $jgParams['posted_total_debt'] = $jg['total_debt'];
-            }
-
-            db($cfg)->prepare(
-                'UPDATE leads SET jgw_mode = :mode, jgw_status = :status, jgw_prequalified = :prequalified,
-                    jgw_accepted = :accepted, jgw_disposition = :disposition, jgw_credit_rating = :credit_rating,
-                    jgw_total_debt = :jgw_total_debt, jgw_external_id = :external_id, jgw_error = :error,
-                    jgw_scored_at = :scored_at' . $jgSets . '
-                 WHERE id = :id'
-            )->execute($jgParams);
+            ]);
 
             app_log($jg['error'] ? 'error' : 'info', 'jgscoring', 'score', [
                 'rid'           => $rid,
@@ -587,8 +579,9 @@ if ($botReason === null) {
    continue" contract as Equifax above — a forwarding failure is logged but
    never surfaced to the visitor; the lead is already stored.
 
-   `total_debt` on this post is $verifiedTotalDebt: JG's total_debt_included
-   when their scoring call returned one, otherwise our Equifax unsecured total. */
+   `total_debt` on this post is $verifiedTotalDebt — our Equifax unsecured
+   total. JG's own figure is deliberately kept off this post; see the scoring
+   step above. */
 if ($botReason === null) {
     try {
         $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
