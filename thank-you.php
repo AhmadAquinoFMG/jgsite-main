@@ -48,7 +48,11 @@ $buyerLogo = buyer_logo($cfg, (string) ($_GET['buyer'] ?? ''));
 require_once __DIR__ . '/includes/everflow.php';
 require_once __DIR__ . '/includes/redirect.php';   // redirect_param_names(), for the CallGrid tags below
 
-$efConversion = $_SESSION['ef_conversion'] ?? null;
+/* TEMPORARILY DISABLED: LeadProsper owns Everflow conversion firing. The
+   original session read is preserved for rollback; forcing null prevents this
+   page from rendering/loading the EF.conversion() block below. */
+$efConversion = null;
+// $efConversion = $_SESSION['ef_conversion'] ?? null;
 unset($_SESSION['ef_conversion']);
 
 $efOfferId = $efConversion
@@ -147,7 +151,8 @@ if ($cgOn) {
         ?>
         <script type="text/javascript" src="https://<?= $e($cfg['everflow']['domain']) ?>/scripts/main.js"></script>
         <script type="text/javascript">
-            EF.conversion(<?= json_encode($efPayload, JSON_UNESCAPED_SLASHES) ?>);
+            // TEMPORARILY DISABLED — LeadProsper fires the buyer-specific conversion.
+            // EF.conversion(<?= json_encode($efPayload, JSON_UNESCAPED_SLASHES) ?>);
         </script>
     <?php endif; ?>
 

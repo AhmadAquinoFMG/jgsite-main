@@ -724,20 +724,22 @@ $estimatedSavings = (int) round($debtForSavings * 0.4);
 $_SESSION['prequal_savings'] = $estimatedSavings;
 
 /* ---------------------------------------- Everflow conversion handoff
-   thank-you.php fires the Everflow conversion, and needs the affid to know
-   which offer it belongs to (see includes/everflow.php). Passed through the
-   session for the same reason as the savings figure — out of the URL, so a
-   conversion can't be re-pointed at another offer by hand.
+   TEMPORARILY DISABLED: LeadProsper is now the single owner of buyer-specific
+   Everflow conversions. Keeping this website-side handoff active as well caused
+   the same lead to be approved under both the generic JG offer and the buyer's
+   LeadProsper-triggered offer.
 
-   Deliberately one-shot: thank-you.php unsets these after emitting the snippet,
-   so a reload or bookmark of the thank-you page can't fire a second conversion
-   for the same lead. No affid means no key set, and no conversion. */
-if (($row['affid'] ?? null) !== null && trim((string) $row['affid']) !== '') {
-    $_SESSION['ef_conversion'] = [
-        'affid'          => (string) $row['affid'],
-        'transaction_id' => (string) ($row['ef_transaction_id'] ?? ''),
-    ];
-}
+   The original implementation is intentionally preserved below as comments for
+   an easy rollback. Landing-page Everflow CLICK attribution remains enabled in
+   assets/js/tracking/everflow.js and still forwards ef_transaction_id.
+
+// if (($row['affid'] ?? null) !== null && trim((string) $row['affid']) !== '') {
+//     $_SESSION['ef_conversion'] = [
+//         'affid'          => (string) $row['affid'],
+//         'transaction_id' => (string) ($row['ef_transaction_id'] ?? ''),
+//     ];
+// }
+*/
 
 if ($botReason !== null) {
     app_log('warning', 'lead', 'bot_suspected', ['rid' => $rid, 'lead_id' => $leadId, 'reason' => $botReason]);
