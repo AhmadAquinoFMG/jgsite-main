@@ -36,14 +36,16 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
     }
 
     /**
-     * Build the LeadProsper payload from the stored lead row, the Equifax-verified
-     * total debt (if any), and first-touch tracking params. Empty values are
-     * dropped so optional fields aren't posted blank.
+     * Build the LeadProsper payload from the stored lead row, the verified debt
+     * total (if any), and first-touch tracking params. When no verified figure is
+     * available, total_debt falls back to the numeric self-assessed bucket so the
+     * buyer's required-field filter does not reject the lead before its API runs.
      *
      * @param array    $cfg       Full config array (reads $cfg['leadprosper']).
      * @param array    $row       The exact row inserted into `leads` (submit.php's $row).
      * @param array    $tracking  Flat map of tracking params (affid, oid, ef_transaction_id, …).
-     * @param int|null $totalDebt Equifax-verified total debt, or null if no pull/failed.
+     * @param int|null $totalDebt Verified outbound debt, or null to use the
+     *                            self-assessed bucket amount.
      */
     function leadprosper_payload(array $cfg, array $row, array $tracking, ?int $totalDebt): array
     {
@@ -55,7 +57,8 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             $phone = substr($phone, 1);
         }
 
-        $dobIso = (string) ($row['dob'] ?? '');
+        $dobIso           = (string) ($row['dob'] ?? '');
+        $selfAssessedDebt = leadprosper_debt_bucket_amount((string) ($row['debt_amount'] ?? ''));
 
         $payload = [
             'lp_campaign_id'       => $lp['campaign_id'] ?? '',
@@ -71,16 +74,13 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             'state'                => strtoupper((string) ($row['state'] ?? '')),
             'zip_code'             => $row['zip'] ?? '',
             'ip_address'           => $row['ip'] ?? '',
-            /* OMITTED, not zeroed, when we have no verified figure. This field
-               is what InCharge Debt Solutions qualifies on, and `0` asserts "this
-               consumer has no debt" — a disqualification — where absence
-               correctly reads as "we don't know". The funnel collects no SSN, so
-               an empty Equifax pull is routine, not exceptional. The
-               self-reported estimate still ships as self_assessed_debt, and
-               softpull_returned tells the buyer which of the two they're looking
-               at. (array_filter below drops the '' — and would NOT drop a 0.) */
-            'total_debt'           => $totalDebt ?? '',
-            'self_assessed_debt'   => leadprosper_debt_bucket_amount((string) ($row['debt_amount'] ?? '')),
+            /* Both buyers require total_debt before their APIs are called. When
+               no verified figure exists, use the same numeric bucket estimate as
+               self_assessed_debt instead of omitting the field. The separately
+               posted softpull_returned flag still identifies whether the value
+               came from a successful upstream verification. */
+            'total_debt'           => $totalDebt ?? $selfAssessedDebt,
+            'self_assessed_debt'   => $selfAssessedDebt,
             'employed'             => $row['employment'] ?? '',
             'behind_payment'       => $row['behind_payment'] ?? '',
             'trustedform_cert_url' => $row['trustedform_url'] ?? '',
