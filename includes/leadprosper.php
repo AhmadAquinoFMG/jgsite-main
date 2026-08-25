@@ -17,9 +17,8 @@
 if (!function_exists('leadprosper_debt_bucket_amount')) {
 
     /**
-     * Convert a debt_options label (e.g. "$10,000 - $24,999", "Less than $10,000",
-     * "More than $100,000") into a single representative dollar amount for
-     * LeadProsper's numeric self_assessed_debt field.
+     * Convert a debt-options label into a representative amount for internal
+     * consumer-facing estimates. This value is not sent to LeadProsper.
      */
     function leadprosper_debt_bucket_amount(string $label): int
     {
@@ -28,8 +27,8 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
         }
         $nums = array_map(static fn($n) => (int) str_replace(',', '', $n), $m[0]);
         if (count($nums) === 1) {
-            if (stripos($label, 'less') !== false)  return (int) round($nums[0] / 2);
-            if (stripos($label, 'more') !== false)  return (int) round($nums[0] * 1.25);
+            if (stripos($label, 'less') !== false) return (int) round($nums[0] / 2);
+            if (stripos($label, 'more') !== false) return (int) round($nums[0] * 1.25);
             return $nums[0];
         }
         return (int) round(array_sum($nums) / count($nums));
@@ -55,8 +54,7 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             $phone = substr($phone, 1);
         }
 
-        $dobIso           = (string) ($row['dob'] ?? '');
-        $selfAssessedDebt = leadprosper_debt_bucket_amount((string) ($row['debt_amount'] ?? ''));
+        $dobIso = (string) ($row['dob'] ?? '');
 
         $payload = [
             'lp_campaign_id'       => $lp['campaign_id'] ?? '',
@@ -76,12 +74,11 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
                is what the buyers qualify on, and `0` asserts "this consumer has
                no debt" — a disqualification — where absence correctly reads as
                "we don't know". The funnel collects no SSN, so an empty Equifax
-               pull is routine, not exceptional. The self-reported estimate still
-               ships as self_assessed_debt, and softpull_returned tells the buyer
-               which of the two they're looking at. (array_filter below drops the
-               '' — and would NOT drop a 0.) */
+               pull is routine, not exceptional. We deliberately do not send
+               self_assessed_debt as a fallback. softpull_returned tells the buyer
+               whether a verified figure was available. (array_filter below drops
+               the '' — and would NOT drop a real verified 0.) */
             'total_debt'           => $totalDebt ?? '',
-            'self_assessed_debt'   => $selfAssessedDebt,
             'employed'             => $row['employment'] ?? '',
             'behind_payment'       => $row['behind_payment'] ?? '',
             'trustedform_cert_url' => $row['trustedform_url'] ?? '',
