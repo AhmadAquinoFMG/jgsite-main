@@ -39,9 +39,9 @@ CREATE TABLE IF NOT EXISTS `buyers` (
     -- The buyer's own inbound number, rendered on the thank-you page's CALL NOW
     -- button when this buyer took the lead — so the consumer reads the number of
     -- the company that actually bought them, not one shared line for everyone.
-    -- Stored the way it should READ, e.g. '(877) 627-1504'; thank-you.php strips
-    -- it to digits for the tel: href. NULL/empty falls back to
-    -- config.php ['prequal']['cta_phone'].
+    -- Format is not significant: store it in whatever shape is convenient and
+    -- includes/buyers.php renders it as '(855) 600-0593' with a '+1…' tel: href.
+    -- NULL/empty falls back to the row named by ['prequal']['cta_buyer'].
     --
     -- This does NOT replace CallGrid: the number pool still assigns a tracking
     -- DID client-side and still rewrites the tel: target, exactly as before. This
@@ -106,9 +106,8 @@ INSERT INTO `buyers` (`name`, `label`, `logo_path`, `did`, `use_callgrid`, `show
 ON DUPLICATE KEY UPDATE
     `id` = `id`;   -- no-op: never overwrite a live row
 
--- Changing an EXISTING row takes an explicit UPDATE — by design, per above.
--- Store a DID as it should READ on the button; thank-you.php strips it to digits
--- for the tel: href, and punctuates a value entered as bare digits.
+-- Changing an EXISTING row takes an explicit UPDATE — by design, per above. Any
+-- format works; the page canonicalises it for display and dialing.
 --
 --   UPDATE `buyers` SET `did` = '(000) 000-0000' WHERE `name` = 'InCharge';
 --

@@ -230,9 +230,10 @@ CallGrid tracking line rather than a raw DID — a raw number there ends call
 attribution for those visits, the same trap the old `cta_phone` comment warned
 about. **The database wins:** the seed only fills a row with no number,
 so a DID changed with the `UPDATE` at the bottom of that file survives every
-later run and is never reverted by a deploy. A number may be stored formatted or
-as bare digits — bare digits are punctuated for display, existing formatting is
-kept as typed.
+later run and is never reverted by a deploy. Store a number in any shape — bare digits, dashes, a leading
+country code — and it renders in one house format, `(855) 600-0593`, with the
+`tel:` href in E.164 (`+18556000593`) so a dialer never has to guess the
+country.
 
 `buyers.use_callgrid` decides whether call tracking runs for that buyer. JG keeps
 it (`1`): the button reads JG's DID and CallGrid's number pool still rewrites the

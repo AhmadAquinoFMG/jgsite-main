@@ -63,7 +63,7 @@ $buyerLogo = buyer_logo_of($buyer);
    number dialled too. */
 $ctaBuyer  = $buyer ?? buyer_find($cfg, (string) ($pq['cta_buyer'] ?? $cfg['brand']['name']));
 $ctaPhone  = buyer_phone_of($ctaBuyer) ?? (string) $cfg['brand']['phone'];
-$ctaTel    = preg_replace('/[^\d+]/', '', $ctaPhone);          // tel: href (digits only)
+$ctaTel    = phone_tel_href($ctaPhone);                        // tel: href, E.164
 
 /* Everflow conversion. submit.php stashes the affid here only after it accepted
    the lead, so this can't fire for a visitor who merely opened the page. The

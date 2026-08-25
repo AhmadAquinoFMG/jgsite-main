@@ -147,14 +147,15 @@ if (!function_exists('buyer_find')) {
      * button on the page the visitor converted on. 10 digits, or 11 starting
      * with a US country code; anything else falls back and is logged.
      *
-     * A value entered as bare digits ('18556000593') is punctuated for display,
-     * because the button is read aloud off a phone screen and eleven undivided
-     * digits are hard to scan. A value that already carries any punctuation is
-     * returned untouched — the operator's formatting is assumed deliberate, so
-     * '1-888-510-3795' and '(877) 627-1504' both survive as typed.
+     * The return is CANONICAL, not whatever the column holds: every number
+     * renders as '(855) 600-0593', however it was typed — bare digits, dashes, a
+     * leading country code. The button is the page's one read-aloud element, so
+     * it is worth one house format rather than letting each row's punctuation
+     * through; it also means an operator can paste a number in any shape and get
+     * the right thing. Use phone_tel_href() for the dialable form.
      *
      * @param  array|null $buyer Row from buyer_find(), or null.
-     * @return string|null       Number ready to render, or null.
+     * @return string|null       Number formatted for display, or null.
      */
     function buyer_phone_of(?array $buyer): ?string
     {
@@ -172,14 +173,37 @@ if (!function_exists('buyer_find')) {
             return null;
         }
 
-        // Already punctuated → the operator's formatting wins.
-        if ($did !== $digits) {
-            return $did;
+        // Drop a leading country code — it is carried by the tel: href instead,
+        // where a dialer needs it, and omitted here where it only adds noise.
+        $local = strlen($digits) === 11 ? substr($digits, 1) : $digits;
+
+        return sprintf('(%s) %s-%s', substr($local, 0, 3), substr($local, 3, 3), substr($local, 6));
+    }
+
+    /**
+     * A display number as a tel: href value, in E.164 ('+18556000593').
+     *
+     * The leading +1 matters: a bare ten-digit href is interpreted against the
+     * dialer's own locale, which is the wrong guess for a visitor roaming or on a
+     * non-US SIM, and some in-app browsers refuse it outright. E.164 is
+     * unambiguous everywhere and is what the number pool's own hrefs use.
+     *
+     * Anything that isn't a US ten-or-eleven-digit number is passed through as
+     * digits, unprefixed — buyer_phone_of() already rejects those, so this only
+     * runs for a number that arrived from somewhere else (['brand']['phone']).
+     */
+    function phone_tel_href(string $number): string
+    {
+        $digits = preg_replace('/\D/', '', $number);
+
+        if (strlen($digits) === 10) {
+            return '+1' . $digits;
+        }
+        if (strlen($digits) === 11 && $digits[0] === '1') {
+            return '+' . $digits;
         }
 
-        return strlen($digits) === 11
-            ? sprintf('%s-%s-%s-%s', $digits[0], substr($digits, 1, 3), substr($digits, 4, 3), substr($digits, 7))
-            : sprintf('(%s) %s-%s', substr($digits, 0, 3), substr($digits, 3, 3), substr($digits, 6));
+        return $digits;
     }
 
     /**
