@@ -1,16 +1,21 @@
--- Adds the JG Wentworth Lead Scoring integration (includes/jgscoring.php):
--- the per-lead outcome columns and the jgscoring_logs audit table.
+-- HISTORICAL MIGRATION — kept so existing databases match schema.sql.
+--
+-- Originally added the direct JG Wentworth Lead Scoring integration
+-- (includes/jgscoring.php): the per-lead outcome columns and the jgscoring_logs
+-- audit table. That integration has since been REMOVED from the codebase — it
+-- posted to JG's lead intake while JG was also a buyer on the LeadProsper
+-- campaign, which double-delivered the consumer and got the paying LeadProsper
+-- copy rejected as a duplicate.
+--
+-- What these columns mean now: `leads.total_debt` is the debt figure actually
+-- posted downstream, `leads.total_debt_source` says which source produced it,
+-- and `leads.jgw_total_debt` holds a BUYER's verified figure as echoed back
+-- through the LeadProsper response. The remaining jgw_* columns and
+-- jgscoring_logs are legacy history and are no longer written.
 --
 -- Idempotent: safe to run against a database that already has some of these.
 --
 --   mysql -u <user> -p <database> < sql/alter_leads_add_jgscoring.sql
---
--- Context: JG scores the lead with their OWN credit pull and returns
--- total_debt_included, which supersedes our Equifax-derived unsecured total as
--- the figure posted to LeadProsper. `leads.total_debt` therefore now means "the
--- debt figure actually posted downstream" and `leads.total_debt_source` says
--- which integration produced it; `leads.jgw_total_debt` keeps JG's raw figure so
--- the two are always comparable.
 
 ALTER TABLE `leads`
     ADD COLUMN IF NOT EXISTS `total_debt_source`  VARCHAR(10)  DEFAULT NULL AFTER `total_debt`,

@@ -2,6 +2,9 @@
 -- (`leads.lp_accepted_buyer`).
 --
 -- Idempotent: safe to run against a database that already has some of these.
+-- This file is the canonical definition of `buyers` (the table is not in
+-- schema.sql), so it is also where the table GROWS — re-run it after a pull to
+-- pick up new columns such as `did`.
 --
 --   mysql -u <user> -p <database> < sql/alter_add_buyers.sql
 --
@@ -33,6 +36,32 @@ CREATE TABLE IF NOT EXISTS `buyers` (
     -- outcome as show_logo = 0, reached without editing the flag.
     `logo_path`  VARCHAR(255) DEFAULT NULL,
 
+    -- The buyer's own inbound number, rendered on the thank-you page's CALL NOW
+    -- button when this buyer took the lead — so the consumer reads the number of
+    -- the company that actually bought them, not one shared line for everyone.
+    -- Stored the way it should READ, e.g. '(877) 627-1504'; thank-you.php strips
+    -- it to digits for the tel: href. NULL/empty falls back to
+    -- config.php ['prequal']['cta_phone'].
+    --
+    -- This does NOT replace CallGrid: the number pool still assigns a tracking
+    -- DID client-side and still rewrites the tel: target, exactly as before. This
+    -- column only changes which number is printed on (and dialled from) the
+    -- button before that assignment lands.
+    `did`        VARCHAR(32)  DEFAULT NULL,
+
+    -- 0 switches CallGrid OFF for this buyer's thank-you page: the SDK is not
+    -- loaded, no pooled number is assigned, and the tel: target stays on the
+    -- `did` above. Use it for a buyer whose calls we do not route through our own
+    -- tracking — InCharge takes their calls on their own line, so putting our
+    -- pool in front of it would re-route a call the buyer already owns and
+    -- attribute it to a campaign source that isn't paying for it.
+    --
+    -- 1 (the default, and JG's setting) keeps the number pool: the button still
+    -- READS the buyer's did, and CallGrid swaps the tel: target once it assigns.
+    -- An unmatched buyer is treated as 1 — the shared config number is ours, so
+    -- there is nothing to protect and every reason to track it.
+    `use_callgrid` TINYINT(1) NOT NULL DEFAULT 1,
+
     -- 0 suppresses the logo for a buyer we still want on file. This is how JG
     -- Wentworth is handled: the funnel is already JG-branded end to end, so
     -- repeating their logo under the savings figure says nothing. A row with the
@@ -47,12 +76,49 @@ CREATE TABLE IF NOT EXISTS `buyers` (
     UNIQUE KEY `uniq_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- The CREATE above is a no-op on a database that already has `buyers`, so every
+-- column added to the table after its first release needs an explicit ALTER too.
+-- Keep the two in step: a column in the CREATE but not here reaches fresh
+-- installs only, and existing databases silently miss it.
+ALTER TABLE `buyers`
+    ADD COLUMN IF NOT EXISTS `did`          VARCHAR(32) DEFAULT NULL     AFTER `logo_path`,
+    ADD COLUMN IF NOT EXISTS `use_callgrid` TINYINT(1)  NOT NULL DEFAULT 1 AFTER `did`;
+
 -- The campaign's two buyers. INSERT ... ON DUPLICATE KEY so re-running the file
 -- refreshes the logo path/flag without duplicating or resetting anything else.
-INSERT INTO `buyers` (`name`, `label`, `logo_path`, `show_logo`) VALUES
-    ('InCharge',  'InCharge Debt Solutions', 'assets/img/buyers/Incharge_Debt_Solutions-r.webp', 1),
-    ('Wentworth', 'JG Wentworth',            NULL,                                               0)
+--
+-- JG's DID is their published Debt Solutions line — the same number as
+-- config.php ['brand']['phone'] and the site footer, so a consumer sold to JG
+-- reads the number JG publishes. InCharge's is their own inbound line.
+--
+-- THE DATABASE WINS on `did`: the update clause is COALESCE(did, VALUES(did)),
+-- so a number already on the row is never touched by re-running this file, and
+-- the seed value only fills a row that has none. Change a DID with an UPDATE
+-- (below) and it stays changed across deploys — this file will not revert it.
+-- The other columns still take the seed's values, since label/logo/show_logo are
+-- code-adjacent presentation rather than operator-tuned routing.
+INSERT INTO `buyers` (`name`, `label`, `logo_path`, `did`, `use_callgrid`, `show_logo`) VALUES
+    ('InCharge',  'InCharge Debt Solutions', 'assets/img/buyers/Incharge_Debt_Solutions-r.webp', '1-855-600-0593', 0, 1),
+    ('Wentworth', 'JG Wentworth',            NULL,                                               '1-888-510-3795', 1, 0)
 ON DUPLICATE KEY UPDATE
-    `label`     = VALUES(`label`),
-    `logo_path` = VALUES(`logo_path`),
-    `show_logo` = VALUES(`show_logo`);
+    `label`        = VALUES(`label`),
+    `logo_path`    = VALUES(`logo_path`),
+    `did`          = COALESCE(`did`, VALUES(`did`)),
+    `use_callgrid` = VALUES(`use_callgrid`),
+    `show_logo`    = VALUES(`show_logo`);
+
+-- To set or change a DID by hand. Store it as it should READ on the button;
+-- thank-you.php strips it to digits for the tel: href, and punctuates a value
+-- entered as bare digits. This beats the seed above, permanently:
+--
+--   UPDATE `buyers` SET `did` = '(000) 000-0000' WHERE `name` = 'InCharge';
+--
+-- Clearing one back to the shared config number takes an explicit NULL — and
+-- note the seed will refill it on the next run of this file, so remove the value
+-- here too if the buyer should no longer have a number of their own:
+--
+--   UPDATE `buyers` SET `did` = NULL WHERE `name` = 'InCharge';
+--
+-- Verify with:
+--
+--   SELECT `name`, `label`, `did`, `use_callgrid`, `show_logo` FROM `buyers`;

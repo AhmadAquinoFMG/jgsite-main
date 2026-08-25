@@ -100,10 +100,10 @@ return [
     // MySQL/MariaDB on Cloudways, reached through PDO in includes/db.php.
     // Creds come from .env (see .env.example); nothing is committed.
     'db' => [
-        'host'    => env('DB_HOST', '127.0.0.1'),
+        'host'    => env('DB_HOST', 'localhost'),
         'port'    => env('DB_PORT', '3306'),
-        'name'    => env('DB_NAME', ''),
-        'user'    => env('DB_USER', ''),
+        'name'    => env('DB_NAME', 'jgw_leads_test'),
+        'user'    => env('DB_USER', 'root'),
         'pass'    => env('DB_PASS', ''),
         'charset' => 'utf8mb4',
     ],
@@ -168,64 +168,6 @@ return [
         ];
     })(),
 
-    // ---- JG Wentworth Lead Scoring API ----------------------------------
-    // submit.php posts the lead to JG's scoring endpoint AFTER the Equifax pull
-    // and BEFORE the LeadProsper post, because the `total_debt_included` it
-    // returns is what LeadProsper receives as `total_debt`. JG runs their own
-    // credit pull and their own settleable-debt classification, so their figure
-    // wins; our Equifax-derived total is the fallback (includes/jgscoring.php).
-    //
-    //   mode: 'off'  → skip entirely, no log row (default).
-    //         'mock' → synthetic response, DOES log (test the pipeline).
-    //         'live' → real POST with JGW_API_TOKEN.
-    //
-    // ⚠ This endpoint is JG's LEAD INTAKE, not a scoring lookup — every call
-    // creates a real lead on their side. JG is ALSO a buyer on the LeadProsper
-    // campaign, so running both delivers the same consumer to JG twice and
-    // LeadProsper's copy (the one that pays) comes back "duplicated by buyer".
-    // Observed in production, hence the guard: with LEADPROSPER_MODE=live the
-    // call is SKIPPED unless JGW_ALLOW_WITH_LEADPROSPER=1 says JG has been
-    // removed from the LP campaign and is sold direct instead.
-    // QA test visits (?test=fmg_true) never call the live endpoint either — the
-    // API has no test flag, so it would create a real lead with a real pull.
-    'jgscoring' => [
-        'mode'     => strtolower(env('JGW_MODE', 'off')),
-        'token'    => env('JGW_API_TOKEN', ''),
-        // Escape hatch for the duplicate-delivery guard in includes/jgscoring.php.
-        // Leave OFF unless JG has been removed as a buyer from the LeadProsper
-        // campaign (i.e. we sell to JG direct). With LeadProsper live and this
-        // off, the scoring call is skipped rather than duplicating the lead.
-        'allow_with_leadprosper' => (env('JGW_ALLOW_WITH_LEADPROSPER', '0') === '1'),
-        'endpoint' => env('JGW_ENDPOINT', 'https://leadscoring.jgwentworth.com/api/leads/dr/'),
-        // JG's own sample took 4.2s to answer (they pull credit inline), and
-        // this call sits in the visitor's submit request — hence the generous
-        // timeout. A timeout is not fatal: the Equifax figure is used instead.
-        'timeout'  => (int) env('JGW_TIMEOUT', '25'),
-        // additional_fields values that identify us as the source. Defaults are
-        // the values JG has on file for this white-label funnel.
-        'utm_source'         => env('JGW_UTM_SOURCE', 'LP-Posted-' . mt_rand(1000, 9999)),
-        'lead_source_detail' => env('JGW_LEAD_SOURCE_DETAIL', 'FMGWhitelabel-' . mt_rand(1000, 9999)),
-        'lead_source'        => env('JGW_LEAD_SOURCE', 'Affiliate'),
-        'campaign_id'        => env('JGW_CAMPAIGN_ID', '35954'),
-        'campaign_source'    => env('JGW_CAMPAIGN_SOURCE', 'Online'),
-        // JG's samples post income empty even for funnels that collect it. Set
-        // JGW_SEND_INCOME=1 to forward our income label instead.
-        'send_income'        => (env('JGW_SEND_INCOME', '0') === '1'),
-        // Fallback User-Agent when the submit request carried none (a direct
-        // API call, a stripped proxy header). Real visitors' UAs pass through.
-        'user_agent' => $_SERVER['HTTP_USER_AGENT']
-            ?? env('JGW_USER_AGENT', 'FMGWhiteLabel-Funnel/1.0 (+https://www.jgwentworth.com)'),
-        // Our stored employment keys → JG's `employement_status` vocabulary.
-        // 'Full Time' is confirmed from JG's own sample payload; the other three
-        // are best guesses — confirm the accepted enum with JG.
-        'employment_map'     => [
-            'employed'   => 'Full Time',
-            'unemployed' => 'Unemployed',
-            'disability' => 'Disability',
-            'retired'    => 'Retired',
-        ],
-    ],
-
     // ---- LeadProsper direct-post (lead distribution) --------------------
     // submit.php posts the lead to LeadProsper AFTER it's stored (and after the
     // Equifax pull, so the verified total debt can be included). Best-effort —
@@ -258,7 +200,7 @@ return [
            This value never becomes the total_debt we POST — see submit.php. It
            arrives with the response, i.e. after the post, and it is JG's rule
            applied to JG's product, not a figure to hand InCharge. */
-        'buyer_total_debt_key' => env('LP_BUYER_TOTAL_DEBT_KEY', 'total_debt_included'),
+        // 'buyer_total_debt_key' => env('LP_BUYER_TOTAL_DEBT_KEY', 'total_debt_included'),
         /* WHOSE figure we accept under that key — case-insensitive substring of
            the buyer's name in LeadProsper. The campaign has two buyers whose debt
            numbers mean different things: JG returns their own underwritten total,
@@ -269,7 +211,7 @@ return [
            Belt and braces: the real protection is mapping the key for JG ALONE in
            LeadProsper's per-buyer setup, which is what stops anyone else writing
            to it. Set empty to accept the key from any buyer. */
-        'buyer_total_debt_from' => env('LP_BUYER_TOTAL_DEBT_FROM', 'wentworth'),
+        // 'buyer_total_debt_from' => env('LP_BUYER_TOTAL_DEBT_FROM', 'wentworth'),
     ],
 
     // ---- QA test mode (?test=fmg_true) -----------------------------------
@@ -549,6 +491,13 @@ return [
         // is in the HTML from the first byte — a visitor who taps CALL NOW
         // before callgrid.js finishes loading is still tracked. Changing this
         // back to a raw DID silently ends call attribution.
+        //
+        // FALLBACK, not the only source: thank-you.php prefers the matched
+        // buyer's own number when the `buyers` registry has one for them
+        // (buyers.did — see sql/alter_add_buyers.sql), so this is what renders
+        // for an unmatched buyer or a buyer with no DID on file. The CallGrid
+        // number pool still rewrites the tel: target either way, so attribution
+        // does not hinge on which of the two starts on the button.
         'cta_phone'    => '(877) 627-1504',
         'hold_minutes' => 5,                 // countdown the file is "held" for
     ],

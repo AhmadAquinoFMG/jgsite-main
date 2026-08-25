@@ -54,13 +54,15 @@ CREATE TABLE IF NOT EXISTS `leads` (
     -- total, else 'equifax'. NULL when neither produced one.
     `total_debt_source` VARCHAR(10) DEFAULT NULL,
 
-    -- ---- JG Wentworth scoring outcome (denormalized from jgscoring_logs;
-    --      NULL when mode=off / no call happened) ----
-    `jgw_mode`          VARCHAR(10)  DEFAULT NULL,  -- 'mock' | 'live'
-    `jgw_status`        SMALLINT     DEFAULT NULL,  -- HTTP status (0 = no response)
-    -- JG's own total_debt_included, from EITHER source: their scoring API
-    -- (includes/jgscoring.php, normally off) or — the supported path —
-    -- LeadProsper echoing the buyer's response back to us.
+    -- ---- buyer-verified debt + LEGACY JG scoring outcome ----
+    -- The direct JG scoring integration has been REMOVED from the codebase, so
+    -- every column below except jgw_total_debt is now write-once history: kept
+    -- so old rows still parse, never populated by current code.
+    `jgw_mode`          VARCHAR(10)  DEFAULT NULL,  -- legacy: 'mock' | 'live'
+    `jgw_status`        SMALLINT     DEFAULT NULL,  -- legacy: HTTP status
+    -- STILL WRITTEN: a buyer's own total_debt_included, obtained the supported
+    -- way — LeadProsper echoing the buyer's response back to us on the
+    -- direct_post reply. Name kept for continuity with historical rows.
     `jgw_total_debt`    INT UNSIGNED DEFAULT NULL,
     `jgw_prequalified`  TINYINT(1)   DEFAULT NULL,
     `jgw_accepted`      TINYINT(1)   DEFAULT NULL,
@@ -150,12 +152,16 @@ CREATE TABLE IF NOT EXISTS `leads` (
 
 
 -- ---------------------------------------------------------------------------
--- JG Wentworth Lead Scoring call log.
+-- JG Wentworth Lead Scoring call log — LEGACY, NO LONGER WRITTEN.
 --
--- One row per scoring post made from submit.php (includes/jgscoring.php), for
--- audit + debugging. Runs between the Equifax pull and the LeadProsper post
--- because `total_debt` here is what LeadProsper receives. Best-effort: a failure
--- is logged and the Equifax figure is used instead.
+-- The direct JG scoring integration (formerly includes/jgscoring.php) has been
+-- removed: that endpoint was JG's lead INTAKE, and JG is also a buyer on the
+-- LeadProsper campaign, so posting both delivered the same consumer twice and
+-- the paying LeadProsper copy came back "duplicated by buyer". The buyer's
+-- verified figure now arrives via the LeadProsper response instead.
+--
+-- The table is retained so historical rows survive; nothing inserts into it.
+-- Safe to drop once those rows are no longer needed.
 --
 -- ⚠ COMPLIANCE: `request_body` carries the consumer's full identity (name, DOB,
 -- address, email, phone) and authorizes a credit pull (ok_to_pull_credit). No

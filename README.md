@@ -38,8 +38,8 @@ complete. Set `APP_ENV=production` on staging/live so the phone gate is enforced
 | `includes/firebase.php` | Verifies the Firebase phone-auth ID token (native openssl, no Admin SDK). |
 | `includes/compliance.php` | TrustedForm + Jornaya (LeadiD) tags, rendered into `<head>` when configured. |
 | `includes/equifax.php` | Equifax Consumer Credit Report client + logger (`off`/`mock`/`live` modes). |
-| `includes/jgscoring.php` | JG Wentworth Lead Scoring client + logger (`off`/`mock`/`live` modes). Supplies the `total_debt` posted to LeadProsper. |
 | `includes/leadprosper.php` | LeadProsper direct-post client + logger (`off`/`test`/`live` modes). |
+| `includes/buyers.php` | Buyer registry lookup — the matched buyer's logo and CALL NOW number (`buyers.did`) for the thank-you page. |
 | `assets/js/tracking/everflow.js` | Everflow click attribution (lazy-loaded SDK + cookie watcher); conversion fires client-side on `thank-you.php` via an Everflow campaign trigger. |
 | `sql/schema.sql` | `leads` + `equifax_logs` + `leadprosper_logs` table definitions. |
 | `includes/header.php` / `footer.php` | **Funnel** header/footer. |
@@ -97,32 +97,26 @@ instead of coming back as a 422 from the final Submit.
   funnel works locally without billing.
 - **TrustedForm + Jornaya** — TCPA proof-of-consent scripts (`includes/compliance.php`),
   rendered only when configured; their hidden cert/token fields are stored with the lead.
-- **JG Wentworth Lead Scoring** — `includes/jgscoring.php` posts the lead to
-  `leadscoring.jgwentworth.com/api/leads/dr/`, which runs JG's own credit pull and
-  returns `total_debt_included`, `prequalified`, `credit_rating` and the program
-  estimates. That debt figure is what LeadProsper receives as `total_debt` — it
-  supersedes ours, since it's the buyer's own view of what's settleable. Logs every
-  attempt to `jgscoring_logs`. Ships in `off` mode; `JGW_MODE=mock` exercises the
-  path without a call.
+- **Buyer-verified total debt (via LeadProsper)** — LeadProsper's *Customize
+  Supplier API Response* feature echoes a buyer's response field back to us on the
+  `direct_post` reply, under a Key set on the campaign (`total_debt_included`).
+  That yields the buyer's own settleable-debt figure with no second delivery and no
+  credentials — see `leadprosper_buyer_total_debt()` and `LP_BUYER_TOTAL_DEBT_KEY`.
+  Requires the per-buyer mapping in the buyer's setup, and LeadProsper documents it
+  as working only for **exclusive leads sold to one buyer**.
 
-  > ✅ **Preferred path — no direct call at all.** LeadProsper's *Customize Supplier
-  > API Response* feature echoes a buyer's response field back to us on the
-  > `direct_post` reply, under a Key set on the campaign (`total_debt_included`).
-  > That yields JG's figure with no second delivery and no credentials — see
-  > `leadprosper_buyer_total_debt()` and `LP_BUYER_TOTAL_DEBT_KEY`. Requires the
-  > per-buyer mapping in JG's buyer setup, and LeadProsper documents it as working
-  > only for **exclusive leads sold to one buyer**. Map it for JG only.
-  >
-  > ⚠ **This is JG's lead intake, not a scoring lookup.** Every call creates a real
-  > lead on their side, and JG is also a buyer on the LeadProsper campaign — so
-  > running both delivers the same consumer twice and LeadProsper's copy (the one
-  > that pays) comes back **"duplicated by buyer"**. That happened in production.
-  > The client therefore **skips itself** whenever `LEADPROSPER_MODE=live`, unless
-  > `JGW_ALLOW_WITH_LEADPROSPER=1` declares that JG has been removed from the
-  > LeadProsper campaign and is sold direct instead. Using this integration and
-  > selling to JG through LeadProsper are mutually exclusive.
+  > **Removed:** the funnel used to post directly to JG's own intake endpoint
+  > (`leadscoring.jgwentworth.com/api/leads/dr/`) for this figure. That endpoint is
+  > JG's *lead intake*, not a scoring lookup — every call created a real lead — and
+  > JG is also a buyer on the LeadProsper campaign, so running both delivered the
+  > same consumer twice and LeadProsper's copy (the one that pays) came back
+  > **"duplicated by buyer"**. The client and its config were deleted; JG is reached
+  > as an LP buyer only. The `leads.jgw_*` columns and the `jgscoring_logs` table
+  > remain in the schema for historical rows — only `jgw_total_debt` is still
+  > written, now holding the buyer figure echoed back by LeadProsper.
+
 - **LeadProsper** — direct-post lead distribution (`includes/leadprosper.php`), posted
-  after the lead is stored and after the Equifax pull and JG scoring so the verified
+  after the lead is stored and after the Equifax pull so the verified
   total debt can be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
   mode — set `LEADPROSPER_MODE=test` to validate field mapping without billing/delivering,
   `live` once you're ready.
@@ -175,15 +169,9 @@ POST if JS is unavailable). `submit.php`:
    but never blocks the lead. **Note:** the funnel no longer collects an SSN, so
    the pull currently runs without one (it won't return a real report until an
    SSN — or another identifier the contract accepts — is supplied).
-5. **Scores the lead with JG Wentworth** (`includes/jgscoring.php`) and logs to
-   `jgscoring_logs`. JG runs their own credit pull and returns
-   `total_debt_included` — their classification of settleable debt — which
-   **replaces** our Equifax figure as the `total_debt` posted downstream. Runs
-   before step 6 for exactly that reason. Best-effort: a failure falls back to
-   the Equifax total. Ships in `off` mode.
-6. **Posts to LeadProsper** and logs the request/response to `leadprosper_logs` —
+5. **Posts to LeadProsper** and logs the request/response to `leadprosper_logs` —
    best-effort, same "log & continue" contract as Equifax. Ships in `off` mode.
-7. **Builds the redirect URL server-side** (`includes/redirect.php`) and returns
+6. **Builds the redirect URL server-side** (`includes/redirect.php`) and returns
    `{ok:true, redirect:"…"}`; the client follows that URL rather than hardcoding a
    destination. The consumer's answers only reach the query string after passing
    through validation here, so the appended values are the server's normalised
@@ -224,14 +212,37 @@ doesn't count. This is enforced in the production pull and cannot be changed to
 all-debt through an environment setting, so the `total_debt` sent to LeadProsper
 remains unsecured-only.
 
-The confirmation page's phone number and hold-timer length are configurable in
-`config.php` → `['prequal']` (`cta_phone`, `hold_minutes`).
+The confirmation page's hold-timer length is configurable in `config.php` →
+`['prequal']` (`hold_minutes`), as is the fallback phone number (`cta_phone`).
+
+The CALL NOW number itself is per-buyer: `buyers.did` holds each buyer's own
+inbound line, and `thank-you.php` renders the matched buyer's number — so a
+consumer sold to InCharge reads and dials InCharge, and one sold to JG reads and
+dials JG. An unmatched buyer, or a buyer with no DID on file, falls back to
+`cta_phone`, which is now a last resort rather than the normal path: with no
+`?buyer=` to match, the number comes from the HOUSE row — whichever `buyers` row
+matches `['brand']['name']` (JG) — so the database is the single place any CTA
+number is edited, and `cta_phone` renders only if the DB is unreachable or that
+row has no usable DID. Both buyers' DIDs are seeded in
+`sql/alter_add_buyers.sql`. **The database wins:** the seed only fills a row with no number,
+so a DID changed with the `UPDATE` at the bottom of that file survives every
+later run and is never reverted by a deploy. A number may be stored formatted or
+as bare digits — bare digits are punctuated for display, existing formatting is
+kept as typed.
+
+`buyers.use_callgrid` decides whether call tracking runs for that buyer. JG keeps
+it (`1`): the button reads JG's DID and CallGrid's number pool still rewrites the
+`tel:` target, so attribution is unchanged. InCharge has it off (`0`): the SDK is
+not loaded at all on their thank-you page, nothing is assigned, and their own DID
+is both what the visitor reads and what they dial — our pool has no business
+sitting in front of a line the buyer already owns. An unmatched buyer is tracked,
+since the fallback number is ours. Unlike `did`, this column takes the seed's
+value on every migration run.
 
 ## Configuration (`.env`)
 
 See `.env.example` for the full list. Groups: `GOOGLE_PLACES_KEY`; `APP_ENV`;
 database (`DB_*`); compliance (`TRUSTEDFORM_ENABLED`, `JORNAYA_*`); Equifax
-(`EQUIFAX_*`); JG Wentworth scoring (`JGW_MODE`, `JGW_API_TOKEN`, `JGW_*`);
-LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
+(`EQUIFAX_*`); LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
 (`EVERFLOW_*`); QA test mode (`TEST_MODE_TOKEN`, `TEST_MODE_AFFIDS`,
 `TEST_MODE_AFFID`). `.env` is gitignored.

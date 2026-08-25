@@ -6,7 +6,9 @@
  * Reached after the funnel form is submitted (funnel.js redirects here).
  * Static confirmation screen: assigned-specialist messaging + a click-to-call
  * CTA and a "your file is held for N:00" countdown timer (urgency device).
- * Copy/number/hold-time come from config.php → ['prequal'].
+ * Copy/hold-time come from config.php → ['prequal']; the CTA number comes from
+ * the matched buyer's `did` when they have one, and from ['prequal']['cta_phone']
+ * otherwise.
  */
 session_start();
 
@@ -14,8 +16,6 @@ $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
 $pq        = $cfg['prequal'];
-$ctaPhone  = $pq['cta_phone'];
-$ctaTel    = preg_replace('/[^\d+]/', '', $ctaPhone);          // tel: href (digits only)
 $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seconds
 
 // Estimated savings (40% of the debt figure submit.php used), stashed in the
@@ -34,7 +34,33 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
    another buyer's name and see their logo. Fine for decoration; see the note in
    includes/buyers.php before reading this param for anything that matters. */
 require_once __DIR__ . '/includes/buyers.php';
-$buyerLogo = buyer_logo($cfg, (string) ($_GET['buyer'] ?? ''));
+$buyer     = buyer_find($cfg, (string) ($_GET['buyer'] ?? ''));
+$buyerLogo = buyer_logo_of($buyer);
+
+/* CTA number, resolved from the `buyers` registry rather than from config. The
+   buyer that bought this lead gets their OWN number (`buyers.did`) — the consumer
+   was just told which company took their file, so the number under it should
+   reach that company rather than one line shared by every buyer.
+
+   With no ?buyer= to match — a direct hit on this page, LeadProsper off or
+   silent, a buyer not in the registry — the number falls back to the HOUSE
+   buyer's row: whoever the registry matches on the funnel's own brand name,
+   i.e. JG. This page is JG-branded end to end, so JG's published line is the
+   right default, and it means the DB is the single place a number is edited.
+   Matching on ['brand']['name'] rather than a hardcoded 'Wentworth' keeps the
+   two in step if the funnel is ever rebranded.
+
+   config ['prequal']['cta_phone'] is the last resort only, for when the DB is
+   unreachable or the house row has no usable DID — never the normal path.
+
+   For a buyer whose row keeps CallGrid on (JG, and therefore the default) this
+   is only the number the page RENDERS: the number pool still assigns a tracking
+   DID and rewrites the tel: target below, so this is what the swap replaces.
+   For a buyer with use_callgrid = 0 (InCharge) nothing rewrites it, so it is the
+   number dialled too. */
+$ctaBuyer  = $buyer ?? buyer_find($cfg, (string) $cfg['brand']['name']);
+$ctaPhone  = buyer_phone_of($ctaBuyer) ?? $pq['cta_phone'];
+$ctaTel    = preg_replace('/[^\d+]/', '', $ctaPhone);          // tel: href (digits only)
 
 /* Everflow conversion. submit.php stashes the affid here only after it accepted
    the lead, so this can't fire for a visitor who merely opened the page. The
@@ -60,12 +86,24 @@ $efOfferId = $efConversion
     : null;
 $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
 
-// CallGrid call tracking — only page that carries a click-to-call CTA, so the
-// only page where a swappable tracking number matters. Disabled (and not
-// emitted at all) when either id is missing, so a half-configured environment
-// can't load the SDK with a blank organization.
+/* CallGrid call tracking — only page that carries a click-to-call CTA, so the
+   only page where a swappable tracking number matters. Disabled (and not
+   emitted at all) when either id is missing, so a half-configured environment
+   can't load the SDK with a blank organization.
+
+   Also off for a buyer that takes its own calls (buyers.use_callgrid = 0 —
+   InCharge): nothing below is emitted, so the SDK never loads, no pooled number
+   is assigned, and the CTA keeps the buyer's own DID as both the number shown
+   and the number dialled. Putting our pool in front of a line the buyer already
+   owns would re-route a call they paid for and book it against a campaign source
+   that isn't ours.
+
+   Keyed off $ctaBuyer, not the matched buyer, so the flag always belongs to the
+   row whose number is actually on the button — including the house row that
+   backs an unmatched visit. */
 $cg = $cfg['callgrid'];
-$cgOn = $cg['enabled'] && $cg['organization_id'] !== '' && $cg['campaign_source_id'] !== '';
+$cgOn = $cg['enabled'] && $cg['organization_id'] !== '' && $cg['campaign_source_id'] !== ''
+    && buyer_uses_callgrid($ctaBuyer);
 
 /* CallGrid custom tags — the lead's details, forwarded so its webhook template
    ([[tag:lead_id]], [[tag:email]], …) resolves against a real call.
@@ -190,11 +228,15 @@ if ($cgOn) {
                yet at this point in <head>, so the number is held and applied
                once the DOM is up.
 
+               This whole block is absent for a buyer with use_callgrid = 0, so
+               nothing here can touch a buyer-owned line.
+
                Only the tel: target is swapped — the number ON the button stays
-               the branded static one from config ['prequal']['cta_phone']. The
-               pooled DID is a routing detail, so there's no reason to show it
-               and no flicker from rewriting the label mid-read. Note this does
-               mean the dialer opens on a number the visitor didn't just read.
+               the one rendered server-side (the matched buyer's `did`, else
+               config ['prequal']['cta_phone']). The pooled DID is a routing
+               detail, so there's no reason to show it and no flicker from
+               rewriting the label mid-read. Note this does mean the dialer opens
+               on a number the visitor didn't just read.
 
                The button is NOT hidden until assignment. It ships rendered and
                dialable with the static number, so it survives a blocked/slow
