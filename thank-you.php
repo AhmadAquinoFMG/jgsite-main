@@ -6,9 +6,9 @@
  * Reached after the funnel form is submitted (funnel.js redirects here).
  * Static confirmation screen: assigned-specialist messaging + a click-to-call
  * CTA and a "your file is held for N:00" countdown timer (urgency device).
- * Copy/hold-time come from config.php → ['prequal']; the CTA number comes from
- * the matched buyer's `did` when they have one, and from ['prequal']['cta_phone']
- * otherwise.
+ * Copy/hold-time come from config.php → ['prequal']. The CTA number comes from
+ * the `buyers` registry, not config: the matched buyer's `did`, else the `did` of
+ * the row named by ['prequal']['cta_buyer'].
  */
 session_start();
 
@@ -37,29 +37,32 @@ require_once __DIR__ . '/includes/buyers.php';
 $buyer     = buyer_find($cfg, (string) ($_GET['buyer'] ?? ''));
 $buyerLogo = buyer_logo_of($buyer);
 
-/* CTA number, resolved from the `buyers` registry rather than from config. The
-   buyer that bought this lead gets their OWN number (`buyers.did`) — the consumer
-   was just told which company took their file, so the number under it should
-   reach that company rather than one line shared by every buyer.
+/* CTA number. Comes from the `buyers` registry — there is no CTA number in
+   config any more. The buyer that bought this lead gets their OWN number
+   (`buyers.did`): the consumer was just told which company took their file, so
+   the number under it should reach that company rather than one line shared by
+   every buyer.
 
    With no ?buyer= to match — a direct hit on this page, LeadProsper off or
-   silent, a buyer not in the registry — the number falls back to the HOUSE
-   buyer's row: whoever the registry matches on the funnel's own brand name,
-   i.e. JG. This page is JG-branded end to end, so JG's published line is the
-   right default, and it means the DB is the single place a number is edited.
-   Matching on ['brand']['name'] rather than a hardcoded 'Wentworth' keeps the
-   two in step if the funnel is ever rebranded.
+   silent, a buyer not in the registry — the number comes from the row named by
+   ['prequal']['cta_buyer'] (JG). That row's `did` is the funnel's default, so
+   the table is the single place any CTA number is edited, and swapping the
+   default is an UPDATE rather than a deploy.
 
-   config ['prequal']['cta_phone'] is the last resort only, for when the DB is
-   unreachable or the house row has no usable DID — never the normal path.
+   ['brand']['phone'] is the last resort, and only for a DB that can't answer or
+   a house row with no usable DID. It is JG's published line, so a database
+   outage degrades to a number that still reaches JG — untracked, but never a
+   dead button on the page the visitor just converted on.
 
    For a buyer whose row keeps CallGrid on (JG, and therefore the default) this
    is only the number the page RENDERS: the number pool still assigns a tracking
    DID and rewrites the tel: target below, so this is what the swap replaces.
+   That makes the house row's `did` the number tracking is layered on — keep a
+   CallGrid line there, not a raw DID, or unmatched visits stop being attributed.
    For a buyer with use_callgrid = 0 (InCharge) nothing rewrites it, so it is the
    number dialled too. */
-$ctaBuyer  = $buyer ?? buyer_find($cfg, (string) $cfg['brand']['name']);
-$ctaPhone  = buyer_phone_of($ctaBuyer) ?? $pq['cta_phone'];
+$ctaBuyer  = $buyer ?? buyer_find($cfg, (string) ($pq['cta_buyer'] ?? $cfg['brand']['name']));
+$ctaPhone  = buyer_phone_of($ctaBuyer) ?? (string) $cfg['brand']['phone'];
 $ctaTel    = preg_replace('/[^\d+]/', '', $ctaPhone);          // tel: href (digits only)
 
 /* Everflow conversion. submit.php stashes the affid here only after it accepted
@@ -232,8 +235,8 @@ if ($cgOn) {
                nothing here can touch a buyer-owned line.
 
                Only the tel: target is swapped — the number ON the button stays
-               the one rendered server-side (the matched buyer's `did`, else
-               config ['prequal']['cta_phone']). The pooled DID is a routing
+               the one rendered server-side (the matched buyer's `did`, else the
+               house buyer's). The pooled DID is a routing
                detail, so there's no reason to show it and no flicker from
                rewriting the label mid-read. Note this does mean the dialer opens
                on a number the visitor didn't just read.

@@ -485,20 +485,20 @@ return [
 
     // ---- Post-submit "pre-qualified" page (thank-you.php) ---------------
     'prequal' => [
-        // CallGrid tracking number, NOT the specialist DID. Calls land on
-        // CallGrid's switch, get recorded against the campaign source, and are
-        // forwarded on from there. Rendered server-side so the tracked number
-        // is in the HTML from the first byte — a visitor who taps CALL NOW
-        // before callgrid.js finishes loading is still tracked. Changing this
-        // back to a raw DID silently ends call attribution.
+        // The CALL NOW number is NOT configured here — it lives in the `buyers`
+        // registry, in `did` (see sql/alter_add_buyers.sql). thank-you.php uses
+        // the matched buyer's own number, so the consumer dials the company that
+        // actually bought their file, and falls back to the row named below when
+        // there is no ?buyer= to match.
         //
-        // FALLBACK, not the only source: thank-you.php prefers the matched
-        // buyer's own number when the `buyers` registry has one for them
-        // (buyers.did — see sql/alter_add_buyers.sql), so this is what renders
-        // for an unmatched buyer or a buyer with no DID on file. The CallGrid
-        // number pool still rewrites the tel: target either way, so attribution
-        // does not hinge on which of the two starts on the button.
-        'cta_phone'    => '(877) 627-1504',
+        // Which row backs an unmatched visit: a `buyers.name` match token, or a
+        // string containing one — 'JG Wentworth' matches the 'Wentworth' row.
+        // Their `did` is the funnel's default CTA number, and whether it is a
+        // CallGrid tracking line or a raw DID is now a data decision, made in the
+        // table rather than in this file. Keeping tracking means keeping a
+        // CallGrid number in that row: a raw DID there silently ends call
+        // attribution for unmatched visits, exactly as it used to here.
+        'cta_buyer'    => 'JG Wentworth',
         'hold_minutes' => 5,                 // countdown the file is "held" for
     ],
 

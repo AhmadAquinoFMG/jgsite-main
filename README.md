@@ -213,18 +213,22 @@ all-debt through an environment setting, so the `total_debt` sent to LeadProsper
 remains unsecured-only.
 
 The confirmation page's hold-timer length is configurable in `config.php` →
-`['prequal']` (`hold_minutes`), as is the fallback phone number (`cta_phone`).
+`['prequal']` (`hold_minutes`). The CTA phone number is not in config at all.
 
 The CALL NOW number itself is per-buyer: `buyers.did` holds each buyer's own
 inbound line, and `thank-you.php` renders the matched buyer's number — so a
 consumer sold to InCharge reads and dials InCharge, and one sold to JG reads and
 dials JG. An unmatched buyer, or a buyer with no DID on file, falls back to
-`cta_phone`, which is now a last resort rather than the normal path: with no
-`?buyer=` to match, the number comes from the HOUSE row — whichever `buyers` row
-matches `['brand']['name']` (JG) — so the database is the single place any CTA
-number is edited, and `cta_phone` renders only if the DB is unreachable or that
-row has no usable DID. Both buyers' DIDs are seeded in
-`sql/alter_add_buyers.sql`. **The database wins:** the seed only fills a row with no number,
+the `did` of the row named by `['prequal']['cta_buyer']` (JG). The database is
+therefore the single place any CTA number is edited — including the funnel's
+default — and swapping it is an `UPDATE`, not a deploy. `['brand']['phone']` is
+the last resort, used only if the DB can't answer or that row has no usable DID.
+Both buyers' DIDs are seeded in `sql/alter_add_buyers.sql`.
+
+Because unmatched visits render the house row's `did`, that row should hold a
+CallGrid tracking line rather than a raw DID — a raw number there ends call
+attribution for those visits, the same trap the old `cta_phone` comment warned
+about. **The database wins:** the seed only fills a row with no number,
 so a DID changed with the `UPDATE` at the bottom of that file survives every
 later run and is never reverted by a deploy. A number may be stored formatted or
 as bare digits — bare digits are punctuated for display, existing formatting is

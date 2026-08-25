@@ -91,33 +91,35 @@ ALTER TABLE `buyers`
 -- config.php ['brand']['phone'] and the site footer, so a consumer sold to JG
 -- reads the number JG publishes. InCharge's is their own inbound line.
 --
--- THE DATABASE WINS on `did`: the update clause is COALESCE(did, VALUES(did)),
--- so a number already on the row is never touched by re-running this file, and
--- the seed value only fills a row that has none. Change a DID with an UPDATE
--- (below) and it stays changed across deploys — this file will not revert it.
--- The other columns still take the seed's values, since label/logo/show_logo are
--- code-adjacent presentation rather than operator-tuned routing.
+-- THE DATABASE WINS, on every column. `ON DUPLICATE KEY UPDATE id = id` is a
+-- deliberate no-op: an existing row is left exactly as it is, so this file only
+-- ever BOOTSTRAPS a buyer that isn't there yet. Anything tuned in production —
+-- a number, the CallGrid flag, a label — survives every later run untouched, and
+-- a deploy can never quietly re-route live calls back to a value in the repo.
+--
+-- The cost is that changing a seeded value here does NOT reach a database that
+-- already has the row: edit the file for future installs, then run the matching
+-- UPDATE (below) against each existing environment.
 INSERT INTO `buyers` (`name`, `label`, `logo_path`, `did`, `use_callgrid`, `show_logo`) VALUES
     ('InCharge',  'InCharge Debt Solutions', 'assets/img/buyers/Incharge_Debt_Solutions-r.webp', '1-855-600-0593', 0, 1),
     ('Wentworth', 'JG Wentworth',            NULL,                                               '1-888-510-3795', 1, 0)
 ON DUPLICATE KEY UPDATE
-    `label`        = VALUES(`label`),
-    `logo_path`    = VALUES(`logo_path`),
-    `did`          = COALESCE(`did`, VALUES(`did`)),
-    `use_callgrid` = VALUES(`use_callgrid`),
-    `show_logo`    = VALUES(`show_logo`);
+    `id` = `id`;   -- no-op: never overwrite a live row
 
--- To set or change a DID by hand. Store it as it should READ on the button;
--- thank-you.php strips it to digits for the tel: href, and punctuates a value
--- entered as bare digits. This beats the seed above, permanently:
+-- Changing an EXISTING row takes an explicit UPDATE — by design, per above.
+-- Store a DID as it should READ on the button; thank-you.php strips it to digits
+-- for the tel: href, and punctuates a value entered as bare digits.
 --
 --   UPDATE `buyers` SET `did` = '(000) 000-0000' WHERE `name` = 'InCharge';
 --
--- Clearing one back to the shared config number takes an explicit NULL — and
--- note the seed will refill it on the next run of this file, so remove the value
--- here too if the buyer should no longer have a number of their own:
+-- NULL puts that buyer back on the house number (see thank-you.php), and stays
+-- NULL — the seed no longer refills it:
 --
 --   UPDATE `buyers` SET `did` = NULL WHERE `name` = 'InCharge';
+--
+-- Turning our call tracking off for a buyer who takes their own calls:
+--
+--   UPDATE `buyers` SET `use_callgrid` = 0 WHERE `name` = 'InCharge';
 --
 -- Verify with:
 --

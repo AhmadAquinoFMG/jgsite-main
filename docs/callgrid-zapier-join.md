@@ -22,7 +22,7 @@ establishes three facts:
 
 The root problem is structural: CallGrid links a *call* to a *visitor session* by *which
 number was dialed*. That is the entire purpose of a number pool. With one static tracking
-number (`config.php` → `['prequal']['cta_phone']`) shared by every visitor, there is
+number (the house buyer's `buyers.did` — see `['prequal']['cta_buyer']`) shared by every visitor, there is
 nothing to join on, so every session-scoped tag on the call webhook arrives empty —
 including CallGrid's own `VisitorState` / `VisitorCity` / `VisitorZipCode`.
 
