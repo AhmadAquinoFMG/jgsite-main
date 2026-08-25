@@ -469,15 +469,12 @@ if ($botReason === null) {
    continue" contract as Equifax above — a forwarding failure is logged but
    never surfaced to the visitor; the lead is already stored.
 
-   `total_debt` on this post uses the verified outbound figure when one exists.
-   Otherwise it falls back to the numeric self-assessed bucket so LeadProsper's
-   buyer filters do not reject the lead before JG/InCharge can run. */
+   `total_debt` on this post is $verifiedTotalDebt — our Equifax unsecured
+   total, and nothing else: when the pull returns no figure (or a 0), the field is
+   omitted rather than backfilled from the self-reported bucket, which would
+   present an estimate as a verified number. */
 if ($botReason === null) {
     try {
-        $leadprosperTotalDebt = $verifiedTotalDebt
-            ?? leadprosper_debt_bucket_amount((string) $row['debt_amount']);
-        $leadprosperDebtSource = $verifiedTotalDebt !== null ? 'verified' : 'self_assessed';
-
         $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
         // Not a posted field — reflects whether OUR OWN Equifax pull above (not an
         // upstream one, and not a buyer's) returned a usable total. Kept on
@@ -489,7 +486,7 @@ if ($botReason === null) {
         // includes/leadprosper.php to post this one as lp_action=test.
         $tracking['is_test'] = $isTestLead;
 
-        $lp = leadprosper_submit($cfg, $row, $tracking, $leadprosperTotalDebt);
+        $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt);
         if (empty($lp['skip'])) {
             db($cfg)->prepare(
                 'INSERT INTO leadprosper_logs (lead_id, mode, request_body, response_status, response_body, accepted, error, duration_ms)
@@ -507,7 +504,7 @@ if ($botReason === null) {
 
             db($cfg)->prepare(
                 'UPDATE leads SET lp_mode = :mode, lp_status = :status, lp_accepted = :accepted,
-                    lp_error = :error, lp_posted_at = :posted_at, total_debt = :total_debt
+                    lp_error = :error, lp_posted_at = :posted_at
              WHERE id = :id'
             )->execute([
                 'mode'      => $lp['mode'],
@@ -515,7 +512,6 @@ if ($botReason === null) {
                 'accepted'  => $lp['ok'] ? 1 : 0,
                 'error'     => $lp['error'],
                 'posted_at' => date('Y-m-d H:i:s'),
-                'total_debt'=> $leadprosperTotalDebt,
                 'id'        => $leadId,
             ]);
 
@@ -568,8 +564,7 @@ if ($botReason === null) {
                 'status'           => $lp['status'],
                 'accepted'         => $lp['ok'],
                 'accepted_buyer'   => $lp['accepted_buyer'],
-                'total_debt_sent'  => $leadprosperTotalDebt,
-                'debt_source'      => $leadprosperDebtSource,
+                'total_debt_sent'  => $verifiedTotalDebt,
                 'buyer_total_debt' => $lp['buyer_total_debt'],
                 'duration'         => $lp['duration_ms'],
                 'error'            => $lp['error'],
