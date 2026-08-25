@@ -212,9 +212,10 @@ doesn't count. This is enforced in the production pull and cannot be changed to
 all-debt through an environment setting, so the `total_debt` sent to LeadProsper
 remains unsecured-only.
 
-The visitor's self-reported debt range remains stored on the lead for internal
-reference, but `self_assessed_debt` is not included in the LeadProsper payload
-and is never used as a fallback when verified unsecured debt is unavailable.
+The visitor's self-reported debt range is also sent separately as
+`self_assessed_debt`. It is never substituted into `total_debt`: when verified
+unsecured debt is unavailable, `total_debt` is omitted while
+`self_assessed_debt` remains present.
 
 The confirmation page's hold-timer length is configurable in `config.php` →
 `['prequal']` (`hold_minutes`). The CTA phone number is not in config at all.

@@ -17,8 +17,8 @@
 if (!function_exists('leadprosper_debt_bucket_amount')) {
 
     /**
-     * Convert a debt-options label into a representative amount for internal
-     * consumer-facing estimates. This value is not sent to LeadProsper.
+     * Convert a debt-options label into a representative amount for
+     * LeadProsper's separate self_assessed_debt field and internal estimates.
      */
     function leadprosper_debt_bucket_amount(string $label): int
     {
@@ -54,7 +54,8 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             $phone = substr($phone, 1);
         }
 
-        $dobIso = (string) ($row['dob'] ?? '');
+        $dobIso           = (string) ($row['dob'] ?? '');
+        $selfAssessedDebt = leadprosper_debt_bucket_amount((string) ($row['debt_amount'] ?? ''));
 
         $payload = [
             'lp_campaign_id'       => $lp['campaign_id'] ?? '',
@@ -74,11 +75,12 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
                is what the buyers qualify on, and `0` asserts "this consumer has
                no debt" — a disqualification — where absence correctly reads as
                "we don't know". The funnel collects no SSN, so an empty Equifax
-               pull is routine, not exceptional. We deliberately do not send
-               self_assessed_debt as a fallback. softpull_returned tells the buyer
-               whether a verified figure was available. (array_filter below drops
-               the '' — and would NOT drop a real verified 0.) */
+               pull is routine, not exceptional. self_assessed_debt is sent as a
+               separate field, never substituted into total_debt. softpull_returned
+               tells the buyer whether a verified figure was available.
+               (array_filter below drops the '' — and would NOT drop a verified 0.) */
             'total_debt'           => $totalDebt ?? '',
+            'self_assessed_debt'   => $selfAssessedDebt,
             'employed'             => $row['employment'] ?? '',
             'behind_payment'       => $row['behind_payment'] ?? '',
             'trustedform_cert_url' => $row['trustedform_url'] ?? '',
