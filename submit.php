@@ -470,9 +470,12 @@ if ($botReason === null) {
    never surfaced to the visitor; the lead is already stored.
 
    `total_debt` on this post is $verifiedTotalDebt — our Equifax unsecured
-   total, and nothing else: when the pull returns no figure (or a 0), the field is
-   omitted rather than backfilled from the self-reported bucket, which would
-   present an estimate as a verified number. */
+   total, and nothing else: when the pull returns no figure the field is posted as
+   0 rather than backfilled from the self-reported bucket, which would present an
+   estimate as a verified number. The 0 is only for this outbound post; internally
+   $verifiedTotalDebt stays null so softpull_returned, leads.total_debt_source and
+   the consumer-facing savings math can still tell "no verified figure" apart from
+   a genuine zero balance. */
 if ($botReason === null) {
     try {
         $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
@@ -486,7 +489,9 @@ if ($botReason === null) {
         // includes/leadprosper.php to post this one as lp_action=test.
         $tracking['is_test'] = $isTestLead;
 
-        $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt);
+        // No verified figure posts as 0 (see the block comment above) — the
+        // buyers' intake expects the field present on every lead.
+        $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt ?? 0);
         if (empty($lp['skip'])) {
             db($cfg)->prepare(
                 'INSERT INTO leadprosper_logs (lead_id, mode, request_body, response_status, response_body, accepted, error, duration_ms)
