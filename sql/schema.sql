@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `ms_placement`    VARCHAR(128) DEFAULT NULL,   -- Microsoft/Bing Ads
     `ms_publisher`    VARCHAR(128) DEFAULT NULL,
     `ttclid`          VARCHAR(255) DEFAULT NULL,   -- TikTok click id
-    `subid`           VARCHAR(128) DEFAULT NULL,
+    `subid`           VARCHAR(255) DEFAULT NULL,
 
     -- ---- Everflow click attribution (captured client-side, see
     --      assets/js/tracking/everflow.js + the hidden fields in index.php) ----
@@ -118,17 +118,20 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `landing_page_url`  VARCHAR(512) DEFAULT NULL,
 
     -- ---- LeadProsper sub-affiliate / advertiser passthrough ids ----
-    `lp_subid1`       VARCHAR(128) DEFAULT NULL,
-    `lp_subid2`       VARCHAR(128) DEFAULT NULL,
-    `lp_subid3`       VARCHAR(128) DEFAULT NULL,
-    `lp_subid4`       VARCHAR(128) DEFAULT NULL,
-    `lp_subid5`       VARCHAR(128) DEFAULT NULL,
-    `lp_subid6`       VARCHAR(128) DEFAULT NULL,
-    `adv1`            VARCHAR(128) DEFAULT NULL,
-    `adv2`            VARCHAR(128) DEFAULT NULL,
-    `adv3`            VARCHAR(128) DEFAULT NULL,
-    `adv4`            VARCHAR(128) DEFAULT NULL,
-    `adv5`            VARCHAR(128) DEFAULT NULL,
+    -- 255, matching `sub1`-`sub6`: lp_subid1-6 receive those values when the
+    -- landing URL left a slot empty (includes/leadprosper.php), so a narrower
+    -- column here would fail the insert on a sub that fitted its own column.
+    `lp_subid1`       VARCHAR(255) DEFAULT NULL,
+    `lp_subid2`       VARCHAR(255) DEFAULT NULL,
+    `lp_subid3`       VARCHAR(255) DEFAULT NULL,
+    `lp_subid4`       VARCHAR(255) DEFAULT NULL,
+    `lp_subid5`       VARCHAR(255) DEFAULT NULL,
+    `lp_subid6`       VARCHAR(255) DEFAULT NULL,
+    `adv1`            VARCHAR(255) DEFAULT NULL,
+    `adv2`            VARCHAR(255) DEFAULT NULL,
+    `adv3`            VARCHAR(255) DEFAULT NULL,
+    `adv4`            VARCHAR(255) DEFAULT NULL,
+    `adv5`            VARCHAR(255) DEFAULT NULL,
 
     -- ---- LeadProsper direct-post outcome (denormalized from leadprosper_logs
     --      for quick per-lead visibility; NULL when mode=off / no post happened) ----

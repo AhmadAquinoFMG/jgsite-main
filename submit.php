@@ -275,7 +275,11 @@ $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';        // Cloudways sits behind a
 $ip  = $xff !== '' ? trim(explode(',', $xff)[0]) : ($_SERVER['REMOTE_ADDR'] ?? '');
 $userAgent = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
 
-$canonical_host = $_SERVER['HTTP_HOST'] ?? 'https://www.jgdebtrelief.com/';
+/* Fallback for landing_page_url when the browser posted none — the no-JS native
+   POST has no funnel.js to record location.href. An absolute URL, not a bare
+   host, so the column holds one consistent shape either way. Carries no params:
+   there are none to know at this point. */
+$canonical_host = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'www.jgdebtrelief.com') . '/';
 
 $row = [
     'debt_amount'        => $debtAmount,
@@ -329,19 +333,86 @@ $row = [
     'sub3'            => $post('sub3') ?: null,
     'sub4'            => $post('sub4') ?: null,
     'sub5'            => $post('sub5') ?: null,
+    'sub6'            => $post('sub6') ?: null,
     'ef_transaction_id' => $post('ef_transaction_id') ?: null,
-    'lp_subid1'       => $post('sub1') ?: null,
-    'lp_subid2'       => $post('sub2') ?: null,
-    'lp_subid3'       => $post('sub3') ?: null,
-    'lp_subid4'       => $post('sub4') ?: null,
-    'lp_subid5'       => $post('sub5') ?: null,
+    /* Straight from ?lp_subidN= on the landing URL, NOT copied from subN. The
+       sub -> lp_subid mapping belongs to includes/leadprosper.php
+       (leadprosper_payload()), which fills only the slots the URL left empty —
+       so an explicit lp_subid wins, exactly as documented there. Reading subN
+       here instead would pre-fill every slot and make that precedence
+       unreachable, silently discarding a partner's own lp_subid value. */
+    'lp_subid1'       => $post('lp_subid1') ?: null,
+    'lp_subid2'       => $post('lp_subid2') ?: null,
+    'lp_subid3'       => $post('lp_subid3') ?: null,
+    'lp_subid4'       => $post('lp_subid4') ?: null,
+    'lp_subid5'       => $post('lp_subid5') ?: null,
+    'lp_subid6'       => $post('lp_subid6') ?: null,
     'adv1'            => $post('adv1') ?: null,
     'adv2'            => $post('adv2') ?: null,
     'adv3'            => $post('adv3') ?: null,
     'adv4'            => $post('adv4') ?: null,
     'adv5'            => $post('adv5') ?: null,
-    'landing_page_url'  => $canonical_host
+    /* The FULL landing URL as the browser saw it. It is the only server-side
+       record of the params that have no column of their own (sub7-sub10, uid),
+       so it is the last resort when attribution has to be reconstructed after
+       the fact. Clamped to the column width by the loop below — an over-length
+       value used to throw on INSERT and 500 the whole submission, and the
+       previous fix for that swapped the URL for a bare HTTP_HOST, losing every
+       param with it. */
+    'landing_page_url'  => $post('landing_page_url') ?: $canonical_host,
 ];
+
+/* ---------------------------------------------------------- clamp attribution
+   Every value above that came off the landing URL is affiliate- or ad-platform-
+   supplied free text of unbounded length: assets/js/funnel.js copies the query
+   param straight into its hidden field with no cap of its own (attribution.js's
+   MAX_LEN only bounds what THAT file writes, and it doesn't run on every path).
+
+   Left unclamped, one over-long sub value throws on INSERT under the server's
+   default STRICT_TRANS_TABLES and the catch below turns the whole submission
+   into a 500 — the lead is lost outright to a cosmetic tracking param. Truncate
+   to the column width instead: a shortened sub id is worth infinitely more than
+   a dropped lead.
+
+   Widths mirror sql/schema.sql exactly. A column added there needs its entry
+   here too, or it goes back to being able to fail an insert. */
+$attributionWidths = [
+    'utm_source' => 128, 'utm_medium' => 128, 'utm_campaign' => 128,
+    'utm_term' => 128, 'utm_content' => 128, 'utm_creative' => 128,
+    'utm_placement' => 128, 'utm_adgroup' => 128, 'utm_matchtype' => 64,
+    'gclid' => 255, 'gbraid' => 255, 'fbclid' => 255, 'fbp' => 255, 'fbc' => 255,
+    'fb_adid' => 128, 'ms_placement' => 128, 'ms_publisher' => 128,
+    'ttclid' => 255, 'subid' => 255,
+    'affid' => 64, 'oid' => 64, 'source_id' => 64,
+    'sub1' => 255, 'sub2' => 255, 'sub3' => 255,
+    'sub4' => 255, 'sub5' => 255, 'sub6' => 255,
+    'ef_transaction_id' => 128,
+    'lp_subid1' => 255, 'lp_subid2' => 255, 'lp_subid3' => 255,
+    'lp_subid4' => 255, 'lp_subid5' => 255, 'lp_subid6' => 255,
+    'adv1' => 255, 'adv2' => 255, 'adv3' => 255, 'adv4' => 255, 'adv5' => 255,
+    'landing_page_url' => 512,
+];
+
+foreach ($attributionWidths as $field => $max) {
+    if (($row[$field] ?? null) === null) {
+        continue;
+    }
+    // mb_substr where available: substr() would cut mid-codepoint and store
+    // mojibake (or fail utf8mb4 validation) on a multi-byte campaign name.
+    $value = (string) $row[$field];
+    $clamped = function_exists('mb_substr')
+        ? mb_substr($value, 0, $max, 'UTF-8')
+        : substr($value, 0, $max);
+
+    if ($clamped !== $value) {
+        // Names and lengths only — the value itself is affiliate data.
+        app_log('warning', 'lead', 'attribution_truncated', [
+            'rid' => $rid, 'field' => $field, 'was' => strlen($value), 'max' => $max,
+        ]);
+    }
+
+    $row[$field] = $clamped;
+}
 
 /* -------------------------------------------------------------- persist */
 try {
