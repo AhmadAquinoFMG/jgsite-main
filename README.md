@@ -4,7 +4,8 @@ A PHP clone of the look & feel of `https://www.jgwentworth.com/ds-aff-lp-2`
 (originally WordPress + Elementor + Gravity Forms). Plain-PHP, no-framework,
 no-Composer rebuild of the multi-step debt-relief lead funnel, now with a real
 backend: server-side validation, lead storage in MySQL, TCPA proof-of-consent
-capture, Firebase phone (OTP) verification, and an Equifax credit-report pull.
+capture, Firebase phone (OTP) verification, and a JG Wentworth Debt Resolution
+scoring call that returns the consumer's verified total debt.
 
 ## Run locally
 
@@ -32,16 +33,17 @@ complete. Set `APP_ENV=production` on staging/live so the phone gate is enforced
 | File | Purpose |
 |------|---------|
 | `index.php` | Page markup + the multi-step form. Pulls all copy/options from `config.php`. |
-| `config.php` | Single source of content **and** integration config (DB, Firebase, compliance, Equifax, LeadProsper, Everflow), all fed by a tiny built-in `.env` reader. |
-| `submit.php` | Lead endpoint: server-side validation → Firebase token verify → compliance/attribution capture → insert → Equifax pull → LeadProsper post. Returns JSON. |
+| `config.php` | Single source of content **and** integration config (DB, Firebase, compliance, JG scoring, LeadProsper, Everflow), all fed by a tiny built-in `.env` reader. |
+| `submit.php` | Lead endpoint: server-side validation → Firebase token verify → compliance/attribution capture → insert → JG scoring call → LeadProsper post. Returns JSON. |
 | `includes/db.php` | Lazy PDO singleton (MySQL/MariaDB). |
 | `includes/firebase.php` | Verifies the Firebase phone-auth ID token (native openssl, no Admin SDK). |
 | `includes/compliance.php` | TrustedForm + Jornaya (LeadiD) tags, rendered into `<head>` when configured. |
-| `includes/equifax.php` | Equifax Consumer Credit Report client + logger (`off`/`mock`/`live` modes). |
+| `includes/jgscoring.php` | JG Wentworth DR intake client + logger (`off`/`mock`/`live` modes). Source of verified total debt. |
+| `includes/equifax.php` | Equifax Consumer Credit Report client + logger. **Dormant** — kept on disk, never called. |
 | `includes/leadprosper.php` | LeadProsper direct-post client + logger (`off`/`test`/`live` modes). |
 | `includes/buyers.php` | Buyer registry lookup — the matched buyer's logo and CALL NOW number (`buyers.did`) for the thank-you page. |
 | `assets/js/tracking/everflow.js` | Everflow click attribution (lazy-loaded SDK + cookie watcher); conversion fires client-side on `thank-you.php` via an Everflow campaign trigger. |
-| `sql/schema.sql` | `leads` + `equifax_logs` + `leadprosper_logs` table definitions. |
+| `sql/schema.sql` | `leads` + `jgscoring_logs` + `leadprosper_logs` + (legacy) `equifax_logs` table definitions. |
 | `includes/header.php` / `footer.php` | **Funnel** header/footer. |
 | `includes/site-header.php` / `site-footer.php` | **Main-site** header/footer (non-funnel pages). |
 | `assets/css/style.css` | All styling (Poppins, brand greens `#006846`/`#1B976A`, teal accent). |
@@ -105,18 +107,31 @@ instead of coming back as a 422 from the final Submit.
   Requires the per-buyer mapping in the buyer's setup, and LeadProsper documents it
   as working only for **exclusive leads sold to one buyer**.
 
-  > **Removed:** the funnel used to post directly to JG's own intake endpoint
-  > (`leadscoring.jgwentworth.com/api/leads/dr/`) for this figure. That endpoint is
-  > JG's *lead intake*, not a scoring lookup — every call created a real lead — and
-  > JG is also a buyer on the LeadProsper campaign, so running both delivered the
-  > same consumer twice and LeadProsper's copy (the one that pays) came back
-  > **"duplicated by buyer"**. The client and its config were deleted; JG is reached
-  > as an LP buyer only. The `leads.jgw_*` columns and the `jgscoring_logs` table
-  > remain in the schema for historical rows — only `jgw_total_debt` is still
-  > written, now holding the buyer figure echoed back by LeadProsper.
+  This is now the **fallback**, not the primary source — see JG Lead Scoring
+  below. It still earns its keep for the leads where our own direct call failed
+  (JG down, token expired) and a buyer answered anyway.
+
+- **JG Wentworth Lead Scoring (primary verified total debt)** —
+  `includes/jgscoring.php` posts the stored lead to
+  `https://leadscoring.jgwentworth.com/api/leads/dr/` and keeps
+  `total_debt_included` from the response, along with `prequalified`, `accepted`,
+  `disposition`, `credit_rating` and JG's own lead id. That figure is what rides
+  on the LeadProsper post, what `leads.total_debt` records, and what the
+  thank-you savings math uses. Best-effort; every attempt is logged to
+  `jgscoring_logs`. Ships in `off` mode.
+
+  > ⚠ **This endpoint is JG's lead INTAKE, not a lookup — every `live` call
+  > creates a real lead at JG.** The integration was removed once for exactly
+  > this reason: JG also sits as a buyer on LeadProsper campaign 35954, so
+  > running both delivered the same consumer twice and LeadProsper's copy (the
+  > one that pays) came back **"duplicated by buyer"**. Before setting
+  > `JGSCORING_MODE=live`, remove JG as a buyer on that campaign — or accept the
+  > duplicate deliberately. `JGSCORING_MODE=mock` exercises the whole pipeline
+  > (payload build, `jgscoring_logs` insert, `leads.jgw_*` update, LeadProsper
+  > hand-off) with a synthetic response and no network call.
 
 - **LeadProsper** — direct-post lead distribution (`includes/leadprosper.php`), posted
-  after the lead is stored and after the Equifax pull so the verified
+  after the lead is stored and after the JG scoring call so the verified
   total debt can be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
   mode — set `LEADPROSPER_MODE=test` to validate field mapping without billing/delivering,
   `live` once you're ready.
@@ -164,13 +179,14 @@ POST if JS is unavailable). `submit.php`:
 2. **Captures** TCPA artifacts (TrustedForm URL, Jornaya token, consent snapshot +
    timestamp) and attribution (IP, user-agent, UTM params, gclid).
 3. **Inserts** the lead into the `leads` table.
-4. **Pulls an Equifax credit report** and logs the request/response to
-   `equifax_logs` — best-effort ("log & continue"): an Equifax failure is logged
-   but never blocks the lead. **Note:** the funnel no longer collects an SSN, so
-   the pull currently runs without one (it won't return a real report until an
-   SSN — or another identifier the contract accepts — is supplied).
+4. **Scores the lead with JG Wentworth** (`POST /api/leads/dr/`) and logs the
+   request/response to `jgscoring_logs` — best-effort ("log & continue"): a JG
+   failure is logged but never blocks the lead. The response's
+   `total_debt_included` becomes `leads.total_debt` and the `total_debt` posted to
+   LeadProsper; the rest of the envelope lands in `leads.jgw_*`. No SSN is
+   involved — `ok_to_pull_credit: true` authorises the pull on JG's side.
 5. **Posts to LeadProsper** and logs the request/response to `leadprosper_logs` —
-   best-effort, same "log & continue" contract as Equifax. Ships in `off` mode.
+   best-effort, same "log & continue" contract as the JG call. Ships in `off` mode.
 6. **Builds the redirect URL server-side** (`includes/redirect.php`) and returns
    `{ok:true, redirect:"…"}`; the client follows that URL rather than hardcoding a
    destination. The consumer's answers only reach the query string after passing
@@ -191,31 +207,85 @@ POST if JS is unavailable). `submit.php`:
 > to what the destination genuinely needs, and prefer a destination that accepts
 > them over POST if one exists.
 
-> ⚠ **Compliance / PII.** With `EQUIFAX_REDACT=0`, `equifax_logs.request_body`
-> stores the full SSN and `response_body` stores the raw credit report in
-> cleartext. Restrict DB access, set a retention policy, and consider
-> `EQUIFAX_REDACT=1` / column encryption before production.
+> ⚠ **Compliance / PII.** `jgscoring_logs.request_body` stores the consumer's
+> full identity (name, DOB, address, email, phone) and the `ok_to_pull_credit`
+> authorisation, in cleartext. The API token is not in the body — it travels in
+> the `Authorization` header. Restrict DB access and set a retention policy. The
+> legacy `equifax_logs` rows are worse (full SSN + raw credit report) and are the
+> first candidate for purging.
 
-The Equifax integration ships in `off` mode. Set `EQUIFAX_MODE=mock` to exercise
-the logging pipeline without credentials, or `live` for the real OAuth2 +
-credit-report call — **confirm the endpoint paths and request schema in
-`includes/equifax.php` against your Equifax contract first.**
+### Testing the JG scoring call
 
-**Verified total debt is unsecured debt only, with student loans excluded.**
-Equifax has no request-level account-type filter, so the report comes back
-complete and `includes/equifax.php` classifies each trade line when it computes
-the total: credit cards, charge accounts, unsecured notes/lines of credit,
-personal loans and medical debt count; mortgages, HELOCs, autos, leases,
-timeshares and every student/education loan are dropped. Classification is
-fail-closed — a trade line that can't be positively identified as unsecured
-doesn't count. This is enforced in the production pull and cannot be changed to
-all-debt through an environment setting, so the `total_debt` sent to LeadProsper
-remains unsecured-only.
+`bin/jgscoring-probe.php` fires **one** scoring call from the CLI and prints the
+request, the raw response and the parsed figures — no funnel submission, no
+Turnstile, no database writes. Use it to validate credentials and payload shape
+in isolation.
+
+```bash
+php bin/jgscoring-probe.php                    # mock: no network, no lead
+php bin/jgscoring-probe.php --live             # ⚠ REAL call, REAL lead at JG
+php bin/jgscoring-probe.php --live --show-request
+```
+
+`--live` is mandatory to reach the network, because there is no dry run: the
+endpoint is JG's intake, so every live call creates a lead on their side. The
+probe sends an obviously-fake identity (`Qatest Fmgprobe`) so it is
+unmistakable in JG's CRM; override any field with `JGPROBE_*` env vars.
+
+A successful call answers **`201 Created`** (not 200) with JG's own lead id —
+the client accepts any 2xx, which matters here.
+
+Two responses that look like failures but aren't:
+
+- **`{"detail":"Authentication credentials were not provided."}`** — JG's API is
+  Django REST Framework, and its `TokenAuthentication` backend requires the
+  keyword prefix. Set `JGSCORING_AUTH_SCHEME=Token`; a bare 40-char token with
+  no prefix produces exactly this 401.
+- **`"disposition":"Rejected - Lead Quality"` with `total_debt_included: null`**
+  — the call worked; JG screened the identity out. The probe's default identity
+  (`Qatest Fmgprobe`, `1 Test Street`, a reserved `555` phone) is rejected by
+  design, which is what makes it safe for testing credentials: it proves auth
+  without putting a usable lead into JG's pipeline. To exercise the happy path
+  and see a real `total_debt_included`, override the identity with `JGPROBE_*`
+  env vars using details that pass a quality screen, or ask JG for a whitelisted
+  QA identity. Do NOT reuse a real consumer's details from a past payload — that
+  posts a duplicate of an actual person.
+
+A rejection is handled, not an error: `total_debt_included: null` parses to
+`NULL` rather than `0`, so submit.php posts `total_debt=0` with
+`softpull_returned=0` and a rejected lead never looks like a genuine zero
+balance.
+
+Full-pipeline testing — `jgscoring_logs` insert, `leads.jgw_*` update, the
+LeadProsper hand-off — needs a real submission. `JGSCORING_MODE=mock` runs that
+whole path with a synthetic response and no network call.
+
+> ⚠ The QA test mode (`?test=fmg_true`, `TEST_MODE_AFFIDS`) only downgrades the
+> **LeadProsper** post to `lp_action=test`. It does **not** gate the JG call, so
+> a QA submission with `JGSCORING_MODE=live` still creates a real lead at JG.
+
+### Verified total debt
+
+`total_debt_included` from JG's response is the verified figure. It is **JG's own
+underwriting** of the consumer's settleable debt — their scope rule, applied on
+their side, not ours. (The Equifax pull it replaced computed an unsecured-only
+total locally, excluding student loans; historical rows carry that figure and are
+distinguishable by `leads.total_debt_source = 'equifax'`.)
+
+Where each figure lands:
+
+| Column | Meaning |
+| --- | --- |
+| `leads.total_debt` | What we **sent** to LeadProsper. InCharge Debt Solutions qualifies on it, so it is never overwritten after the post. |
+| `leads.jgw_total_debt` | JG's `total_debt_included` from our own direct call. Only filled from a buyer's echoed figure when that direct call returned nothing. |
+| `leads.total_debt_source` | `jgw` (our direct call), `buyer` (LP echo fallback), `equifax` (historical), or NULL. |
 
 The visitor's self-reported debt range is also sent separately as
-`self_assessed_debt`. It is never substituted into `total_debt`: when verified
-unsecured debt is unavailable, `total_debt` is omitted while
-`self_assessed_debt` remains present.
+`self_assessed_debt`. It is never substituted into `total_debt`: when no verified
+figure is available `total_debt` posts as `0` while `self_assessed_debt` remains
+present, so an estimate is never presented as a verified number. The
+`softpull_returned` tracking flag reflects our own JG call specifically — a
+buyer's echoed figure can't make a failed call look successful.
 
 The confirmation page's hold-timer length is configurable in `config.php` →
 `['prequal']` (`hold_minutes`). The CTA phone number is not in config at all.
@@ -252,7 +322,7 @@ value on every migration run.
 ## Configuration (`.env`)
 
 See `.env.example` for the full list. Groups: `GOOGLE_PLACES_KEY`; `APP_ENV`;
-database (`DB_*`); compliance (`TRUSTEDFORM_ENABLED`, `JORNAYA_*`); Equifax
-(`EQUIFAX_*`); LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
+database (`DB_*`); compliance (`TRUSTEDFORM_ENABLED`, `JORNAYA_*`); JG scoring
+(`JGSCORING_*`); LeadProsper (`LEADPROSPER_MODE`, `LP_*`); Everflow
 (`EVERFLOW_*`); QA test mode (`TEST_MODE_TOKEN`, `TEST_MODE_AFFIDS`,
 `TEST_MODE_AFFID`). `.env` is gitignored.

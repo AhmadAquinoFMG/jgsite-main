@@ -4,8 +4,8 @@
  * LeadProsper direct-post integration.
  *
  * submit.php calls leadprosper_submit() AFTER the lead is stored (and after the
- * Equifax pull, so the verified total debt is available). Best-effort — same
- * "log & continue" contract as includes/equifax.php: whatever happens is
+ * JG scoring call, so the verified total debt is available). Best-effort — same
+ * "log & continue" contract as includes/jgscoring.php: whatever happens is
  * returned as a structured result the caller logs, and the lead submission
  * still succeeds regardless of LeadProsper's outcome.
  *
@@ -35,14 +35,15 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
     }
 
     /**
-     * Build the LeadProsper payload from the stored lead row, the Equifax-verified
+     * Build the LeadProsper payload from the stored lead row, the JG-verified
      * total debt (if any), and first-touch tracking params. Empty values are
      * dropped so optional fields aren't posted blank.
      *
      * @param array    $cfg       Full config array (reads $cfg['leadprosper']).
      * @param array    $row       The exact row inserted into `leads` (submit.php's $row).
      * @param array    $tracking  Flat map of tracking params (affid, oid, ef_transaction_id, …).
-     * @param int|null $totalDebt Equifax-verified total debt, or null if no pull/failed.
+     * @param int|null $totalDebt JG-verified total debt, or null if the call was
+     *                            skipped/failed or returned no figure.
      */
     function leadprosper_payload(array $cfg, array $row, array $tracking, ?int $totalDebt): array
     {
@@ -71,12 +72,13 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             'state'                => strtoupper((string) ($row['state'] ?? '')),
             'zip_code'             => $row['zip'] ?? '',
             'ip_address'           => $row['ip'] ?? '',
-            /* Always present: submit.php passes 0 when the Equifax pull returned
-               no figure, so this field is never absent from a post. Read it with
-               softpull_returned, which is what distinguishes a verified 0 from
-               "we don't know" — the funnel collects no SSN, so an empty pull is
-               routine, not exceptional. self_assessed_debt is sent as a separate
-               field, never substituted into total_debt.
+            /* Always present: submit.php passes 0 when the JG scoring call
+               returned no figure, so this field is never absent from a post. Read
+               it with softpull_returned, which is what distinguishes a verified 0
+               from "we don't know" — a lead that doesn't prequalify legitimately
+               has no total_debt_included, so an empty result is routine, not
+               exceptional. self_assessed_debt is sent as a separate field, never
+               substituted into total_debt.
                (array_filter below drops a '' — and would NOT drop a 0.) */
             'total_debt'           => $totalDebt ?? 0,
             'self_assessed_debt'   => $selfAssessedDebt,
@@ -87,11 +89,10 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             'tcpa_text'            => $row['consent_text'] ?? '',
             'user_agent'           => $row['user_agent'] ?? '',
             'landing_page_url'     => $row['landing_page_url'] ?? '',
-            // NOT sent — no data source in this funnel (it doesn't ask these
-            // questions): 'gender' and 'credit_rating' (no score bucket derived
-            // from the Equifax pull yet). Add a gender question, or derive
-            // credit_rating from $totalDebt's sibling equifax score, if these
-            // need to start populating.
+            // NOT sent: 'gender' (the funnel doesn't ask) and 'credit_rating'
+            // (not plumbed through — JG's response DOES carry one, stored as
+            // leads.jgw_credit_rating, so wiring it here is now a matter of
+            // passing it in alongside $totalDebt rather than of missing data).
         ];
 
         // Post as a test when the global mode is 'test' OR this specific visit is

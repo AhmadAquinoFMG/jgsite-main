@@ -9,10 +9,15 @@
  *   3. Inserts one row into `leads`.
  *   4. Returns JSON: {ok:true} or {ok:false, errors:{field:code}}.
  *
- * After storing, best-effort (log & continue) side calls, in this order: an
- * Equifax credit pull (includes/equifax.php), then a LeadProsper direct-post
- * (includes/leadprosper.php). The order matters — the Equifax total-debt figure
- * feeds the post. Neither can fail the submission; the lead is already stored.
+ * After storing, best-effort (log & continue) side calls, in this order: JG
+ * Wentworth's Debt Resolution scoring call (includes/jgscoring.php), then a
+ * LeadProsper direct-post (includes/leadprosper.php). The order matters — JG's
+ * total_debt_included is the verified total debt that feeds the post. Neither
+ * can fail the submission; the lead is already stored.
+ *
+ * The Equifax credit pull that used to occupy the first slot is GONE from this
+ * pipeline; includes/equifax.php stays on disk but dormant (config
+ * equifax.mode=off) and equifax_pull() is never called.
  */
 
 declare(strict_types=1);
@@ -23,8 +28,9 @@ header('Content-Type: application/json; charset=utf-8');
 $cfg = require __DIR__ . '/config.php';
 require __DIR__ . '/includes/logger.php';
 require __DIR__ . '/includes/db.php';
-require __DIR__ . '/includes/equifax.php';
 require __DIR__ . '/includes/leadprosper.php';
+// After leadprosper.php: jgscoring_payload() reuses leadprosper_debt_bucket_amount().
+require __DIR__ . '/includes/jgscoring.php';
 require __DIR__ . '/includes/turnstile.php';
 require __DIR__ . '/includes/redirect.php';
 require __DIR__ . '/includes/zapier.php';
@@ -54,7 +60,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
  * sanitiser in assets/js/funnel.js (see the long note there).
  *
  * A name pasted as "𝓈𝒶𝓂𝓅𝓁𝑒" is Mathematical Alphanumeric Symbols, not a font,
- * and would otherwise be stored and forwarded to Equifax/LeadProsper verbatim.
+ * and would otherwise be stored and forwarded to JG/LeadProsper verbatim.
  * NFKC maps every such variant (𝓈, ｓ, ⓢ) back to "s" and leaves genuinely
  * accented letters alone, so José stays José.
  *
@@ -113,7 +119,7 @@ if ($isTestLead) {
 
 /* --------------------------------------------------------- bot detection */
 // Aggregates all three signals below (honeypot / timing / Turnstile). When
-// set, the lead is still stored (flagged) but never reaches Equifax/LeadProsper,
+// set, the lead is still stored (flagged) but never reaches JG/LeadProsper,
 // and the response still looks like a normal success — see the bottom of this
 // file and docs/bot-protection.md for the full rationale.
 $botReason = null;
@@ -251,10 +257,10 @@ if ($phoneRaw === '') {
     $phoneE164 = '+1' . $phoneDigits;
 }
 
-// SSN is no longer collected in the funnel. If a value is ever posted (e.g. a
-// future re-add), pass its digits through to Equifax; otherwise this is empty
-// and the credit pull runs without an SSN. Never validated or stored on the lead.
-$ssnDigits = preg_replace('/\D/', '', $post('ssn'));
+// NOTE: no SSN anywhere in this file by design. The funnel doesn't collect one
+// and nothing downstream wants one — JG's DR intake takes identity plus
+// ok_to_pull_credit and runs the pull on their side. (The dormant Equifax client
+// still accepts one; restoring that step means re-adding the capture too.)
 
 // Radio answers must match a configured option.
 if (!in_array($debtAmount, $cfg['debt_options'], true))              $errors['debt_amount']    = 'invalid_option';
@@ -448,16 +454,21 @@ try {
     exit;
 }
 
-/* ---------------------------------------- Equifax credit report (best-effort)
-   Pull the report and log the request/response to equifax_logs. This is "log &
-   continue": ANY failure here (Equifax down, bad config, DB write) is swallowed
-   so the lead — already stored — still succeeds. */
+/* -------------------------------------- JG Wentworth DR scoring (best-effort)
+   Post the stored lead to JG's Debt Resolution intake and log the
+   request/response to jgscoring_logs. This is "log & continue": ANY failure
+   here (JG down, bad token, DB write) is swallowed so the lead — already
+   stored — still succeeds.
+
+   This is the step that REPLACED the Equifax credit pull. The figure we want is
+   JG's own `total_debt_included`: their underwritten settleable total, produced
+   by the credit pull `ok_to_pull_credit` authorises on their side. */
 /* Two separate figures, deliberately:
-     $equifaxTotalDebt — OUR pull's unsecured total (drives softpull_returned).
-     $verifiedTotalDebt — the number actually posted downstream. Always the
-       Equifax one; kept distinct so a future verified source can replace it
-       without disturbing softpull_returned. */
-$equifaxTotalDebt  = null;
+     $jgwTotalDebt      — JG's own verified total (drives softpull_returned).
+     $verifiedTotalDebt — the number actually posted downstream. Currently
+       always the JG one; kept distinct so another verified source can replace
+       it without disturbing softpull_returned. */
+$jgwTotalDebt      = null;
 $verifiedTotalDebt = null;
 /* A BUYER's own verified figure, echoed back through the LeadProsper response.
    Kept separate from $verifiedTotalDebt because it arrives WITH that response —
@@ -471,90 +482,107 @@ $buyerTotalDebt = null;
 $acceptedBuyer = null;
 if ($botReason === null) {
     try {
-        $eqLead = array_intersect_key($row, array_flip(
-            ['first_name', 'last_name', 'street', 'city', 'state', 'zip', 'email']
-        ));
-        $eqLead['dob'] = $dobIso;
-
-        $eq = equifax_pull($cfg, $eqLead, $ssnDigits);
-        if (empty($eq['skip'])) {
+        $jgw = jgscoring_score($cfg, $row);
+        if (empty($jgw['skip'])) {
             $log = [
                 'lead_id'         => $leadId,
-                'mode'            => $eq['mode'],
-                'request_url'     => $eq['request_url'],
-                'request_body'    => $eq['request_body'],
-                'response_status' => $eq['response_status'],
-                'response_body'   => $eq['response_body'],
-                'score'           => $eq['score'],
-                'decision'        => $eq['decision'],
-                'error'           => $eq['error'],
-                'duration_ms'     => $eq['duration_ms'],
+                'mode'            => $jgw['mode'],
+                'request_body'    => $jgw['request_body'],
+                'response_status' => $jgw['response_status'],
+                'response_body'   => $jgw['response_body'],
+                'total_debt'      => $jgw['total_debt'],
+                'prequalified'    => $jgw['prequalified'],
+                'accepted'        => $jgw['accepted'],
+                'credit_rating'   => $jgw['credit_rating'],
+                'jgw_id'          => $jgw['jgw_id'],
+                'external_id'     => $jgw['external_id'],
+                'error'           => $jgw['error'],
+                'duration_ms'     => $jgw['duration_ms'],
             ];
             $cols = array_keys($log);
-            $sql  = 'INSERT INTO equifax_logs (' . implode(', ', $cols) . ') VALUES (:'
+            $sql  = 'INSERT INTO jgscoring_logs (' . implode(', ', $cols) . ') VALUES (:'
                 . implode(', :', $cols) . ')';
             db($cfg)->prepare($sql)->execute($log);
 
-            // Denormalize the outcome onto the lead row for quick per-lead visibility
-            // (the full request/response bodies stay in equifax_logs). No SSN here.
-            db($cfg)->prepare(
-                'UPDATE leads SET equifax_mode = :mode, equifax_status = :status,
-                    equifax_score = :score, equifax_decision = :decision,
-                    equifax_error = :error, equifax_pulled_at = :pulled_at,
-                    total_debt = :total_debt
-             WHERE id = :id'
-            )->execute([
-                'mode'       => $eq['mode'],
-                'status'     => $eq['response_status'],
-                'score'      => $eq['score'],
-                'decision'   => $eq['decision'],
-                'error'      => $eq['error'],
-                'pulled_at'  => date('Y-m-d H:i:s'),
-                'total_debt' => $eq['total_debt'] ?? null,
-                'id'         => $leadId,
-            ]);
-            $equifaxTotalDebt  = is_numeric($eq['total_debt'] ?? null) ? (int) $eq['total_debt'] : null;
-            $verifiedTotalDebt = $equifaxTotalDebt;
+            $jgwTotalDebt      = $jgw['total_debt'];
+            $verifiedTotalDebt = $jgwTotalDebt;
 
-            // Ops log: outcome only — no SSN, no request/response bodies (those live
-            // in equifax_logs). Correlated to the lead via rid + lead_id.
-            app_log($eq['error'] ? 'error' : 'info', 'equifax', 'pull', [
-                'rid'      => $rid,
-                'lead_id'  => $leadId,
-                'mode'     => $eq['mode'],
-                'status'   => $eq['response_status'],
-                'score'    => $eq['score'],
-                'duration' => $eq['duration_ms'],
-                'error'    => $eq['error'],
+            /* Denormalize the outcome onto the lead row for quick per-lead
+               visibility (the full request/response bodies stay in
+               jgscoring_logs). leads.total_debt is what we are about to SEND to
+               LeadProsper, so it is written here rather than in the post below —
+               it must survive even if that post then fails. */
+            db($cfg)->prepare(
+                'UPDATE leads SET jgw_mode = :mode, jgw_status = :status,
+                    jgw_total_debt = :total_debt, jgw_prequalified = :prequalified,
+                    jgw_accepted = :accepted, jgw_disposition = :disposition,
+                    jgw_credit_rating = :credit_rating, jgw_external_id = :external_id,
+                    jgw_error = :error, jgw_scored_at = :scored_at,
+                    total_debt = :lead_total_debt
+                 WHERE id = :id'
+            )->execute([
+                'mode'            => $jgw['mode'],
+                'status'          => $jgw['response_status'],
+                'total_debt'      => $jgw['total_debt'],
+                'prequalified'    => $jgw['prequalified'],
+                'accepted'        => $jgw['accepted'],
+                'disposition'     => $jgw['disposition'],
+                'credit_rating'   => $jgw['credit_rating'],
+                'external_id'     => $jgw['external_id'],
+                'error'           => $jgw['error'],
+                'scored_at'       => date('Y-m-d H:i:s'),
+                'lead_total_debt' => $jgw['total_debt'],
+                'id'              => $leadId,
+            ]);
+
+            // Ops log: outcome only — no request/response bodies (those live in
+            // jgscoring_logs). Correlated to the lead via rid + lead_id.
+            app_log($jgw['error'] ? 'error' : 'info', 'jgscoring', 'score', [
+                'rid'           => $rid,
+                'lead_id'       => $leadId,
+                'mode'          => $jgw['mode'],
+                'status'        => $jgw['response_status'],
+                'total_debt'    => $jgw['total_debt'],
+                'prequalified'  => $jgw['prequalified'],
+                'accepted'      => $jgw['accepted'],
+                'disposition'   => $jgw['disposition'],
+                'credit_rating' => $jgw['credit_rating'],
+                'jgw_id'        => $jgw['jgw_id'],
+                'program_len'   => $jgw['estimated_program_length'],
+                'monthly_pmt'   => $jgw['estimated_monthly_payment'],
+                'duration'      => $jgw['duration_ms'],
+                'error'         => $jgw['error'],
             ]);
         } else {
-            app_log('debug', 'equifax', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
+            app_log('debug', 'jgscoring', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
         }
     } catch (Throwable $ex) {
-        app_log('error', 'equifax', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
+        app_log('error', 'jgscoring', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
     }
 }
 
 /* ---------------------------------------- LeadProsper direct-post (best-effort)
    Post the lead and log the request/response to leadprosper_logs. Same "log &
-   continue" contract as Equifax above — a forwarding failure is logged but
-   never surfaced to the visitor; the lead is already stored.
+   continue" contract as the JG scoring call above — a forwarding failure is
+   logged but never surfaced to the visitor; the lead is already stored.
 
-   `total_debt` on this post is $verifiedTotalDebt — our Equifax unsecured
-   total, and nothing else: when the pull returns no figure the field is posted as
-   0 rather than backfilled from the self-reported bucket, which would present an
-   estimate as a verified number. The 0 is only for this outbound post; internally
+   `total_debt` on this post is $verifiedTotalDebt — JG's verified
+   total_debt_included, and nothing else: when that call returns no figure the
+   field is posted as 0 rather than backfilled from the self-reported bucket,
+   which would present an estimate as a verified number. The 0 is only for this
+   outbound post; internally
    $verifiedTotalDebt stays null so softpull_returned, leads.total_debt_source and
    the consumer-facing savings math can still tell "no verified figure" apart from
    a genuine zero balance. */
 if ($botReason === null) {
     try {
         $tracking = array_intersect_key($row, array_flip(LEADPROSPER_TRACKING_PARAMS));
-        // Not a posted field — reflects whether OUR OWN Equifax pull above (not an
-        // upstream one, and not a buyer's) returned a usable total. Kept on
-        // $equifaxTotalDebt for exactly that reason: another source landing in
-        // $verifiedTotalDebt must not make a failed softpull look successful.
-        $tracking['softpull_returned'] = $equifaxTotalDebt !== null ? '1' : '0';
+        // Not a posted field — reflects whether OUR OWN softpull (the JG scoring
+        // call above, whose ok_to_pull_credit authorises it) returned a usable
+        // total. Kept on $jgwTotalDebt for exactly that reason: another source
+        // landing in $verifiedTotalDebt must not make a failed softpull look
+        // successful.
+        $tracking['softpull_returned'] = $jgwTotalDebt !== null ? '1' : '0';
         // Not a posted field either, and not part of LEADPROSPER_TRACKING_PARAMS,
         // so it is never sent as a campaign field — it only tells
         // includes/leadprosper.php to post this one as lp_action=test.
@@ -591,12 +619,14 @@ if ($botReason === null) {
                 'id'        => $leadId,
             ]);
 
-            /* A buyer-returned verified figure (e.g. JG's total_debt_included,
-               echoed back by LeadProsper's supplier-API-response feature) beats our
-               Equifax total for OUR OWN use: it's the buyer's own underwriting of
-               this consumer, obtained without a second delivery. Recorded, never
-               re-posted — the LeadProsper post already happened by this point,
-               which is exactly why it's safe. */
+            /* A buyer-returned verified figure, echoed back by LeadProsper's
+               supplier-API-response feature. Now a FALLBACK, not an upgrade: we
+               call JG directly, so $jgwTotalDebt is already JG's own underwriting
+               and an echoed copy adds nothing. It still earns its keep for the
+               leads where our direct call failed (JG down, token expired) and a
+               buyer answered anyway. Recorded, never re-posted — the LeadProsper
+               post already happened by this point, which is exactly why it's
+               safe. */
             if ($lp['buyer_total_debt'] !== null) {
                 $buyerTotalDebt = $lp['buyer_total_debt'];
             }
@@ -614,21 +644,23 @@ if ($botReason === null) {
             }
 
             /* total_debt_source describes the figure the CONSUMER-facing math and
-               our records use — 'buyer' when a buyer returned one, else 'equifax'.
+               our records use — 'jgw' when our own direct JG call produced it,
+               'buyer' only when it didn't and a buyer's echo filled the gap.
                leads.total_debt itself stays as what we SENT, so the audit trail of
                what InCharge was told survives.
 
-               leads.jgw_total_debt keeps its name for history: it dates from the
-               removed direct JG scoring call, and now holds whichever buyer's
-               verified figure LeadProsper echoed back. */
+               COALESCE order matters and is the reverse of the old one: the JG
+               step above already wrote jgw_total_debt, so the echo must only fill
+               a NULL. Passing the echo first would let a buyer's number overwrite
+               the direct answer it is merely a fallback for. */
             if ($buyerTotalDebt !== null || $verifiedTotalDebt !== null) {
                 db($cfg)->prepare(
-                    'UPDATE leads SET jgw_total_debt = COALESCE(:buyer_debt, jgw_total_debt),
+                    'UPDATE leads SET jgw_total_debt = COALESCE(jgw_total_debt, :buyer_debt),
                         total_debt_source = :source
                      WHERE id = :id'
                 )->execute([
                     'buyer_debt' => $buyerTotalDebt,
-                    'source'     => $buyerTotalDebt !== null ? 'buyer' : 'equifax',
+                    'source'     => $jgwTotalDebt !== null ? 'jgw' : ($buyerTotalDebt !== null ? 'buyer' : null),
                     'id'         => $leadId,
                 ]);
             }
@@ -655,15 +687,15 @@ if ($botReason === null) {
 
 /* ---------------------------------------- Zapier lead push (best-effort)
    Posts the lead so the CallGrid call webhook can be joined back to it on the
-   caller's phone number. Runs after the Equifax pull so the verified total debt
-   rides along, and outside the bot guard's block for the same reason the rest
+   caller's phone number. Runs after the JG scoring call so the verified total
+   debt rides along, and outside the bot guard's block for the same reason the rest
    of this file skips suspected bots — see below.
 
    Same log & continue contract as the two steps above: a Zapier outage must
    never cost us a lead that is already stored. */
 if ($botReason === null) {
     try {
-        $zap = zapier_send_lead($cfg, $row, $leadId, $buyerTotalDebt ?? $verifiedTotalDebt);
+        $zap = zapier_send_lead($cfg, $row, $leadId, $verifiedTotalDebt ?? $buyerTotalDebt);
         if ($zap['skip']) {
             app_log('debug', 'zapier', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
         } else {
@@ -682,10 +714,11 @@ if ($botReason === null) {
 
 /* ---------------------------------------- estimated savings (thank-you page)
    40% of the best debt figure we have, in descending order of authority: the
-   buyer's own verified total (JG's total_debt_included, returned through
-   LeadProsper), then our Equifax-verified unsecured total, then the self-reported
-   bucket estimate (leadprosper_debt_bucket_amount()). */
-$debtForConsumer  = $buyerTotalDebt ?? $verifiedTotalDebt;
+   verified total from our own JG scoring call (total_debt_included), then a
+   buyer's figure echoed back through LeadProsper for the leads where that call
+   failed, then the self-reported bucket estimate
+   (leadprosper_debt_bucket_amount()). */
+$debtForConsumer  = $verifiedTotalDebt ?? $buyerTotalDebt;
 $debtForSavings   = $debtForConsumer ?? leadprosper_debt_bucket_amount((string) $row['debt_amount']);
 $estimatedSavings = (int) round($debtForSavings * 0.4);
 

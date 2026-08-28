@@ -14,9 +14,9 @@ All three signals feed one variable in `submit.php`: `$botReason` (`null`, or on
 
 - The lead **is still stored** in `leads` (flagged `bot_suspected = 1`, `bot_reason =
   '<reason>'`) — so you get an audit trail and can see attack volume/patterns.
-- The lead **never reaches Equifax or LeadProsper** — those two best-effort blocks in
+- The lead **never reaches JG or LeadProsper** — those two best-effort blocks in
   `submit.php` get gated on `if (!$botReason)`, so a caught bot lead is never pulled
-  against Equifax or delivered/billed to LeadProsper.
+  against JG or delivered/billed to LeadProsper.
 - The HTTP response is **always `{ok:true}`**, exactly like a real success, and the
   browser still redirects to `thank-you.php`. This is the honeypot trap: a bot (or a
   human attacker probing the form) sees a normal "success" and gets no signal that
@@ -78,7 +78,7 @@ validation:
 ```php
 /* --------------------------------------------------------- bot detection */
 // Aggregates all three signals below (honeypot / timing / Turnstile). When
-// set, the lead is still stored (flagged) but never reaches Equifax/LeadProsper,
+// set, the lead is still stored (flagged) but never reaches JG/LeadProsper,
 // and the response still looks like a normal success — see the bottom of this
 // file and docs/bot-protection.md for the full rationale.
 $botReason = null;
@@ -233,8 +233,8 @@ the token exists.
 
 ### 3f. New file: `includes/turnstile.php`
 
-Mirrors the curl-wrapper pattern already used in `includes/equifax.php`
-(`equifax_http()`) and `includes/leadprosper.php` (`leadprosper_http()`):
+Mirrors the curl-wrapper pattern already used in `includes/jgscoring.php`
+and `includes/leadprosper.php` (`leadprosper_http()`):
 
 ```php
 <?php
@@ -244,8 +244,8 @@ Mirrors the curl-wrapper pattern already used in `includes/equifax.php`
  *
  * Called from submit.php as part of bot detection (see docs/bot-protection.md).
  * Best-effort in shape (never throws) but its result IS blocking — unlike
- * Equifax/LeadProsper's "log & continue", a failed verify sets $botReason in
- * submit.php, which routes the lead away from Equifax/LeadProsper (but still
+ * JG/LeadProsper's "log & continue", a failed verify sets $botReason in
+ * submit.php, which routes the lead away from JG/LeadProsper (but still
  * returns {ok:true} to the caller — see submit.php).
  */
 
@@ -361,13 +361,13 @@ add:
 array_keys($row)` already drives the INSERT dynamically, so no other change is
 needed there.)
 
-### Gate Equifax and LeadProsper
+### Gate JG scoring and LeadProsper
 
 Wrap each existing best-effort block:
 
 ```php
 if ($botReason === null) {
-    // existing Equifax try/catch block, unchanged
+    // existing JG scoring try/catch block, unchanged
 }
 ```
 
@@ -430,7 +430,7 @@ ALTER TABLE `leads`
 | `index.php` | honeypot field, render-timestamp field, Turnstile script + widget div |
 | `assets/css/style.css` | `.hp-field` off-screen rule |
 | `includes/turnstile.php` | **new** — `turnstile_verify()` |
-| `submit.php` | `$botReason` aggregation, gated Equifax/LeadProsper blocks, extra INSERT columns, audit log line |
+| `submit.php` | `$botReason` aggregation, gated JG scoring/LeadProsper blocks, extra INSERT columns, audit log line |
 | `sql/schema.sql` | + `bot_suspected`, `bot_reason` columns |
 | `sql/alter_leads_add_bot_flags.sql` | **new** — migration for existing DBs |
 
@@ -446,7 +446,7 @@ curl -s -X POST https://<your-domain>/submit.php \
 ```
 Expect `{"ok":true,...}` in the response, but check the `leads` table row for that
 submission has `bot_suspected = 1, bot_reason = 'honeypot'`, and confirm no row was
-written to `leadprosper_logs`/`equifax_logs` for that `lead_id`.
+written to `leadprosper_logs`/`jgscoring_logs` for that `lead_id`.
 
 **Timing** — same request, honeypot empty, sent immediately after a fresh page load
 so `form_rendered_at` is within `TIMING_MIN_SECONDS` of "now" (a normal `curl` request

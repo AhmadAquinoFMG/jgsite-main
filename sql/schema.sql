@@ -36,33 +36,35 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `phone_verified`  TINYINT(1)   NOT NULL DEFAULT 0,
     `firebase_uid`    VARCHAR(128) DEFAULT NULL,
 
-    -- ---- Equifax pull outcome (denormalized from equifax_logs for quick
-    --      per-lead visibility; NULL when mode=off / no pull happened) ----
+    -- ---- Equifax pull outcome — LEGACY, NO LONGER WRITTEN. The pull was
+    --      replaced by the JG scoring call (jgw_* below); includes/equifax.php
+    --      is dormant and submit.php never invokes it. Kept so historical rows
+    --      still parse. ----
     `equifax_mode`    VARCHAR(10)  DEFAULT NULL,   -- 'mock' | 'live'
     `equifax_status`  SMALLINT     DEFAULT NULL,   -- HTTP status (0 = no response)
     `equifax_score`   SMALLINT     DEFAULT NULL,   -- parsed credit score, if any
     `equifax_decision` VARCHAR(64) DEFAULT NULL,
     `equifax_error`   VARCHAR(255) DEFAULT NULL,   -- NULL = success
     `equifax_pulled_at` DATETIME   DEFAULT NULL,
-    -- What we SENT to LeadProsper: our Equifax-verified UNSECURED total (no
-    -- student loans). Kept as the record of what the buyers were actually told —
-    -- InCharge Debt Solutions qualifies on this figure, so a buyer's own number
-    -- must never overwrite it.
+    -- What we SENT to LeadProsper: JG's verified total_debt_included. Kept as
+    -- the record of what the buyers were actually told — InCharge Debt Solutions
+    -- qualifies on this figure, so a buyer's own number must never overwrite it.
+    -- (Historical rows hold the Equifax-verified unsecured total instead.)
     `total_debt`      INT UNSIGNED DEFAULT NULL,
     -- Which figure fed our records / the consumer-facing math (thank-you savings,
-    -- redirect params, Zapier): 'buyer' when a buyer returned their own verified
-    -- total, else 'equifax'. NULL when neither produced one.
+    -- redirect params, Zapier): 'jgw' when our own JG scoring call produced it,
+    -- 'buyer' when that call failed and a buyer's echoed figure filled the gap.
+    -- NULL when neither produced one. 'equifax' on historical rows.
     `total_debt_source` VARCHAR(10) DEFAULT NULL,
 
-    -- ---- buyer-verified debt + LEGACY JG scoring outcome ----
-    -- The direct JG scoring integration has been REMOVED from the codebase, so
-    -- every column below except jgw_total_debt is now write-once history: kept
-    -- so old rows still parse, never populated by current code.
-    `jgw_mode`          VARCHAR(10)  DEFAULT NULL,  -- legacy: 'mock' | 'live'
-    `jgw_status`        SMALLINT     DEFAULT NULL,  -- legacy: HTTP status
-    -- STILL WRITTEN: a buyer's own total_debt_included, obtained the supported
-    -- way — LeadProsper echoing the buyer's response back to us on the
-    -- direct_post reply. Name kept for continuity with historical rows.
+    -- ---- JG Wentworth DR scoring outcome (denormalized from jgscoring_logs
+    --      for quick per-lead visibility; NULL when mode=off / no call) ----
+    `jgw_mode`          VARCHAR(10)  DEFAULT NULL,  -- 'mock' | 'live'
+    `jgw_status`        SMALLINT     DEFAULT NULL,  -- HTTP status (0 = no response)
+    -- JG's own underwritten settleable total (`total_debt_included`). Written by
+    -- the direct scoring call; a buyer's figure echoed back through the
+    -- LeadProsper response only ever fills this when the direct call returned
+    -- nothing (COALESCE(jgw_total_debt, :buyer_debt) in submit.php).
     `jgw_total_debt`    INT UNSIGNED DEFAULT NULL,
     `jgw_prequalified`  TINYINT(1)   DEFAULT NULL,
     `jgw_accepted`      TINYINT(1)   DEFAULT NULL,
@@ -155,16 +157,18 @@ CREATE TABLE IF NOT EXISTS `leads` (
 
 
 -- ---------------------------------------------------------------------------
--- JG Wentworth Lead Scoring call log — LEGACY, NO LONGER WRITTEN.
+-- JG Wentworth Lead Scoring call log (includes/jgscoring.php).
 --
--- The direct JG scoring integration (formerly includes/jgscoring.php) has been
--- removed: that endpoint was JG's lead INTAKE, and JG is also a buyer on the
--- LeadProsper campaign, so posting both delivered the same consumer twice and
--- the paying LeadProsper copy came back "duplicated by buyer". The buyer's
--- verified figure now arrives via the LeadProsper response instead.
+-- One row per scoring call, for audit + debugging. This is where verified total
+-- debt now comes from: `total_debt` is JG's `total_debt_included`, which
+-- submit.php posts to LeadProsper and denormalizes onto leads.jgw_*. Mirrors
+-- equifax_logs below, which it replaced.
 --
--- The table is retained so historical rows survive; nothing inserts into it.
--- Safe to drop once those rows are no longer needed.
+-- ⚠ DUPLICATE DELIVERY: that endpoint is JG's lead INTAKE, not a lookup — every
+-- live call creates a lead at JG. JG also sits as a buyer on the LeadProsper
+-- campaign, and running both once delivered the same consumer twice, with the
+-- paying LeadProsper copy rejected as "duplicated by buyer". Keep JG off the LP
+-- campaign while jgscoring.mode=live.
 --
 -- ⚠ COMPLIANCE: `request_body` carries the consumer's full identity (name, DOB,
 -- address, email, phone) and authorizes a credit pull (ok_to_pull_credit). No
@@ -223,11 +227,14 @@ CREATE TABLE IF NOT EXISTS `leadprosper_logs` (
 
 
 -- ---------------------------------------------------------------------------
--- Equifax credit-report call log.
+-- Equifax credit-report call log — LEGACY, NO LONGER WRITTEN.
 --
--- One row per Consumer Credit Report request made from submit.php
--- (includes/equifax.php), for audit + debugging. The call is best-effort:
--- a failure is logged here but never blocks the lead (see leads above).
+-- The pull was replaced by the JG scoring call above; includes/equifax.php is
+-- dormant and submit.php no longer invokes it. Retained so historical rows
+-- survive. Safe to drop once they are no longer needed.
+--
+-- What it did: one row per Consumer Credit Report request made from submit.php.
+-- Best-effort — a failure was logged here but never blocked the lead.
 --
 -- ⚠ COMPLIANCE: `request_body` contains the SSN and identity sent to Equifax,
 -- and `response_body` contains the raw credit report. These are highly

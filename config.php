@@ -88,7 +88,7 @@ return [
 
     // ---- Operational logging -------------------------------------------
     // File-based structured log (includes/logger.php) for the lead pipeline.
-    // Separate from the leads/equifax_logs DATA tables — this is the ops trail.
+    // Separate from the leads/jgscoring_logs DATA tables — this is the ops trail.
     //   level: debug | info | warning | error (lines below it are dropped).
     //   dir:   defaults to <project>/logs (gitignored); override with LOG_DIR.
     'logging' => [
@@ -118,11 +118,88 @@ return [
         'jornaya_account'   => env('JORNAYA_ACCOUNT_ID', ''),
     ],
 
-    // ---- Equifax Consumer Credit Report (OneView, OAuth2) --------------
-    // submit.php pulls a credit report after storing the lead and logs the
-    // request/response to equifax_logs (includes/equifax.php). Best-effort — a
-    // failure is logged but never blocks the lead. Aligned with the proven
-    // integration in the sibling `tdo` project.
+    // ---- JG Wentworth Lead Scoring (Debt Resolution intake) -------------
+    // THE source of verified total debt. submit.php posts the stored lead to
+    // JG's DR intake (includes/jgscoring.php) and keeps `total_debt_included`
+    // from the response; that figure is what rides along on the LeadProsper
+    // direct-post and what the thank-you savings math uses. Best-effort — a
+    // failure is logged to jgscoring_logs but never blocks the lead.
+    //
+    // This REPLACED the Equifax credit pull below, which is now dormant.
+    //
+    //   mode: 'off'  → skip entirely, no log row (default).
+    //         'mock' → synthetic response, no network, DOES log. Use this to
+    //                  verify payload shape + downstream wiring without
+    //                  creating a real lead at JG.
+    //         'live' → real POST. ⚠ CREATES A REAL LEAD AT JG (see below).
+    //
+    // ⚠ DUPLICATE DELIVERY: this endpoint is JG's lead INTAKE, not a scoring
+    // lookup — every 'live' call creates a lead inside JG. The integration was
+    // removed once before for exactly this reason: JG also sits as a buyer on
+    // LeadProsper campaign 35954, so running both delivered the same consumer
+    // twice and the paying LeadProsper copy came back "duplicated by buyer".
+    // Before switching mode to 'live', remove JG as a buyer on that campaign
+    // (or accept the duplicate deliberately).
+    'jgscoring' => [
+        'mode'     => strtolower(env('JGSCORING_MODE', 'off')),
+        'endpoint' => env('JGSCORING_ENDPOINT', 'https://leadscoring.jgwentworth.com/api/leads/dr/'),
+        'token'    => env('JGSCORING_TOKEN', ''),
+        /* Sent as `Authorization: <scheme> <token>`, or as the bare token when
+           empty. JG documents the header name without a scheme and the prefix is
+           account-specific, so nothing is guessed here: put `Token` / `Bearer`
+           in JGSCORING_AUTH_SCHEME if your token needs one, or bake the prefix
+           into JGSCORING_TOKEN and leave this empty. A guessed scheme is an
+           invisible 401. */
+        'auth_scheme' => env('JGSCORING_AUTH_SCHEME', ''),
+        'timeout'     => (int) env('JGSCORING_TIMEOUT', '20'),
+
+        /* Fixed partner attribution, echoed in additional_fields. These are how
+           JG attributes the lead to US — they are NOT the visitor's utm_source
+           (that one is on the lead row and goes to LeadProsper). Values come
+           from JG's own sample payload; campaign_source is the numeric id JG
+           issued for this placement. */
+        'utm_source'         => env('JGSCORING_UTM_SOURCE', 'FMGWhiteLabel-Posted'),
+        'lead_source_detail' => env('JGSCORING_LEAD_SOURCE_DETAIL', 'FMGWhiteLabel'),
+        'lead_source'        => env('JGSCORING_LEAD_SOURCE', 'Affiliate'),
+        'campaign_source'    => env('JGSCORING_CAMPAIGN_SOURCE', ''),
+
+        /* Vocabulary bridge: our stored answer keys → the strings JG's payload
+           uses. 'Full Time' is straight from JG's sample; the other three are
+           the obvious counterparts but are NOT confirmed against JG's enum, so
+           they live here rather than in the client — one edit when JG confirms.
+           An unmapped value posts empty instead of posting our own key and
+           risking a 400 that would cost us the whole debt figure. */
+        'employment_map' => [
+            'employed'   => env('JGSCORING_EMP_EMPLOYED',   'Full Time'),
+            'unemployed' => env('JGSCORING_EMP_UNEMPLOYED',  'Unemployed'),
+            'disability' => env('JGSCORING_EMP_DISABILITY',  'Disability'),
+            'retired'    => env('JGSCORING_EMP_RETIRED',     'Retired'),
+        ],
+        /* Income is DELIBERATELY empty by default: JG's sample sends `income`
+           blank and their accepted values are undocumented, so there is nothing
+           to map to yet — and their sample lead was accepted with it empty
+           (they underwrite from debt + credit rating). The funnel's income
+           answer is still stored on the lead and still posted to LeadProsper.
+           Fill these in when JG publishes the enum. */
+        'income_map' => [
+            'Under $30,000'                => env('JGSCORING_INC_UNDER_30K', ''),
+            'Between $30,000 and $100,000' => env('JGSCORING_INC_30K_100K',  ''),
+            'Over $100,000'                => env('JGSCORING_INC_OVER_100K', ''),
+        ],
+    ],
+
+    // ---- Equifax Consumer Credit Report (OneView, OAuth2) — DORMANT ----
+    // NOTHING CALLS THIS. Verified total debt now comes from JG's DR intake
+    // above (includes/jgscoring.php); submit.php no longer calls
+    // equifax_pull(). The client, this config block and the EQUIFAX_* env
+    // vars are kept intact so the pull can be restored by re-adding the step
+    // in submit.php — no code archaeology required. leads.equifax_* and
+    // equifax_logs keep their historical rows either way.
+    //
+    // What it did: pulled a credit report after storing the lead and logged
+    // the request/response to equifax_logs. Best-effort — a failure was
+    // logged but never blocked the lead. Aligned with the proven integration
+    // in the sibling `tdo` project.
     //
     //   mode:  'off'        → skip entirely, no log row (default).
     //          'mock'       → synthetic response, DOES log (test the pipeline).
@@ -170,7 +247,7 @@ return [
 
     // ---- LeadProsper direct-post (lead distribution) --------------------
     // submit.php posts the lead to LeadProsper AFTER it's stored (and after the
-    // Equifax pull, so the verified total debt can be included). Best-effort —
+    // JG scoring call, so the verified total debt can be included). Best-effort —
     // aligned with the proven integration in the sibling `tdo` project, adapted
     // to this funnel's field names (includes/leadprosper.php).
     //
@@ -398,8 +475,8 @@ return [
             'date_of_birth'  => 'dob',
             'email'          => 'email',
             'phone'          => 'phone',
-            // Lead record. total_debt is the Equifax-verified figure and is
-            // absent when the pull returned nothing usable (see submit.php).
+            // Lead record. total_debt is the JG-verified figure and is absent
+            // when the scoring call returned nothing usable (see submit.php).
             'lead_id'        => 'lead_id',
             'total_debt'     => 'total_debt',
             // Buyer that accepted the lead at LeadProsper. thank-you.php looks
