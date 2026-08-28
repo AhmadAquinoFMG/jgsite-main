@@ -19,8 +19,7 @@ return [
         [
             'id' => 'lending_for_bad_credit',
             'name' => 'Lending For Bad Credit',
-            'mark' => 'LF',
-            'tone' => 'blue',
+            'logo' => 'assets/img/offers/lending-for-bad-credit.webp',
             'description' => 'Personal loans from $100 to $40,000 for all credit types.',
             'benefits' => ['Bad credit? You may still qualify', 'Quick online request', 'Funds as soon as the next business day'],
             'cta_text' => 'See If You Qualify',
@@ -35,8 +34,7 @@ return [
         [
             'id' => 'experian',
             'name' => 'Experian',
-            'mark' => 'Experian',
-            'tone' => 'violet',
+            'logo' => 'assets/img/offers/experian.webp',
             'description' => 'Get your FICO Score for free and start improving your credit.',
             'benefits' => ['See what impacts your credit score', 'Free FICO Score and monitoring', 'Alerts included at no cost'],
             'cta_text' => 'View Options',
@@ -51,8 +49,7 @@ return [
         [
             'id' => 'upstart',
             'name' => 'Upstart',
-            'mark' => 'upstart',
-            'tone' => 'navy',
+            'logo' => 'assets/img/offers/upstart.webp',
             'description' => 'Most borrowers are approved instantly.',
             'benefits' => ['Verify your details in minutes', 'Next-day funding', "Won't affect your credit score"],
             'cta_text' => 'Check My Rate',
@@ -67,8 +64,7 @@ return [
         [
             'id' => 'five_k_funds',
             'name' => '5K Funds',
-            'mark' => '5K',
-            'tone' => 'orange',
+            'logo' => 'assets/img/offers/five-k-funds.webp',
             'description' => 'Get connected to a network of lenders for quick personal loan options.',
             'benefits' => ['No impact on credit score', 'Loans up to $35,000', 'Next-day funding available'],
             'cta_text' => 'See If You Qualify',
@@ -83,8 +79,7 @@ return [
         [
             'id' => 'lexington_law',
             'name' => 'Lexington Law',
-            'mark' => 'LL',
-            'tone' => 'gold',
+            'logo' => 'assets/img/offers/lexington-law.webp',
             'description' => 'Industry-leading credit repair services backed by legal professionals.',
             'benefits' => ['Professional credit analysis', 'Direct bureau challenges', '24/7 progress tracking'],
             'cta_text' => 'See If You Qualify',
@@ -99,8 +94,7 @@ return [
         [
             'id' => 'first_premier_lending',
             'name' => 'First Premier Lending',
-            'mark' => 'FP',
-            'tone' => 'crimson',
+            'logo' => 'assets/img/offers/first-premier-lending.webp',
             'description' => 'Flexible personal loans and lines of credit with local decision-making.',
             'benefits' => ['Competitive fixed rates', 'No prepayment penalties', 'Fast online application'],
             'cta_text' => 'See If You Qualify',
@@ -115,8 +109,7 @@ return [
         [
             'id' => 'usa_grants',
             'name' => 'USA Grants',
-            'mark' => 'USA',
-            'tone' => 'red',
+            'logo' => 'assets/img/offers/usa-grants.webp',
             'description' => 'Explore grant money you may be eligible to claim.',
             'benefits' => ['See if you qualify for grant money', 'Free to check eligibility', 'Billions in grants available'],
             'cta_text' => 'View Options',
@@ -132,8 +125,7 @@ return [
         [
             'id' => 'usa_assistance_guide',
             'name' => 'USA Assistance Guide',
-            'mark' => 'USA',
-            'tone' => 'blue',
+            'logo' => 'assets/img/offers/usa-assistance-guide.webp',
             'description' => 'Find cash assistance programs available in your area.',
             'benefits' => ['Financial assistance for everyday expenses', 'Free to check what you qualify for', 'Funds may be available quickly'],
             'cta_text' => 'View Options',

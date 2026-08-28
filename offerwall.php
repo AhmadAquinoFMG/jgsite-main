@@ -32,7 +32,7 @@ header('Content-Type: text/html; charset=UTF-8');
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
-    <link rel="stylesheet" href="assets/css/offerwall.css?v=1">
+    <link rel="stylesheet" href="assets/css/offerwall.css?v=2">
     <?php include __DIR__ . '/includes/analytics.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
 </head>
@@ -74,8 +74,10 @@ header('Content-Type: text/html; charset=UTF-8');
                                  data-offer-name="<?= $e($campaign['name']) ?>"
                                  data-offer-position="<?= $position + 1 ?>"
                                  data-offer-sponsored="<?= !empty($campaign['sponsored']) ? 'true' : 'false' ?>">
-                            <div class="offer-logo offer-logo--<?= $e($campaign['tone']) ?>" aria-hidden="true">
-                                <span><?= $e($campaign['mark']) ?></span>
+                            <div class="offer-logo">
+                                <img src="<?= $e($campaign['logo']) ?>"
+                                     alt="<?= $e($campaign['name']) ?> logo"
+                                     width="160" height="90" loading="lazy">
                             </div>
                             <div class="offer-card__body">
                                 <h2><?= $e($campaign['name']) ?></h2>
