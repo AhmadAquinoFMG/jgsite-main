@@ -32,7 +32,7 @@ header('Content-Type: text/html; charset=UTF-8');
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
-    <link rel="stylesheet" href="assets/css/offerwall.css?v=4">
+    <link rel="stylesheet" href="assets/css/offerwall.css?v=5">
     <?php include __DIR__ . '/includes/analytics.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
 </head>
