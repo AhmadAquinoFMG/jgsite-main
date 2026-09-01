@@ -1,0 +1,142 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * Offerwall campaigns mirrored from the United Settlement chatbot site.
+ *
+ * The default and partner-specific destinations intentionally stay identical
+ * to the source offerwall. No lead fields or other PII are added to them.
+ */
+return [
+    'affiliate_partners' => [
+        '920'  => 'metriq_bing',
+        '940'  => 'metriq_meta',
+        '989'  => 'dbv',
+        '1024' => 'pigeonfi',
+        '995'  => 'koji',
+    ],
+    'campaigns' => [
+        [
+            'id' => 'lending_for_bad_credit',
+            'name' => 'Lending For Bad Credit',
+            'logo' => 'assets/img/offers/lending-for-bad-credit.webp',
+            'description' => 'Personal loans from $100 to $40,000 for all credit types.',
+            'benefits' => ['Bad credit? You may still qualify', 'Quick online request', 'Funds as soon as the next business day'],
+            'cta_text' => 'See If You Qualify',
+            'cta_link' => 'https://api.pingtree.com/click/663e742bb9b9fa46cbb69cc2/cp189/cs375/f2e7b768-0247-4399-97dd-3092ad7bfc88',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/5Q9RM9/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/5Q9RM9/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/5Q9RM9/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/5Q9RM9/',
+            ],
+        ],
+        [
+            'id' => 'experian',
+            'name' => 'Experian',
+            'logo' => 'assets/img/offers/experian.webp',
+            'description' => 'Get your FICO Score for free and start improving your credit.',
+            'benefits' => ['See what impacts your credit score', 'Free FICO Score and monitoring', 'Alerts included at no cost'],
+            'cta_text' => 'View Options',
+            'cta_link' => 'https://click.validclick.net/rdr2.php?aff=fitz_media&q=expieren&cmp=118666&ref=[REF]',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/27DQ3QC/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/27DQ3QC/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/27DQ3QC/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/27DQ3QC/',
+            ],
+        ],
+        [
+            'id' => 'upstart',
+            'name' => 'Upstart',
+            'logo' => 'assets/img/offers/upstart.webp',
+            'description' => 'Most borrowers are approved instantly.',
+            'benefits' => ['Verify your details in minutes', 'Next-day funding', "Won't affect your credit score"],
+            'cta_text' => 'Check My Rate',
+            'cta_link' => 'https://api.pingtree.com/click/67a52bb48493e4087052e1af/cp189/cs375/f2e7b768-0247-4399-97dd-3092ad7bfc88',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/DMBKXN/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/DMBKXN/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/DMBKXN/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/DMBKXN/',
+            ],
+        ],
+        [
+            'id' => 'five_k_funds',
+            'name' => '5K Funds',
+            'logo' => 'assets/img/offers/five-k-funds.webp',
+            'description' => 'Get connected to a network of lenders for quick personal loan options.',
+            'benefits' => ['No impact on credit score', 'Loans up to $35,000', 'Next-day funding available'],
+            'cta_text' => 'See If You Qualify',
+            'cta_link' => 'https://www.f0cg2trk.com/2GQGTF9/5T3K4H/',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/5T3K4H/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/5T3K4H/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/5T3K4H/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/5T3K4H/',
+            ],
+        ],
+        [
+            'id' => 'lexington_law',
+            'name' => 'Lexington Law',
+            'logo' => 'assets/img/offers/lexington-law.webp',
+            'description' => 'Industry-leading credit repair services backed by legal professionals.',
+            'benefits' => ['Professional credit analysis', 'Direct bureau challenges', '24/7 progress tracking'],
+            'cta_text' => 'See If You Qualify',
+            'cta_link' => 'https://www.f0cg2trk.com/2GQGTF9/2498FD4/',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/2498FD4/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/2498FD4/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/2498FD4/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/2498FD4/',
+            ],
+        ],
+        [
+            'id' => 'first_premier_lending',
+            'name' => 'First Premier Lending',
+            'logo' => 'assets/img/offers/first-premier-lending.webp',
+            'description' => 'Flexible personal loans and lines of credit with local decision-making.',
+            'benefits' => ['Competitive fixed rates', 'No prepayment penalties', 'Fast online application'],
+            'cta_text' => 'See If You Qualify',
+            'cta_link' => 'https://www.f0cg2trk.com/2GQGTF9/27JWPZ6/',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/27JWPZ6/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/27JWPZ6/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/27JWPZ6/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/27JWPZ6/',
+            ],
+        ],
+        [
+            'id' => 'usa_grants',
+            'name' => 'USA Grants',
+            'logo' => 'assets/img/offers/usa-grants.webp',
+            'description' => 'Explore grant money you may be eligible to claim.',
+            'benefits' => ['See if you qualify for grant money', 'Free to check eligibility', 'Billions in grants available'],
+            'cta_text' => 'View Options',
+            'cta_link' => 'https://api.pingtree.com/click/66ce071e2435a306bb1af33a/cp189/cs375/f2e7b768-0247-4399-97dd-3092ad7bfc88',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/7XDN21/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/7XDN21/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/7XDN21/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/7XDN21/',
+            ],
+            'sponsored' => true,
+        ],
+        [
+            'id' => 'usa_assistance_guide',
+            'name' => 'USA Assistance Guide',
+            'logo' => 'assets/img/offers/usa-assistance-guide.webp',
+            'description' => 'Find cash assistance programs available in your area.',
+            'benefits' => ['Financial assistance for everyday expenses', 'Free to check what you qualify for', 'Funds may be available quickly'],
+            'cta_text' => 'View Options',
+            'cta_link' => 'https://api.pingtree.com/click/66c740b83ca7eac732bfe65e/cp189/cs375/f2e7b768-0247-4399-97dd-3092ad7bfc88',
+            'cta_links' => [
+                'metriq_bing' => 'https://www.f0cg2trk.com/2GQGTF9/7NG8BZ/',
+                'metriq_meta' => 'https://www.f0cg2trk.com/2HMWPNT/7NG8BZ/',
+                'dbv' => 'https://www.f0cg2trk.com/2KW6RQL/7NG8BZ/',
+                'pigeonfi' => 'https://www.f0cg2trk.com/2MGNK7T/7NG8BZ/',
+            ],
+            'sponsored' => true,
+        ],
+    ],
+];
