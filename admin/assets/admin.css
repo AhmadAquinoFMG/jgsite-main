@@ -1,0 +1,966 @@
+/* ==========================================================================
+   Lead Portal — admin UI.
+
+   Brand tokens are the funnel's (assets/css/style.css): JG green #1B976A on
+   near-white, ink #2E3A35. Inter rather than the funnel's Poppins — Poppins is
+   a display face with a wide, round lowercase that reads well in a headline and
+   badly in a 13px table of forty rows. Inter is drawn for exactly this.
+
+   Design rules, so additions stay coherent:
+     • One accent (green). Status colour is the ONLY other colour, and it always
+       means an outcome — never decoration.
+     • Borders over shadows. A dense tool wants quiet separation, not depth.
+     • Every payload wraps. A landing_page_url is 455 characters and must never
+       introduce a horizontal scrollbar.
+   ========================================================================== */
+
+:root {
+    /* Brand — from the funnel's stylesheet, unchanged. */
+    --green: #1B976A;
+    --green-dark: #117A55;
+    --green-deep: #006846;
+    --mint: #EAF7F1;
+    --ink: #2E3A35;
+    --ink-soft: #3F4644;
+    --muted: #787878;
+    --line: #E3E6E5;
+    --white: #FFFFFF;
+
+    --bg: #F7F9F8;
+    --surface: var(--white);
+    --surface-sunken: #FAFBFB;
+
+    /* Status. Amber = the buyer said no; red = it never arrived. Those are
+       different problems and must not share a colour. */
+    --warn-bg: #FDF4E5;
+    --warn-text: #8A5A08;
+    --bad-bg: #FDECEC;
+    --bad-text: #8F2323;
+
+    --radius: 10px;
+    --radius-sm: 7px;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    /* Inter's tabular figures: IDs, timings and money stay column-aligned. */
+    font-feature-settings: "tnum" 1, "cv05" 1;
+}
+
+/* ============================================================== sign-in === */
+
+.auth-body {
+    display: flex;
+    min-height: 100vh;
+    background: var(--bg);
+}
+
+.auth {
+    margin: auto;
+    padding: 24px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.auth__card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 32px;
+}
+
+.auth__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 26px;
+}
+
+.auth__mark,
+.topbar__mark {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: var(--green);
+    color: var(--white);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .3px;
+    flex: none;
+}
+
+.auth__title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: -.01em;
+}
+
+.auth__sub {
+    margin: 1px 0 0;
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+.auth__form {
+    display: grid;
+    gap: 16px;
+}
+
+.auth__note {
+    margin: 22px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* =============================================================== fields === */
+
+.field {
+    display: block;
+    min-width: 0;
+}
+
+.field__label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: 550;
+    color: var(--ink-soft);
+}
+
+.field__input {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--white);
+    color: var(--ink);
+    font: inherit;
+    font-size: 13.5px;
+}
+
+.field__input:focus {
+    outline: none;
+    border-color: var(--green);
+    box-shadow: 0 0 0 3px rgba(27, 151, 106, .14);
+}
+
+.check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    cursor: pointer;
+}
+
+.check input {
+    accent-color: var(--green);
+    width: 15px;
+    height: 15px;
+}
+
+/* ============================================================== buttons === */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 15px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 550;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .12s, border-color .12s, color .12s;
+}
+
+.btn--primary {
+    width: 100%;
+    background: var(--green);
+    color: var(--white);
+}
+
+.btn--primary:hover {
+    background: var(--green-dark);
+}
+
+.btn--ghost {
+    padding: 8px 13px;
+    background: var(--white);
+    border-color: var(--line);
+    color: var(--ink-soft);
+    text-decoration: none;
+}
+
+.btn--ghost:hover {
+    border-color: var(--muted);
+    color: var(--ink);
+}
+
+.btn--tiny {
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 550;
+    background: transparent;
+    border-color: var(--line);
+    color: var(--muted);
+    flex: none;
+}
+
+.btn--tiny:hover {
+    border-color: var(--green);
+    color: var(--green-deep);
+}
+
+/* =============================================================== alerts === */
+
+.alert {
+    margin-bottom: 16px;
+    padding: 11px 13px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    /* Error text is often a raw SQL message — it must wrap, not stretch. */
+    overflow-wrap: anywhere;
+}
+
+.alert--error {
+    background: var(--bad-bg);
+    border: 1px solid #F5C2C2;
+    color: var(--bad-text);
+}
+
+/* =============================================================== topbar === */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.topbar__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.topbar__title {
+    font-weight: 600;
+    letter-spacing: -.01em;
+    white-space: nowrap;
+}
+
+.topbar__nav {
+    display: flex;
+    gap: 2px;
+    margin-left: 12px;
+}
+
+.topbar__link {
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 550;
+}
+
+.topbar__link:hover {
+    background: var(--bg);
+    color: var(--ink);
+}
+
+.topbar__link.is-active {
+    background: var(--mint);
+    color: var(--green-deep);
+}
+
+.topbar__user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--muted);
+    min-width: 0;
+}
+
+.topbar__name {
+    font-weight: 550;
+    color: var(--ink-soft);
+    white-space: nowrap;
+}
+
+.topbar__logout {
+    margin: 0;
+}
+
+/* ================================================================= page === */
+
+.page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 22px 20px 56px;
+}
+
+.page--wide {
+    max-width: 1440px;
+}
+
+.page__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.page__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -.015em;
+}
+
+.page__sub {
+    margin: 3px 0 0;
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+/* ============================================================== filters === */
+
+.filters {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 14px;
+}
+
+.filters__row {
+    display: grid;
+    grid-template-columns: minmax(200px, 2fr) repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    align-items: end;
+}
+
+.filters__row--actions {
+    display: flex;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filters__buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.filters .btn--primary {
+    width: auto;
+}
+
+/* ================================================================ table === */
+
+.tablewrap {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 9px 12px;
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+}
+
+.table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.table__row {
+    cursor: pointer;
+}
+
+.table__row:hover {
+    background: var(--surface-sunken);
+}
+
+.table__empty {
+    padding: 40px 12px;
+    text-align: center;
+    color: var(--muted);
+}
+
+/* ============================================================= elements === */
+
+.mono {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+
+.nowrap {
+    white-space: nowrap;
+}
+
+.muted {
+    color: var(--muted);
+}
+
+.hint {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.link {
+    color: var(--green-deep);
+    text-decoration: none;
+    font-weight: 550;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
+.link--back {
+    display: inline-block;
+    margin-bottom: 5px;
+    font-size: 12.5px;
+    color: var(--muted);
+}
+
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.badge--good {
+    background: var(--mint);
+    color: var(--green-deep);
+}
+
+.badge--warn {
+    background: var(--warn-bg);
+    color: var(--warn-text);
+}
+
+.badge--bad {
+    background: var(--bad-bg);
+    color: var(--bad-text);
+}
+
+.badge--muted {
+    background: #EEF0EF;
+    color: var(--muted);
+}
+
+/* ================================================================ pager === */
+
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+.pager__info {
+    color: var(--muted);
+    font-size: 12.5px;
+}
+
+.pager__links {
+    display: flex;
+    gap: 8px;
+}
+
+/* ================================================================= card === */
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 14px;
+}
+
+.card--flush {
+    padding: 0;
+}
+
+.card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+}
+
+.card__title {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.card--flush .card__title,
+.card__head .card__title {
+    margin: 0;
+}
+
+.card__count {
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.card__body {
+    margin: 0;
+    color: var(--muted);
+}
+
+.card__body--pad {
+    padding: 20px;
+}
+
+/* ============================================================= post log === */
+
+.post {
+    padding: 14px 20px 16px;
+    border-bottom: 1px solid var(--line);
+}
+
+.post:last-child {
+    border-bottom: 0;
+}
+
+.post__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.post__ident {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.post__dest {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.post__meta {
+    display: flex;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 12px;
+    flex-wrap: wrap;
+}
+
+.post__reason {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 9px 12px;
+    background: var(--surface-sunken);
+    border-left: 3px solid var(--line);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 13px;
+    /* The buyer's reject message is free text from an external system. */
+    overflow-wrap: anywhere;
+}
+
+.post__reason-label {
+    font-weight: 600;
+    font-size: 10.5px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex: none;
+}
+
+.post__price {
+    font-weight: 600;
+    color: var(--green-deep);
+}
+
+/* Which lead an attempt belongs to. Only the portal-wide log shows this — on a
+   lead page every attempt is that lead's. It leads the header line because it is
+   what tells two otherwise identical LeadProsper rows apart. */
+.post__lead {
+    font-weight: 600;
+}
+
+/* Arriving from the post log's deep link: say which attempt was meant, then
+   stop shouting. Backgrounds only — no layout shift, nothing to dismiss. */
+.post:target {
+    background: var(--surface-sunken);
+    box-shadow: inset 3px 0 0 var(--green);
+    scroll-margin-top: 16px;
+}
+
+/* ============================================================= payloads ===
+   Request and response are told apart three ways, not one: the chip label, the
+   colour of the rail down the left edge, and which side they sit on at desktop
+   width. Colour alone would fail for anyone who cannot separate the two hues,
+   and these two blocks look otherwise identical — same font, same shape, same
+   JSON — so mistaking one for the other is easy and costly when you are
+   deciding whether WE sent something wrong or THEY did.
+
+   Request  = ink/grey rail   — what we sent.
+   Response = green rail      — what came back.
+   ========================================================================== */
+
+.post__bodies {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+    /* Each panel is as tall as its own content, not as tall as its neighbour.
+       Grid items stretch by default, which made opening one payload inflate the
+       still-closed one beside it into a tall empty box — indistinguishable, at a
+       glance, from having opened both. Open one, one grows; open both, both
+       grow. */
+    align-items: start;
+}
+
+.body {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-left-width: 3px;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    overflow: hidden;
+}
+
+.body--request {
+    border-left-color: var(--ink-soft);
+}
+
+.body--response {
+    border-left-color: var(--green);
+}
+
+.body__toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    list-style: none;
+    user-select: none;
+}
+
+.body__toggle::-webkit-details-marker {
+    display: none;
+}
+
+/* Disclosure arrow, rotating on open — the only motion in the UI. */
+.body__toggle::before {
+    content: "";
+    width: 0;
+    height: 0;
+    border: 4px solid transparent;
+    border-left-color: var(--muted);
+    transition: transform .15s;
+    flex: none;
+}
+
+.body[open] .body__toggle::before {
+    transform: rotate(90deg) translateX(-2px);
+}
+
+.body__tag {
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.body--request .body__tag {
+    background: #EEF0EF;
+    color: var(--ink-soft);
+}
+
+.body--response .body__tag {
+    background: var(--mint);
+    color: var(--green-deep);
+}
+
+.body__pre {
+    margin: 0;
+    padding: 12px;
+    max-height: 360px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--surface-sunken);
+    border-top: 1px solid var(--line);
+    color: var(--ink);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    /* The wrap rule. pre-wrap keeps the JSON indentation; anywhere breaks the
+       one token that would otherwise force a scrollbar — a 455-char landing URL
+       or a 180-char fbclid, both of which are routine here. */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    tab-size: 2;
+}
+
+/* ============================================================= datagrid === */
+
+.datagrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 13px 20px;
+    margin: 0;
+}
+
+.datagrid__item {
+    min-width: 0;
+}
+
+.datagrid__item--wide {
+    grid-column: 1 / -1;
+}
+
+.datagrid__label {
+    color: var(--muted);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.datagrid__value {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 3px 0 0;
+    font-size: 13.5px;
+    min-width: 0;
+    /* Consent text, user agents and URLs all land here. */
+    overflow-wrap: anywhere;
+}
+
+.datagrid__value--break {
+    display: block;
+}
+
+/* =========================================================== responsive ===
+   Two breakpoints:
+     1100px — the payload pair stops sitting side by side (auto-fit handles it).
+      900px — the table stops being a table. Each row becomes a stacked card
+              with its column name as a label, because a 10-column table on a
+              phone is either unreadable at scale or a horizontal scroll hunt.
+              Labels come from data-label on each cell in leads.php.
+   ========================================================================== */
+
+@media (max-width: 900px) {
+
+    .page {
+        padding: 16px 14px 48px;
+    }
+
+    .topbar {
+        padding: 10px 14px;
+    }
+
+    .topbar__nav {
+        margin-left: 6px;
+    }
+
+    .filters__row {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .tablewrap {
+        border: 0;
+        background: transparent;
+        overflow: visible;
+    }
+
+    .table,
+    .table tbody,
+    .table tr,
+    .table td {
+        display: block;
+        width: 100%;
+    }
+
+    .table thead {
+        display: none;
+    }
+
+    .table tr.table__row {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        margin-bottom: 10px;
+        padding: 4px 0;
+    }
+
+    .table td {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 6px 14px;
+        border-bottom: 0;
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    .table td::before {
+        content: attr(data-label);
+        flex: none;
+        color: var(--muted);
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        text-align: left;
+    }
+
+    /* The ID row reads as the card's heading. */
+    .table td[data-label="ID"] {
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+    }
+
+    .datagrid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .post,
+    .card__head,
+    .card {
+        padding-left: 14px;
+        padding-right: 14px;
+    }
+}
+
+@media (max-width: 560px) {
+
+    /* The nav stays. It used to be dropped here, which cost nothing while the
+       portal had a single screen — the only link was to the page you were
+       already on. With two, hiding it strands a phone on whichever one it
+       landed on. The wordmark goes instead: the JG mark still says where you
+       are, and the username was never load-bearing. */
+    .topbar__name,
+    .topbar__title {
+        display: none;
+    }
+
+    .page__head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters__row {
+        grid-template-columns: 1fr;
+    }
+
+    .post__meta {
+        gap: 8px;
+        font-size: 11.5px;
+    }
+}
+
+/* Printing a lead is a plausible thing to do in a compliance conversation. */
+@media print {
+
+    .topbar,
+    .filters,
+    .pager,
+    .btn {
+        display: none !important;
+    }
+
+    body {
+        background: var(--white);
+    }
+
+    .body__pre {
+        max-height: none;
+    }
+}
