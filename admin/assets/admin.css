@@ -1,0 +1,269 @@
+/* ==========================================================================
+   Lead Portal — admin chrome.
+
+   Deliberately not sharing the funnel's stylesheet: this is a dense internal
+   tool, not a landing page, and the two have opposite goals. Kept small and
+   token-driven so the lead list and detail views can grow into it.
+   ========================================================================== */
+
+:root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --border: #e2e5ea;
+    --text: #1c2129;
+    --text-muted: #6b7280;
+    --accent: #14507d;
+    --accent-hover: #0f3f63;
+    --danger-bg: #fdecec;
+    --danger-border: #f5c2c2;
+    --danger-text: #8f2323;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 8px 24px rgba(16, 24, 40, .06);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- sign-in */
+
+.auth-body {
+    display: flex;
+    min-height: 100vh;
+}
+
+.auth {
+    margin: auto;
+    padding: 24px;
+    width: 100%;
+    max-width: 420px;
+}
+
+.auth__card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 32px;
+}
+
+.auth__brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.auth__mark,
+.topbar__mark {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: .5px;
+    flex: none;
+}
+
+.auth__title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 650;
+}
+
+.auth__sub {
+    margin: 2px 0 0;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.auth__form {
+    display: grid;
+    gap: 16px;
+}
+
+.auth__note {
+    margin: 20px 0 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+
+/* ----------------------------------------------------------------- fields */
+
+.field {
+    display: block;
+}
+
+.field__label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--text);
+}
+
+.field__input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+}
+
+.field__input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(20, 80, 125, .12);
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font: inherit;
+    font-weight: 550;
+    cursor: pointer;
+}
+
+.btn--primary {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+}
+
+.btn--primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn--ghost {
+    padding: 6px 12px;
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.btn--ghost:hover {
+    color: var(--text);
+    border-color: var(--text-muted);
+}
+
+/* ----------------------------------------------------------------- alerts */
+
+.alert {
+    margin-bottom: 18px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13.5px;
+}
+
+.alert--error {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    color: var(--danger-text);
+}
+
+/* ----------------------------------------------------------- signed-in UI */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+}
+
+.topbar__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.topbar__title {
+    font-weight: 650;
+}
+
+.topbar__user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.topbar__name {
+    font-weight: 550;
+}
+
+.topbar__email {
+    color: var(--text-muted);
+}
+
+.topbar__logout {
+    margin: 0;
+}
+
+.page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+}
+
+.card__title {
+    margin: 0 0 8px;
+    font-size: 17px;
+    font-weight: 650;
+}
+
+.card__body {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.card__meta {
+    margin: 16px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 12.5px;
+}
+
+@media (max-width: 560px) {
+    .topbar {
+        flex-wrap: wrap;
+    }
+
+    .topbar__email {
+        display: none;
+    }
+}

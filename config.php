@@ -339,6 +339,42 @@ return [
         'affid' => env('TEST_MODE_AFFID', '300'),
     ],
 
+    // ---- Admin portal (admin/) -------------------------------------------
+    // Internal lead + post-log viewer. Reads the pipeline's tables; writes only
+    // portal_users.last_login_at and portal_audit (sql/alter_add_portal.sql).
+    //
+    // Accounts come from bin/portal-user.php — there is no signup form and no
+    // default account, so a fresh install has no way in until someone runs it.
+    'portal' => [
+        // Own session name, NOT the funnel's PHPSESSID. index.php, submit.php
+        // and thank-you.php all call session_start() on this same domain; a
+        // shared cookie name means logging into the portal walks over the
+        // funnel's session (and vice versa) for anyone with both open.
+        'session_name' => env('PORTAL_SESSION_NAME', 'JGPORTALSESS'),
+
+        // Idle timeout: seconds since the last request before a session is
+        // treated as expired. Short by admin-tool standards on purpose — the
+        // pages behind it show full consumer identity.
+        'idle_timeout' => (int) env('PORTAL_IDLE_TIMEOUT', '3600'),   // 1 hour
+        // Absolute cap, regardless of activity. A session that has been alive
+        // this long ends even if someone is actively clicking.
+        'max_lifetime' => (int) env('PORTAL_MAX_LIFETIME', '43200'),  // 12 hours
+
+        // Login throttle, counted out of portal_audit's `login_failed` rows
+        // (see the idx_throttle indexes). Applied to the submitted email AND to
+        // the source IP, so neither a single account nor a single host can be
+        // ground down. Tripping it logs 'login_blocked' rather than silently
+        // failing — a blocked admin should be visible in the trail.
+        'max_attempts'    => (int) env('PORTAL_MAX_ATTEMPTS', '5'),
+        'lockout_minutes' => (int) env('PORTAL_LOCKOUT_MINUTES', '15'),
+
+        // Force the Secure flag on the session cookie. Auto-detected from HTTPS
+        // otherwise, which is what a local http:// dev host needs — set this to
+        // 1 in production if the app sits behind a proxy that terminates TLS,
+        // where $_SERVER['HTTPS'] is not set despite the browser being on https.
+        'cookie_secure' => env('PORTAL_COOKIE_SECURE', '') === '1',
+    ],
+
     // ---- Cloudflare Turnstile (bot protection on the final funnel step) -------
     // Verified server-side in submit.php via includes/turnstile.php. Leave
     // TURNSTILE_ENABLED=0 (default) to skip rendering the widget and skip
