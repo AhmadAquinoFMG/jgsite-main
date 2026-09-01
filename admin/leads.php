@@ -3,9 +3,8 @@
 /**
  * Lead list — the portal's work queue.
  *
- * Filter, scan, click through to a lead. Contact identifiers are masked here
- * and stay masked: reveal happens on the detail page, one field at a time, so
- * a list view can never become a bulk PII dump.
+ * Filter, scan, click through to a lead. Contact details are shown in full;
+ * access control is the login, and portal_audit records who opened what.
  *
  * Read-only. Nothing on this page writes to a lead.
  */
@@ -18,7 +17,6 @@ require $root . '/includes/logger.php';
 require $root . '/includes/db.php';
 require __DIR__ . '/includes/audit.php';
 require __DIR__ . '/includes/auth.php';
-require __DIR__ . '/includes/mask.php';
 require __DIR__ . '/includes/layout.php';
 require __DIR__ . '/includes/leadquery.php';
 
@@ -187,8 +185,8 @@ portal_topbar($user, $csrf, 'leads');
                         <td class="mono" data-label="ID"><a class="link" href="lead.php?id=<?= (int) $row['id'] ?>"><?= (int) $row['id'] ?></a></td>
                         <td class="nowrap" data-label="Received"><?= $e(portal_datetime($row['created_at'] ?? null)) ?></td>
                         <td data-label="Name"><?= $e(trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''))) ?></td>
-                        <td class="mono" data-label="Email"><?= $e(portal_mask_email($row['email'] ?? null)) ?></td>
-                        <td class="mono nowrap" data-label="Phone"><?= $e(portal_mask_phone($row['phone'] ?? null)) ?></td>
+                        <td class="mono" data-label="Email"><?= $e(portal_or_dash($row['email'] ?? null)) ?></td>
+                        <td class="mono nowrap" data-label="Phone"><?= $e(portal_or_dash($row['phone'] ?? null)) ?></td>
                         <td class="nowrap" data-label="Location"><?= $e(portal_or_dash(trim(($row['city'] ?? '') . ', ' . ($row['state'] ?? ''), ' ,'))) ?></td>
                         <td class="nowrap" data-label="Debt">
                             <?php if (($row['total_debt'] ?? null) !== null): ?>

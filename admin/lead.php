@@ -9,11 +9,10 @@
  *      the rejection reason pulled out of the response and the full
  *      request/response one click away. This is the "why didn't this lead go
  *      through" screen, so it sits above the fold rather than under the data.
- *   2. THE LEAD DATA — everything stored, grouped. Contact identifiers are
- *      masked; reveal.php unmasks one field at a time and audits each one.
+ *   2. THE LEAD DATA — everything stored, grouped and shown in full.
  *
- * Viewing this page writes a `view_lead` audit row. That is the point of the
- * portal masking anything at all.
+ * Viewing this page writes a `view_lead` audit row, which is the record of who
+ * saw this consumer's details.
  *
  * Read-only: no query here writes to a lead or a log.
  */
@@ -26,8 +25,8 @@ require $root . '/includes/logger.php';
 require $root . '/includes/db.php';
 require __DIR__ . '/includes/audit.php';
 require __DIR__ . '/includes/auth.php';
-require __DIR__ . '/includes/mask.php';
 require __DIR__ . '/includes/layout.php';
+require __DIR__ . '/includes/postquery.php';
 
 logger($cfg);
 $user = portal_require_login($cfg);
@@ -57,27 +56,10 @@ try {
     $lead = $stmt->fetch() ?: null;
 
     if ($lead !== null) {
-        /* One timeline out of the three call logs. UNION rather than three
-           separate queries so ordering is done once, by the database, and a
-           destination added later needs one more SELECT and nothing else.
-           Column lists are aligned; `accepted` is NULL for logs that have no
-           such concept, which portal_post_status() handles. */
-        $sql = "
-            SELECT 'LeadProsper' AS destination, id, mode, request_body, response_status,
-                   response_body, accepted, error, duration_ms, created_at
-              FROM leadprosper_logs WHERE lead_id = :id1
-            UNION ALL
-            SELECT 'JG Scoring', id, mode, request_body, response_status,
-                   response_body, accepted, error, duration_ms, created_at
-              FROM jgscoring_logs WHERE lead_id = :id2
-            UNION ALL
-            SELECT 'Equifax', id, mode, request_body, response_status,
-                   response_body, NULL, error, duration_ms, created_at
-              FROM equifax_logs WHERE lead_id = :id3
-             ORDER BY created_at DESC, id DESC";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(['id1' => $leadId, 'id2' => $leadId, 'id3' => $leadId]);
-        $logs = $stmt->fetchAll();
+        /* One timeline out of every call log, built in includes/postquery.php so
+           this page and the portal-wide post log agree on which destinations
+           exist and what they are called. */
+        $logs = portal_post_lead_logs($pdo, $leadId);
 
         portal_audit($cfg, 'view_lead', ['lead_id' => $leadId]);
     }
@@ -217,7 +199,10 @@ portal_topbar($user, $csrf, 'leads');
         <section class="card card--flush">
             <div class="card__head">
                 <h2 class="card__title">Post log</h2>
-                <span class="card__count"><?= count($logs) ?> attempt<?= count($logs) === 1 ? '' : 's' ?></span>
+                <span class="card__count">
+                    <?= count($logs) ?> attempt<?= count($logs) === 1 ? '' : 's' ?>
+                    &middot; <a class="link" href="posts.php?lead=<?= (int) $lead['id'] ?>">in the post log</a>
+                </span>
             </div>
 
             <?php if (!$logs): ?>
@@ -230,12 +215,13 @@ portal_topbar($user, $csrf, 'leads');
             <?php foreach ($logs as $i => $log): ?>
                 <?php
                 $ps      = portal_post_status($log);
-                $summary = $log['destination'] === 'LeadProsper'
+                $summary = $log['source'] === 'leadprosper'
                     ? portal_lp_summary($log['response_body'])
                     : ['status' => null, 'message' => null, 'price' => null, 'buyers' => 0];
-                $rowKey = strtolower(str_replace(' ', '_', (string) $log['destination'])) . ':' . (int) $log['id'];
                 ?>
-                <article class="post">
+                <?php /* Anchored so the post log can link to this exact attempt
+                         rather than to the top of a lead with nine of them. */ ?>
+                <article class="post" id="<?= $e(portal_post_anchor($log)) ?>">
                     <header class="post__head">
                         <div class="post__ident">
                             <span class="post__dest"><?= $e($log['destination']) ?></span>
@@ -285,26 +271,14 @@ portal_topbar($user, $csrf, 'leads');
                             <summary class="body__toggle">
                                 <span class="body__tag">Sent</span> Request
                             </summary>
-                            <div class="body__actions">
-                                <button class="btn btn--tiny js-reveal" type="button"
-                                    data-lead="<?= (int) $lead['id'] ?>" data-field="log:<?= $e($rowKey) ?>:request"
-                                    data-csrf="<?= $e($csrf) ?>">Reveal raw</button>
-                                <span class="hint">Masked — revealing is recorded</span>
-                            </div>
-                            <pre class="body__pre js-body"><?= $e(portal_format_body($log['request_body'])) ?></pre>
+                            <pre class="body__pre"><?= $e(portal_format_body($log['request_body'])) ?></pre>
                         </details>
 
                         <details class="body body--response">
                             <summary class="body__toggle">
                                 <span class="body__tag">Received</span> Response
                             </summary>
-                            <div class="body__actions">
-                                <button class="btn btn--tiny js-reveal" type="button"
-                                    data-lead="<?= (int) $lead['id'] ?>" data-field="log:<?= $e($rowKey) ?>:response"
-                                    data-csrf="<?= $e($csrf) ?>">Reveal raw</button>
-                                <span class="hint">Masked — revealing is recorded</span>
-                            </div>
-                            <pre class="body__pre js-body"><?= $e(portal_format_body($log['response_body'])) ?></pre>
+                            <pre class="body__pre"><?= $e(portal_format_body($log['response_body'])) ?></pre>
                         </details>
                     </div>
                 </article>
@@ -329,23 +303,12 @@ portal_topbar($user, $csrf, 'leads');
                 <dl class="datagrid">
                     <?php foreach ($present as $column => $label): ?>
                         <?php
-                        $raw       = $lead[$column];
-                        $maskable  = in_array($column, portal_maskable_fields(), true);
-                        $display   = $maskable
-                            ? portal_mask_field($column, (string) $raw)
-                            : portal_or_dash((string) $raw);
+                        $display   = portal_or_dash((string) $lead[$column]);
                         $isLongUrl = in_array($column, ['landing_page_url', 'trustedform_url'], true);
                         ?>
                         <div class="datagrid__item<?= $isLongUrl || $column === 'consent_text' || $column === 'user_agent' ? ' datagrid__item--wide' : '' ?>">
                             <dt class="datagrid__label"><?= $e($label) ?></dt>
-                            <dd class="datagrid__value<?= $isLongUrl ? ' datagrid__value--break mono' : '' ?>">
-                                <span class="js-value"><?= $e($display) ?></span>
-                                <?php if ($maskable && trim((string) $raw) !== ''): ?>
-                                    <button class="btn btn--tiny js-reveal" type="button"
-                                        data-lead="<?= (int) $lead['id'] ?>" data-field="<?= $e($column) ?>"
-                                        data-csrf="<?= $e($csrf) ?>">Reveal</button>
-                                <?php endif; ?>
-                            </dd>
+                            <dd class="datagrid__value<?= $isLongUrl ? ' datagrid__value--break mono' : '' ?>"><?= $e($display) ?></dd>
                         </div>
                     <?php endforeach; ?>
                 </dl>

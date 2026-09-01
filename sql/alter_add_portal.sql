@@ -45,12 +45,12 @@ CREATE TABLE IF NOT EXISTS `portal_users` (
 -- ---------------------------------------------------------------------------
 -- Portal audit trail.
 --
--- Every login (success AND failure), logout, lead view, PII reveal and CSV
--- export lands here. Two jobs:
+-- Every login (success AND failure), logout, lead view and CSV export lands
+-- here. Two jobs:
 --
---   1. Answer "who looked at this consumer's data, and when" — the reason the
---      portal masks by default and reveals server-side. A reveal rendered in
---      the browser would make this table a fiction.
+--   1. Answer "who looked at this consumer's data, and when". Page-level: a
+--      view_lead row says an operator opened that lead, not which fields they
+--      read.
 --   2. Feed the login throttle. admin/includes/auth.php counts recent
 --      `login_failed` rows for an email/IP instead of keeping a second table
 --      of attempt counters; the audit row has to be written either way.
@@ -70,11 +70,11 @@ CREATE TABLE IF NOT EXISTS `portal_audit` (
     -- only identifying thing a failed attempt gives us.
     `email`      VARCHAR(255) DEFAULT NULL,
     -- 'login' | 'login_failed' | 'login_blocked' | 'logout'
-    -- | 'view_lead' | 'reveal' | 'export'
+    -- | 'view_lead' | 'export'
     `action`     VARCHAR(32)  NOT NULL,
     `lead_id`    BIGINT UNSIGNED DEFAULT NULL,
-    -- Free text scoped to the action: which field was revealed, the filter and
-    -- row count of an export, why a login failed.
+    -- Free text scoped to the action: the filter and row count of an export,
+    -- why a login failed.
     `detail`     VARCHAR(255) DEFAULT NULL,
     `ip`         VARCHAR(45)  DEFAULT NULL,   -- IPv4 or IPv6
     `user_agent` VARCHAR(255) DEFAULT NULL,

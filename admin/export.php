@@ -7,10 +7,9 @@
  * is always exactly the rows on screen — a separate query here would drift from
  * the table it claims to represent.
  *
- * MASKED BY DEFAULT. `?full=1` exports raw contact details and is a separate,
- * separately-audited action, because an export is the one thing here that takes
- * consumer data out of every control the portal has: no masking, no audit on
- * re-reading, no expiry. Someone should have to mean it.
+ * Every export is audited before a byte is written. It is still the one action
+ * that takes consumer data out of the portal's reach entirely — once a CSV is
+ * on someone's disk there is no further record of who reads it.
  *
  * Streamed rather than buffered — a filter matching every lead should not have
  * to fit in memory first.
@@ -24,7 +23,6 @@ require $root . '/includes/logger.php';
 require $root . '/includes/db.php';
 require __DIR__ . '/includes/audit.php';
 require __DIR__ . '/includes/auth.php';
-require __DIR__ . '/includes/mask.php';
 require __DIR__ . '/includes/layout.php';
 require __DIR__ . '/includes/leadquery.php';
 
@@ -32,7 +30,6 @@ logger($cfg);
 $user = portal_require_login($cfg);
 
 $filters = portal_lead_filters($_GET);
-$full    = !empty($_GET['full']);
 
 /* Hard ceiling. Not a paranoia limit — an unbounded export of a table that
    grows forever is a slow way to take the database down, and nobody has ever
@@ -58,21 +55,20 @@ try {
 portal_audit($cfg, 'export', [
     'lead_id' => null,
     'detail'  => sprintf(
-        '%s, %d rows (of %d), filter: %s',
-        $full ? 'FULL PII' : 'masked',
+        '%d rows (of %d), filter: %s',
         count($rows),
         $total,
         portal_filter_summary($filters)
     ),
 ]);
-app_log($full ? 'warning' : 'info', 'portal', 'export', [
+/* Logged at warning, not info: an export is worth noticing in the ops trail. */
+app_log('warning', 'portal', 'export', [
     'user_id' => $user['id'],
-    'mode'    => $full ? 'full' : 'masked',
     'rows'    => count($rows),
     'filter'  => portal_filter_summary($filters),
 ]);
 
-$filename = sprintf('leads-%s%s.csv', date('Ymd-His'), $full ? '-full' : '');
+$filename = sprintf('leads-%s.csv', date('Ymd-His'));
 
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -101,8 +97,8 @@ foreach ($rows as $row) {
         $row['created_at'],
         $row['first_name'],
         $row['last_name'],
-        $full ? $row['email'] : portal_mask_email($row['email']),
-        $full ? $row['phone'] : portal_mask_phone($row['phone']),
+        $row['email'],
+        $row['phone'],
         $row['city'],
         $row['state'],
         $row['zip'],

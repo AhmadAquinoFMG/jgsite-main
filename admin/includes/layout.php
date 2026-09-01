@@ -69,6 +69,7 @@ if (!function_exists('portal_head')) {
                 <span class="topbar__title">Lead Portal</span>
                 <nav class="topbar__nav">
                     <a class="topbar__link<?= $active === 'leads' ? ' is-active' : '' ?>" href="leads.php">Leads</a>
+                    <a class="topbar__link<?= $active === 'posts' ? ' is-active' : '' ?>" href="posts.php">Post log</a>
                 </nav>
             </div>
             <div class="topbar__user">
@@ -84,13 +85,32 @@ if (!function_exists('portal_head')) {
 
     function portal_foot(array $cfg): void
     {
-        $v = pe((string) ($cfg['asset_version'] ?? '1'));
+        /* No script tag: the portal has no client-side behaviour. Every screen
+           is server-rendered HTML and CSS. */
         ?>
-        <script src="assets/admin.js?v=<?= $v ?>"></script>
         </body>
 
         </html>
         <?php
+    }
+
+    /**
+     * Pretty-print a JSON payload for display.
+     *
+     * Falls back to the raw string when the body is not JSON — an upstream error
+     * page or a truncated response still needs to be readable, and that is
+     * exactly the moment someone is looking at it.
+     */
+    function portal_format_body(?string $body): string
+    {
+        $body = (string) $body;
+        if ($body === '') {
+            return '';
+        }
+        $decoded = json_decode($body, true);
+        return $decoded !== null
+            ? (string) json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            : $body;
     }
 
     /* ------------------------------------------------------- value helpers */

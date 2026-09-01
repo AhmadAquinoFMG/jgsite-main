@@ -24,6 +24,6 @@ Options -Indexes
 # The include files are required by the page scripts, never requested directly.
 # Hitting includes/auth.php over HTTP would execute it with no config loaded;
 # harmless today, but there is no reason for it to be reachable at all.
-<FilesMatch "^(auth|audit|layout|mask)\.php$">
+<FilesMatch "^(auth|audit|layout|leadquery|postquery)\.php$">
     Require all denied
 </FilesMatch>

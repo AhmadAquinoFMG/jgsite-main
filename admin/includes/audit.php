@@ -3,13 +3,12 @@
 /**
  * Portal audit trail — who did what, to whose data.
  *
- * Every login attempt, logout, lead view, PII reveal and export writes a row
- * here. Two reasons it exists, and both matter for how it is used:
+ * Every login attempt, logout, lead view and export writes a row here. Two
+ * reasons it exists, and both matter for how it is used:
  *
- *   1. Accountability. The portal masks consumer PII by default and reveals it
- *      server-side specifically so that a reveal is an EVENT that can be
- *      recorded. Client-side masking would put the real value in the page
- *      source and make this table a comfortable fiction.
+ *   1. Accountability. Lead pages show consumer details in full, so this table
+ *      is the whole record of who looked at whom. It is page-level: it says an
+ *      operator opened lead 18, not which fields they read.
  *   2. The login throttle reads it. auth.php counts recent 'login_failed' rows
  *      instead of keeping separate attempt counters — the audit row has to be
  *      written for a failure anyway, so it may as well be the source of truth.
@@ -28,7 +27,7 @@ if (!function_exists('portal_audit')) {
      * Write one audit row.
      *
      * @param string $action One of: login, login_failed, login_blocked, logout,
-     *                       view_lead, reveal, export.
+     *                       view_lead, export.
      * @param array  $opts   user_id, email, lead_id, detail — all optional; the
      *                       actor is filled in from the session when omitted.
      */
