@@ -32,6 +32,14 @@ CREATE TABLE IF NOT EXISTS `leads` (
     `product`         VARCHAR(64)  DEFAULT NULL,
     `form_name`       VARCHAR(64)  DEFAULT NULL,
 
+    -- ---- Duplicate-submit guard ----
+    -- Idempotency key for one submission attempt: 32 random hex chars minted
+    -- per pageview by index.php and re-sent verbatim when funnel.js retries a
+    -- failed submit. The UNIQUE below is what makes the retry safe; submit.php
+    -- catches the 23000 and replays the original lead's redirect. NULL is
+    -- exempt from the index, so a no-JS or legacy POST still inserts.
+    `submit_nonce`    CHAR(32)     DEFAULT NULL,
+
     -- ---- Phone verification (Firebase Phone Auth) ----
     `phone_verified`  TINYINT(1)   NOT NULL DEFAULT 0,
     `firebase_uid`    VARCHAR(128) DEFAULT NULL,
@@ -152,7 +160,8 @@ CREATE TABLE IF NOT EXISTS `leads` (
     PRIMARY KEY (`id`),
     KEY `idx_created_at` (`created_at`),
     KEY `idx_email`      (`email`),
-    KEY `idx_phone`      (`phone`)
+    KEY `idx_phone`      (`phone`),
+    UNIQUE KEY `uniq_submit_nonce` (`submit_nonce`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

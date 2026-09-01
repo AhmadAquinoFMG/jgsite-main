@@ -4,10 +4,12 @@
  * Lead submission endpoint.
  *
  * Receives the funnel POST (assets/js/funnel.js), then:
- *   1. Validates every field server-side (never trusts the client).
- *   2. Captures TCPA proof-of-consent + attribution meta.
- *   3. Inserts one row into `leads`.
- *   4. Returns JSON: {ok:true} or {ok:false, errors:{field:code}}.
+ *   1. Rejects a repeat of a submission already stored (duplicate-submit guard
+ *      below: per-pageview nonce, session marker + UNIQUE on leads.submit_nonce).
+ *   2. Validates every field server-side (never trusts the client).
+ *   3. Captures TCPA proof-of-consent + attribution meta.
+ *   4. Inserts one row into `leads`.
+ *   5. Returns JSON: {ok:true} or {ok:false, errors:{field:code}}.
  *
  * After storing, best-effort (log & continue) side calls, in this order: JG
  * Wentworth's Debt Resolution scoring call (includes/jgscoring.php), then a
@@ -87,6 +89,100 @@ $fold = static function (string $v): string {
 $post = fn(string $k): string => $fold(trim((string) ($_POST[$k] ?? '')));
 
 app_log('info', 'lead', 'received', ['rid' => $rid]);
+
+/* ------------------------------------------------- duplicate-submit guard
+   A plain double-click is already dead on arrival: funnel.js sets its
+   `submitting` flag and disables the button synchronously, before the fetch
+   goes out. What that CANNOT cover is a retry — the insert below is followed by
+   up to ~48s of outbound calls (JG 20s + LeadProsper 20s + Zapier 8s), and if
+   the response is lost anywhere in there (dropped connection, max_execution_time)
+   funnel.js re-enables the button and the visitor clicks again. The lead is
+   already stored and already billed at that point; without this guard the retry
+   stores and bills a second one.
+
+   Two layers, both keyed on the per-pageview nonce index.php mints into a hidden
+   field. funnel.js re-POSTs the same FormData on a retry, so the retry carries
+   the same nonce as the attempt it is retrying:
+
+     session  — written and flushed to disk the instant the row lands, so it is
+                durable before the slow part begins. Costs no query.
+     UNIQUE   — leads.submit_nonce. The backstop: survives a lost session cookie,
+                a second tab, and a replay of a captured POST body from outside a
+                browser entirely. Race-free in a way a SELECT-then-INSERT is not.
+
+   Either way the visitor still gets a normal success and the original lead's
+   redirect — a duplicate is our problem, not something to show them an error for.
+
+   No nonce (no-JS post, stale cached page) means no guard: the lead is stored as
+   before rather than rejected. Deliberate — a missing tracking field must never
+   cost a real lead. */
+$submitNonce = preg_match('/^[a-f0-9]{32}$/', $post('submit_nonce')) === 1
+    ? $post('submit_nonce')
+    : null;
+
+/**
+ * Answer a repeat POST with the ORIGINAL lead's result. Never stores a second
+ * row and never re-posts to JG/LeadProsper. Always exits.
+ *
+ * The redirect is rebuilt from the stored row rather than replayed from a cached
+ * string, so it carries whatever the first request actually managed to persist:
+ * total_debt and the accepted buyer are written AFTER the insert, so a first
+ * attempt that died mid-flight simply yields fewer params (redirect_build_url()
+ * drops empty values) instead of a stale or invented one.
+ */
+$respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) {
+    app_log('warning', 'lead', 'duplicate_submit', [
+        'rid' => $rid, 'lead_id' => $leadId, 'detected_by' => $detectedBy,
+    ]);
+
+    $redirectUrl = (string) ($cfg['redirect']['base'] ?? 'thank-you.php');
+
+    try {
+        $stmt = db($cfg)->prepare('SELECT * FROM leads WHERE id = :id');
+        $stmt->execute(['id' => $leadId]);
+        $lead = $stmt->fetch();
+
+        if ($lead) {
+            /* The two keys redirect_build_url() reads that aren't columns under
+               those names — same synthesis as the tail of this file. */
+            $lead['lead_id']        = $leadId;
+            $lead['accepted_buyer'] = $lead['lp_accepted_buyer'] ?? null;
+
+            $redirectUrl = redirect_build_url($lead, $cfg['redirect'] ?? []);
+
+            /* thank-you.php reads the savings figure from the session, so restore
+               it here too: a retry that never saw the first response would
+               otherwise land on a page with the callout missing. Same 40% of the
+               best available debt figure as the original path. */
+            $debt = isset($lead['total_debt'])
+                ? (int) $lead['total_debt']
+                : leadprosper_debt_bucket_amount((string) ($lead['debt_amount'] ?? ''));
+            $_SESSION['prequal_savings'] = (int) round($debt * 0.4);
+        }
+    } catch (Throwable $ex) {
+        // Falls back to the bare thank-you page — still better than a duplicate.
+        app_log('error', 'lead', 'duplicate_rebuild_failed', [
+            'rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage(),
+        ]);
+    }
+
+    if (!str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json')) {
+        http_response_code(303);
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
+
+    // `duplicate` is informational; funnel.js only looks at ok + redirect.
+    echo json_encode(['ok' => true, 'redirect' => $redirectUrl, 'duplicate' => true]);
+    exit;
+};
+
+/* Layer 1. session_start() above holds an exclusive lock on the session file,
+   so a genuinely concurrent second POST from this browser is already serialized
+   behind the first — by the time it gets here the marker exists. */
+if ($submitNonce !== null && isset($_SESSION['lead_nonces'][$submitNonce])) {
+    $respondDuplicate((int) $_SESSION['lead_nonces'][$submitNonce], 'session');
+}
 
 /* ------------------------------------------------------------- test mode
    Two independent ways in (config.php ['test_mode']):
@@ -304,6 +400,9 @@ $row = [
     'phone'           => $phoneE164,
     'product'         => $post('product') ?: null,
     'form_name'       => $post('form_name') ?: null,
+    // Idempotency key — see the duplicate-submit guard near the top. NULL when
+    // the POST carried none, which the UNIQUE index exempts.
+    'submit_nonce'    => $submitNonce,
     'trustedform_url' => $post('xxTrustedFormCertUrl') ?: null,
     'jornaya_token'   => $post('universal_leadid') ?: null,
     'consent_text'    => $cfg['consent']['tcpa'] ?? null,
@@ -435,6 +534,28 @@ try {
         'state' => $row['state'],
     ]);
 } catch (Throwable $ex) {
+    /* A repeat of an attempt that already stored a row: the UNIQUE on
+       submit_nonce fired. Reached when the session marker couldn't (cookie lost,
+       different tab, a POST body replayed outside a browser), so the lookup is
+       by nonce rather than by anything in the session. 23000 is the SQLSTATE
+       class for an integrity-constraint violation. */
+    if ($submitNonce !== null && $ex instanceof PDOException && $ex->getCode() === '23000') {
+        try {
+            $dupe = db($cfg)->prepare('SELECT id FROM leads WHERE submit_nonce = :n');
+            $dupe->execute(['n' => $submitNonce]);
+            $existingId = $dupe->fetchColumn();
+            if ($existingId !== false) {
+                $respondDuplicate((int) $existingId, 'unique_key');
+            }
+        } catch (Throwable $lookupEx) {
+            // Fall through to the generic 500 below — the row we'd point at is
+            // unreadable, so there is nothing honest to redirect to.
+            app_log('error', 'lead', 'duplicate_lookup_failed', [
+                'rid' => $rid, 'error' => $lookupEx->getMessage(),
+            ]);
+        }
+    }
+
     app_log('error', 'lead', 'insert_failed', [
         'rid'   => $rid,
         'error' => $ex->getMessage(),
@@ -453,6 +574,29 @@ try {
     echo json_encode($body);
     exit;
 }
+
+/* --------------------------------------------------- dedupe marker (durable)
+   The row exists; from here on a repeat POST must never create another. Written
+   BEFORE the outbound calls below, and flushed immediately, because those are
+   exactly what the retry case is about: PHP normally writes the session at
+   shutdown, which a max_execution_time kill 40s from now is not guaranteed to
+   reach. session_write_close() puts it on disk now.
+
+   Closing also RELEASES the session lock. That is wanted: a concurrent second
+   POST from this browser would otherwise block on it for the full duration of
+   the JG/LeadProsper/Zapier calls before short-circuiting. Now it reads the
+   marker and answers straight away. The session is reopened further down for
+   prequal_savings.
+
+   Bounded to the last few nonces so a visitor who reloads the funnel repeatedly
+   can't grow the session file without limit. */
+if ($submitNonce !== null) {
+    $_SESSION['lead_nonces'][$submitNonce] = $leadId;
+    if (count($_SESSION['lead_nonces']) > 5) {
+        $_SESSION['lead_nonces'] = array_slice($_SESSION['lead_nonces'], -5, null, true);
+    }
+}
+session_write_close();
 
 /* -------------------------------------- JG Wentworth DR scoring (best-effort)
    Post the stored lead to JG's Debt Resolution intake and log the
@@ -725,7 +869,18 @@ $estimatedSavings = (int) round($debtForSavings * 0.4);
 // Handed to thank-you.php via session, not the redirect URL, so the visitor
 // can't edit/replay it by hand. Persists across reloads of thank-you.php;
 // index.php clears it when the funnel is started over.
-$_SESSION['prequal_savings'] = $estimatedSavings;
+//
+// Reopened here: the session was closed right after the insert so the dedupe
+// marker was durable before the outbound calls above. Nothing is echoed between
+// the two, so the cookie header still goes out — but headers_sent() is checked
+// anyway, because a stray warning printed by one of those calls (display_errors
+// on a misconfigured host) would otherwise turn this into a fatal. Losing the
+// savings figure there is the same outcome as before this guard existed; losing
+// the response is not.
+if (!headers_sent()) {
+    session_start();
+    $_SESSION['prequal_savings'] = $estimatedSavings;
+}
 
 /* ---------------------------------------- Everflow conversion handoff
    TEMPORARILY DISABLED: LeadProsper is now the single owner of buyer-specific

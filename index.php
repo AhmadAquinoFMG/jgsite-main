@@ -19,6 +19,26 @@ unset($_SESSION['prequal_savings'], $_SESSION['ef_conversion']);
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
+/* ---- Duplicate-submit guard ------------------------------------------------
+   One idempotency key per pageview. funnel.js re-POSTs the same FormData when a
+   submit fails, so a retry carries this same value and submit.php recognises it
+   as the SAME attempt rather than a second lead (session marker first, then the
+   UNIQUE on leads.submit_nonce as the backstop). Minted here rather than in JS
+   so a client can't choose or reuse it.
+
+   Nothing caches this page, so every visitor gets a distinct value; if a full-page
+   cache is ever put in front of it this field must be excluded from it, or one
+   cached nonce would collapse every visitor's lead into the first one.
+
+   The fallback is for a host without a working CSPRNG: uniqid() is predictable,
+   but the nonce only needs to be unique per pageview, and losing the guard
+   entirely would be worse. */
+try {
+    $submitNonce = bin2hex(random_bytes(16));
+} catch (Throwable $ex) {
+    $submitNonce = md5(uniqid('', true) . (string) mt_rand());
+}
+
 /* ---- Funnel landing event props -------------------------------------------
    One "event_view_landing" event per pageview, carrying the traffic source. Step 1
    (event_view_debt_amount) is the entry anchor of the drop-off report, so without
@@ -192,6 +212,9 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                  forwarded on in includes/leadprosper.php. -->
                 <input type="hidden" name="product" value="Debt Relief">
                 <input type="hidden" name="form_name" value="DRMultiStep_PHP">
+                <!-- Idempotency key for this pageview's submit. See the top of this
+                 file and sql/alter_leads_add_submit_nonce.sql. -->
+                <input type="hidden" name="submit_nonce" value="<?= $e($submitNonce) ?>">
                 <input type="hidden" name="xxTrustedFormCertUrl" id="xxTrustedFormCertUrl">
                 <input type="hidden" name="universal_leadid" id="universal_leadid">
 
