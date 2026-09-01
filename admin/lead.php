@@ -82,7 +82,9 @@ try {
         portal_audit($cfg, 'view_lead', ['lead_id' => $leadId]);
     }
 } catch (Throwable $ex) {
-    $error = 'Could not load this lead.';
+    // Same reasoning as leads.php: staff-only page, so the cause is shown
+    // rather than hidden behind a round trip to the server's log file.
+    $error = 'Could not load this lead: ' . $ex->getMessage();
     app_log('error', 'portal', 'lead_query_failed', [
         'user_id' => $user['id'],
         'lead_id' => $leadId,

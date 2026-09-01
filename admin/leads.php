@@ -44,9 +44,12 @@ try {
     $rows   = portal_lead_page($pdo, $filters, PER_PAGE, $offset);
     $facets = portal_lead_facets($pdo);
 } catch (Throwable $ex) {
-    /* Show the operator something usable rather than a stack trace, and put the
-       detail where it belongs. */
-    $error = 'Could not load leads.';
+    /* The real message goes on screen, not just to the log. This page is behind
+       a login and only staff see it, and the alternative — a generic "could not
+       load" with the cause buried in a file on the server — costs a round trip
+       to diagnose every time. It is the difference between "something broke"
+       and "Unknown column 'jgw_disposition'". */
+    $error = 'Could not load leads: ' . $ex->getMessage();
     app_log('error', 'portal', 'leads_query_failed', [
         'user_id' => $user['id'],
         'error'   => $ex->getMessage(),
@@ -182,25 +185,25 @@ portal_topbar($user, $csrf, 'leads');
                     <?php $status = portal_lead_status($row); ?>
                     <tr class="table__row" onclick="location.href='lead.php?id=<?= (int) $row['id'] ?>'">
                         <td class="mono"><a class="link" href="lead.php?id=<?= (int) $row['id'] ?>"><?= (int) $row['id'] ?></a></td>
-                        <td class="nowrap"><?= $e(portal_datetime($row['created_at'])) ?></td>
-                        <td><?= $e(trim($row['first_name'] . ' ' . $row['last_name'])) ?></td>
-                        <td class="mono"><?= $e(portal_mask_email($row['email'])) ?></td>
-                        <td class="mono nowrap"><?= $e(portal_mask_phone($row['phone'])) ?></td>
+                        <td class="nowrap"><?= $e(portal_datetime($row['created_at'] ?? null)) ?></td>
+                        <td><?= $e(trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''))) ?></td>
+                        <td class="mono"><?= $e(portal_mask_email($row['email'] ?? null)) ?></td>
+                        <td class="mono nowrap"><?= $e(portal_mask_phone($row['phone'] ?? null)) ?></td>
                         <td class="nowrap"><?= $e(portal_or_dash(trim(($row['city'] ?? '') . ', ' . ($row['state'] ?? ''), ' ,'))) ?></td>
                         <td class="nowrap">
-                            <?php if ($row['total_debt'] !== null): ?>
+                            <?php if (($row['total_debt'] ?? null) !== null): ?>
                                 <?= $e(portal_money((int) $row['total_debt'])) ?>
                                 <span class="hint" title="Verified figure source"><?= $e($row['total_debt_source'] ?? '') ?></span>
                             <?php else: ?>
-                                <span class="muted"><?= $e(portal_or_dash($row['debt_amount'])) ?></span>
+                                <span class="muted"><?= $e(portal_or_dash($row['debt_amount'] ?? null)) ?></span>
                             <?php endif; ?>
                         </td>
-                        <td class="mono"><?= $e(portal_or_dash($row['affid'])) ?></td>
-                        <td><?= $e(portal_or_dash($row['utm_source'])) ?></td>
+                        <td class="mono"><?= $e(portal_or_dash($row['affid'] ?? null)) ?></td>
+                        <td><?= $e(portal_or_dash($row['utm_source'] ?? null)) ?></td>
                         <td class="nowrap">
                             <?= portal_badge($status) ?>
-                            <?php if ((int) ($row['bot_suspected'] ?? 0) === 1 && $row['bot_reason']): ?>
-                                <span class="hint"><?= $e($row['bot_reason']) ?></span>
+                            <?php if ((int) ($row['bot_suspected'] ?? 0) === 1 && ($row['bot_reason'] ?? '')): ?>
+                                <span class="hint"><?= $e($row['bot_reason'] ?? '') ?></span>
                             <?php endif; ?>
                         </td>
                     </tr>

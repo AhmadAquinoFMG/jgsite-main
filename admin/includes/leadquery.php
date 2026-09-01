@@ -136,11 +136,43 @@ if (!function_exists('portal_lead_filters')) {
     }
 
     /**
+     * The columns this database's `leads` table actually has.
+     *
+     * The schema differs between environments — a database that has not had
+     * every sql/alter_*.sql run is missing columns a hard-coded SELECT would
+     * name, and MySQL answers the whole query with "Unknown column" rather than
+     * skipping it. One lagging column would blank the entire list.
+     *
+     * Read once per request from information_schema and cached. Names from here
+     * are the only ones interpolated into the SELECT, and they come from the
+     * database's own catalogue, never from the request.
+     */
+    function portal_lead_columns(PDO $pdo): array
+    {
+        static $columns = null;
+        if ($columns !== null) {
+            return $columns;
+        }
+        // DATABASE() rather than a configured name: it is whatever this
+        // connection is actually attached to, which is the thing being queried.
+        $stmt = $pdo->query(
+            "SELECT COLUMN_NAME FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'leads'"
+        );
+        $columns = array_column($stmt->fetchAll(), 'COLUMN_NAME');
+        return $columns;
+    }
+
+    /**
      * One page of leads.
      *
      * An explicit column list, never SELECT * — `consent_text` is a TEXT column
      * on every row and `landing_page_url` runs to 512 chars; pulling them for a
      * 50-row list is wasted for data the table never shows.
+     *
+     * The list is intersected with what the table really has (see above), and
+     * every consumer of these rows uses `?? null`, so a missing column reads as
+     * an empty cell instead of a failed page.
      *
      * LIMIT/OFFSET are cast to int and interpolated because MySQL will not take
      * them as bound parameters when emulated prepares are off (includes/db.php).
@@ -150,12 +182,21 @@ if (!function_exists('portal_lead_filters')) {
     {
         $w = portal_lead_where($filters);
 
-        $sql = 'SELECT id, created_at, first_name, last_name, email, phone,
-                       city, state, zip, debt_amount, total_debt, total_debt_source,
-                       affid, source_id, sub1, utm_source, utm_campaign,
-                       lp_status, lp_accepted, lp_accepted_buyer, lp_error, lp_posted_at, lp_mode,
-                       jgw_status, jgw_disposition, jgw_total_debt,
-                       bot_suspected, bot_reason, phone_verified
+        $wanted = [
+            'id', 'created_at', 'first_name', 'last_name', 'email', 'phone',
+            'city', 'state', 'zip', 'debt_amount', 'total_debt', 'total_debt_source',
+            'affid', 'source_id', 'sub1', 'utm_source', 'utm_campaign',
+            'lp_status', 'lp_accepted', 'lp_accepted_buyer', 'lp_error', 'lp_posted_at', 'lp_mode',
+            'jgw_status', 'jgw_disposition', 'jgw_total_debt',
+            'bot_suspected', 'bot_reason', 'phone_verified',
+        ];
+        $select = array_values(array_intersect($wanted, portal_lead_columns($pdo)));
+        if (!$select) {
+            // No overlap at all means this is not the table we think it is.
+            throw new RuntimeException('`leads` has none of the expected columns');
+        }
+
+        $sql = 'SELECT ' . implode(', ', $select) . '
                   FROM leads' . $w['sql'] . '
                  ORDER BY created_at DESC, id DESC
                  LIMIT ' . (int) $limit . ' OFFSET ' . (int) $offset;

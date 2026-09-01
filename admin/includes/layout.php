@@ -125,10 +125,13 @@ if (!function_exists('portal_head')) {
      */
     function portal_lead_status(array $lead): array
     {
+        /* Every read is ?? null: portal_lead_page() only selects the columns the
+           database actually has, so on a schema that lags a migration these keys
+           can be absent rather than null. */
         if ((int) ($lead['bot_suspected'] ?? 0) === 1) {
             return ['label' => 'Bot', 'tone' => 'muted'];
         }
-        if ($lead['lp_status'] === null && $lead['lp_posted_at'] === null) {
+        if (($lead['lp_status'] ?? null) === null && ($lead['lp_posted_at'] ?? null) === null) {
             return ['label' => 'Not posted', 'tone' => 'muted'];
         }
         if ((int) ($lead['lp_accepted'] ?? 0) === 1) {
