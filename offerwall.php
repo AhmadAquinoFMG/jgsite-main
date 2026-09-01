@@ -5,16 +5,7 @@ $cfg = require __DIR__ . '/config.php';
 $offerwall = require __DIR__ . '/includes/offerwall-campaigns.php';
 $e = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 
-$affid = trim((string) ($_GET['affid'] ?? ''));
-$partner = $offerwall['affiliate_partners'][$affid] ?? null;
 $campaigns = $offerwall['campaigns'];
-
-$resolveLink = static function (array $campaign) use ($partner): string {
-    if ($partner !== null && isset($campaign['cta_links'][$partner])) {
-        return (string) $campaign['cta_links'][$partner];
-    }
-    return (string) ($campaign['cta_link'] ?? '');
-};
 
 usort($campaigns, static fn(array $a, array $b): int => ($a['sponsored'] ?? false) <=> ($b['sponsored'] ?? false));
 header('Content-Type: text/html; charset=UTF-8');
@@ -57,12 +48,6 @@ header('Content-Type: text/html; charset=UTF-8');
 
         <section class="offerwall-options" aria-label="Alternative financial offers">
             <div class="offerwall-shell">
-                <?php if ($affid !== '' && $partner === null): ?>
-                    <div class="offerwall-alert" role="status">
-                        The supplied affiliate ID is not mapped, so default offer links are being used.
-                    </div>
-                <?php endif; ?>
-
                 <div class="offer-list">
                     <?php $sponsoredStarted = false; ?>
                     <?php foreach ($campaigns as $position => $campaign): ?>
@@ -90,7 +75,7 @@ header('Content-Type: text/html; charset=UTF-8');
                             </div>
                             <div class="offer-card__action">
                                 <a class="offer-button"
-                                   href="<?= $e($resolveLink($campaign)) ?>"
+                                   href="<?= $e($campaign['cta_link'] ?? '') ?>"
                                    data-offer-cta
                                    data-cta-text="<?= $e($campaign['cta_text']) ?>"
                                    rel="nofollow sponsored">

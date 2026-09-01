@@ -479,11 +479,14 @@ return [
             // when the scoring call returned nothing usable (see submit.php).
             'lead_id'        => 'lead_id',
             'total_debt'     => 'total_debt',
-            // Buyer that accepted the lead at LeadProsper. thank-you.php looks
-            // this up in the `buyers` table to decide whose logo to show under
-            // the savings callout (includes/buyers.php). Absent when no buyer
-            // accepted, or when LeadProsper is off. Not PII — a company name.
+            // Server-selected display buyer from the verified-debt routing band.
+            // thank-you.php resolves its logo/phone through the buyers table.
+            // This is presentation data, not the audited LP accepted-buyer field.
             'buyer'          => 'accepted_buyer',
+            // Server-derived presentation/routing flags. These contain no PII:
+            // thank-you.php uses them for accurate copy and the popup fallback.
+            'route'          => 'routing_tier',
+            'decline'        => 'decline_offer',
             // Meta match keys, for the Conversions API event CallGrid fires off
             // the call. fbc/fbp are the pixel's cookies; the request-level pair
             // must be the *visitor's* ip/ua as we saw them at submit — CallGrid's
@@ -494,6 +497,28 @@ return [
             'fbc'               => 'fbc',
             'client_ip_address' => 'ip',
             'client_user_agent' => 'user_agent',
+        ],
+    ],
+
+    // ---- Post-submit routing -------------------------------------------
+    // Verified debt only: >=$10k stays JG; $5k-$9,999 uses InCharge branding;
+    // $0-$4,999 and no-credit-read outcomes stay JG-branded but also receive
+    // the decline offerwall in a separate tab. Bots never open the offerwall.
+    'lead_routing' => [
+        'qualify_min'    => (int) env('ROUTING_QUALIFY_MIN', '10000'),
+        'incharge_min'   => (int) env('ROUTING_INCHARGE_MIN', '5000'),
+        'incharge_max'   => (int) env('ROUTING_INCHARGE_MAX', '9999'),
+        'house_buyer'    => env('ROUTING_HOUSE_BUYER', 'JG Wentworth'),
+        'incharge_buyer' => env('ROUTING_INCHARGE_BUYER', 'InCharge'),
+        'offerwall_base' => env('OFFERWALL_BASE', 'offerwall.php'),
+        // Used only when the buyers table is unavailable or has no InCharge
+        // row. A live database row remains authoritative.
+        'incharge_fallback' => [
+            'label'        => 'InCharge Debt Solutions',
+            'logo_path'    => 'assets/img/buyers/Incharge_Debt_Solutions-r.webp',
+            'did'          => '1-855-600-0593',
+            'use_callgrid' => false,
+            'show_logo'    => true,
         ],
     ],
 

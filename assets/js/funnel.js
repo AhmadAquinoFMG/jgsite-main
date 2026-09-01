@@ -1090,6 +1090,36 @@
     }
 
     var submitting = false;
+    var declineWindow = null;
+
+    function reserveDeclineWindow() {
+        // window.open() must happen inside the user's submit gesture. The server
+        // needs the credit result before it knows whether this tab is required,
+        // so reserve it now, navigate it on a decline, or close it on approval.
+        try {
+            declineWindow = window.open('', 'jg-decline-options');
+            if (!declineWindow) return;
+            declineWindow.document.open();
+            declineWindow.document.write(
+                '<!doctype html><html><head><meta charset="utf-8">' +
+                '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+                '<title>Checking Your Options</title><style>' +
+                'body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(145deg,#00533a,#0c805b);font:16px Arial,sans-serif;color:#fff;text-align:center}' +
+                '.box{padding:32px}.dot{width:34px;height:34px;margin:0 auto 18px;border:4px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}' +
+                '</style></head><body><div class="box"><div class="dot"></div><strong>Checking additional options for you…</strong></div></body></html>'
+            );
+            declineWindow.document.close();
+        } catch (ignore) {
+            declineWindow = null;
+        }
+    }
+
+    function closeDeclineWindow() {
+        try {
+            if (declineWindow && !declineWindow.closed) declineWindow.close();
+        } catch (ignore) {}
+        declineWindow = null;
+    }
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         if (submitting) return;
@@ -1098,6 +1128,7 @@
         submitted  = true; // a completion, not an abandonment — suppress event_abandon_*
         btnSubmit.disabled = true;
         btnSubmit.textContent = 'Submitting…';
+        reserveDeclineWindow();
 
         // ATTEMPT, not success: this fires before the POST resolves, so 422s and
         // network failures are in here too. The conversion signal is
@@ -1124,6 +1155,18 @@
             })
             .then(function (res) {
                 if (res.body && res.body.ok) {
+                    if (res.body.decline_url) {
+                        try {
+                            if (declineWindow && !declineWindow.closed) {
+                                declineWindow.location.replace(res.body.decline_url);
+                                if (res.body.lead_id) {
+                                    sessionStorage.setItem('jg_offerwall_opened_' + res.body.lead_id, '1');
+                                }
+                            }
+                        } catch (ignore) {}
+                    } else {
+                        closeDeclineWindow();
+                    }
                     // submit.php builds the destination and appends the answers
                     // it just validated (includes/redirect.php), so we follow
                     // what it hands back rather than assembling a URL here from
@@ -1132,6 +1175,7 @@
                     window.location.assign(res.body.redirect || 'thank-you.php');
                     return;
                 }
+                closeDeclineWindow();
                 submitting = false;
                 setSubmitEnabled(true);
                 if (res.status === 422 && res.body && res.body.errors) {
@@ -1141,6 +1185,7 @@
                 }
             })
             .catch(function () {
+                closeDeclineWindow();
                 submitting = false;
                 submitted  = false;
                 setSubmitEnabled(true);

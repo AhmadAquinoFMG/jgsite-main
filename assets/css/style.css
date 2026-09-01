@@ -582,6 +582,29 @@ a { color: var(--green-deep); }
     object-fit: contain;
 }
 
+.prequal-options {
+    display: grid;
+    gap: 6px;
+    margin: 20px 0 0;
+    padding: 18px 20px;
+    border: 1px solid rgba(0, 104, 70, .2);
+    border-radius: 14px;
+    background: rgba(232, 247, 239, .82);
+    color: var(--ink-soft);
+    text-align: center;
+}
+.prequal-options strong { color: var(--green-deep); }
+.prequal-options span { font-size: 13px; line-height: 1.5; }
+.prequal-options a {
+    justify-self: center;
+    margin-top: 6px;
+    color: var(--green-deep);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 /* assigned specialist row */
 .prequal-assigned {
     display: flex; align-items: flex-start; gap: 18px;

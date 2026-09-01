@@ -35,6 +35,7 @@ require __DIR__ . '/includes/leadprosper.php';
 require __DIR__ . '/includes/jgscoring.php';
 require __DIR__ . '/includes/turnstile.php';
 require __DIR__ . '/includes/redirect.php';
+require __DIR__ . '/includes/routing.php';
 require __DIR__ . '/includes/zapier.php';
 
 logger($cfg); // initialise the operational file logger
@@ -136,6 +137,7 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
     ]);
 
     $redirectUrl = (string) ($cfg['redirect']['base'] ?? 'thank-you.php');
+    $declineUrl = null;
 
     try {
         $stmt = db($cfg)->prepare('SELECT * FROM leads WHERE id = :id');
@@ -143,12 +145,23 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
         $lead = $stmt->fetch();
 
         if ($lead) {
-            /* The two keys redirect_build_url() reads that aren't columns under
-               those names — same synthesis as the tail of this file. */
+            $routing = lead_routing_decision(
+                lead_stored_verified_debt($lead),
+                !empty($lead['bot_suspected']),
+                $cfg['lead_routing'] ?? []
+            );
+
+            /* Values redirect_build_url() reads that are not stored under these
+               names — same synthesis as the tail of this file. */
             $lead['lead_id']        = $leadId;
-            $lead['accepted_buyer'] = $lead['lp_accepted_buyer'] ?? null;
+            $lead['accepted_buyer'] = $routing['buyer'];
+            $lead['routing_tier']   = $routing['tier'];
+            $lead['decline_offer']  = $routing['decline_offer'] ? '1' : null;
 
             $redirectUrl = redirect_build_url($lead, $cfg['redirect'] ?? []);
+            if ($routing['decline_offer']) {
+                $declineUrl = decline_offerwall_url($lead, $cfg['lead_routing'] ?? []);
+            }
 
             /* thank-you.php reads the savings figure from the session, so restore
                it here too: a retry that never saw the first response would
@@ -172,8 +185,14 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
         exit;
     }
 
-    // `duplicate` is informational; funnel.js only looks at ok + redirect.
-    echo json_encode(['ok' => true, 'redirect' => $redirectUrl, 'duplicate' => true]);
+    // `duplicate` is informational; the original lead is never re-posted.
+    echo json_encode([
+        'ok' => true,
+        'redirect' => $redirectUrl,
+        'decline_url' => $declineUrl,
+        'lead_id' => $leadId,
+        'duplicate' => true,
+    ]);
     exit;
 };
 
@@ -866,6 +885,22 @@ $debtForConsumer  = $verifiedTotalDebt ?? $buyerTotalDebt;
 $debtForSavings   = $debtForConsumer ?? leadprosper_debt_bucket_amount((string) $row['debt_amount']);
 $estimatedSavings = (int) round($debtForSavings * 0.4);
 
+/* ---------------------------------------- branded routing + decline offerwall
+   The main tab always stays on our thank-you page. Verified >=$10k debt keeps
+   JG branding; verified $5k-$9,999 uses InCharge branding; verified <$5k and
+   every no-read outcome stay JG-branded and receive the separate offerwall.
+   InCharge also gets that separate decline tab because the requested decline
+   segment is every verified amount below $10k. */
+$routing = lead_routing_decision(
+    $debtForConsumer,
+    $botReason !== null,
+    $cfg['lead_routing'] ?? []
+);
+$displayBuyer = $routing['buyer'];
+$declineUrl = $routing['decline_offer']
+    ? decline_offerwall_url($row, $cfg['lead_routing'] ?? [])
+    : null;
+
 // Handed to thank-you.php via session, not the redirect URL, so the visitor
 // can't edit/replay it by hand. Persists across reloads of thank-you.php;
 // index.php clears it when the funnel is started over.
@@ -926,11 +961,12 @@ if ($botReason !== null) {
    "verified" name. */
 $row['lead_id']    = $leadId;
 $row['total_debt'] = $debtForConsumer;
-/* Third such value: the accepted buyer's name, so thank-you.php can look up
-   whose logo to show (includes/buyers.php). Null when no buyer accepted, when
-   LeadProsper is off, or on a bot-flagged submit — the builder drops empties, so
-   the param is absent rather than blank. */
-$row['accepted_buyer'] = $acceptedBuyer;
+/* Third such value: the server-selected display buyer for this debt band, so
+   thank-you.php can look up the correct logo and phone. The actual LP buyer is
+   still preserved separately in leads.lp_accepted_buyer for reconciliation. */
+$row['accepted_buyer'] = $displayBuyer;
+$row['routing_tier'] = $routing['tier'];
+$row['decline_offer'] = $routing['decline_offer'] ? '1' : null;
 
 $redirectUrl = redirect_build_url($row, $cfg['redirect'] ?? []);
 
@@ -941,6 +977,8 @@ app_log('info', 'lead', 'redirect_built', [
     // business in a log file.
     'target'  => explode('?', $redirectUrl)[0],
     'params'  => array_keys($cfg['redirect']['params'] ?? []),
+    'routing_tier' => $routing['tier'],
+    'decline_offer' => $routing['decline_offer'],
 ]);
 
 $wantsJson = str_contains(strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? '')), 'application/json');
@@ -952,4 +990,9 @@ if (!$wantsJson) {
     exit;
 }
 
-echo json_encode(['ok' => true, 'redirect' => $redirectUrl]);
+echo json_encode([
+    'ok' => true,
+    'redirect' => $redirectUrl,
+    'decline_url' => $declineUrl,
+    'lead_id' => $leadId,
+]);

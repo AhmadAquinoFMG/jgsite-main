@@ -15,6 +15,14 @@ session_start();
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
+$route = strtolower(trim((string) ($_GET['route'] ?? 'qualified')));
+if (!in_array($route, ['qualified', 'incharge', 'decline', 'bot'], true)) {
+    $route = 'qualified';
+}
+$declineOffer = (string) ($_GET['decline'] ?? '') === '1';
+$leadId = max(0, (int) ($_GET['lead_id'] ?? 0));
+$isLowDebtDecline = $route === 'decline';
+
 $pq        = $cfg['prequal'];
 $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seconds
 
@@ -34,7 +42,21 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
    another buyer's name and see their logo. Fine for decoration; see the note in
    includes/buyers.php before reading this param for anything that matters. */
 require_once __DIR__ . '/includes/buyers.php';
-$buyer     = buyer_find($cfg, (string) ($_GET['buyer'] ?? ''));
+$buyer = buyer_find($cfg, (string) ($_GET['buyer'] ?? ''));
+if ($buyer === null && $route === 'incharge') {
+    $fallback = $cfg['lead_routing']['incharge_fallback'] ?? [];
+    if (is_array($fallback) && trim((string) ($fallback['did'] ?? '')) !== '') {
+        $buyer = [
+            'id' => 0,
+            'name' => (string) ($cfg['lead_routing']['incharge_buyer'] ?? 'InCharge'),
+            'label' => (string) ($fallback['label'] ?? 'InCharge Debt Solutions'),
+            'logo_path' => (string) ($fallback['logo_path'] ?? ''),
+            'did' => (string) $fallback['did'],
+            'use_callgrid' => !empty($fallback['use_callgrid']),
+            'show_logo' => !empty($fallback['show_logo']),
+        ];
+    }
+}
 $buyerLogo = buyer_logo_of($buyer);
 
 /* CTA number. Comes from the `buyers` registry — there is no CTA number in
@@ -76,6 +98,11 @@ $ctaTel    = phone_tel_href($ctaPhone);                        // tel: href, E.1
    duplicated conversion would be a billing event. */
 require_once __DIR__ . '/includes/everflow.php';
 require_once __DIR__ . '/includes/redirect.php';   // redirect_param_names(), for the CallGrid tags below
+require_once __DIR__ . '/includes/routing.php';
+
+$offerwallUrl = $declineOffer
+    ? decline_offerwall_url($_GET, $cfg['lead_routing'] ?? [])
+    : null;
 
 /* TEMPORARILY DISABLED: LeadProsper owns Everflow conversion firing. The
    original session read is preserved for rollback; forcing null prevents this
@@ -137,7 +164,7 @@ if ($cgOn) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
     <meta name="robots" content="noindex, nofollow">
-    <title><?= $e($cfg['brand']['name']) ?> — You're Pre-Qualified</title>
+    <title><?= $e($cfg['brand']['name']) ?> — <?= $isLowDebtDecline ? 'Thank You' : "You're Pre-Qualified" ?></title>
     <link rel="icon" type="image/png" href="assets/img/jg-icon.png?v=<?= $e($cfg['asset_version']) ?>">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -158,7 +185,9 @@ if ($cgOn) {
     <script>
         jgTrack('event_view_thank_you', {
             has_savings: <?= $estimatedSavings > 0 ? 'true' : 'false' ?>,
-            estimated_savings: <?= (int) $estimatedSavings ?>
+            estimated_savings: <?= (int) $estimatedSavings ?>,
+            routing_tier: <?= json_encode($route) ?>,
+            decline_offer: <?= $declineOffer ? 'true' : 'false' ?>
         });
     </script>
 
@@ -301,14 +330,27 @@ if ($cgOn) {
                 </svg>
             </div>
 
-            <h1 class="prequal-title">You&rsquo;re Pre-Qualified for <br>a Debt Relief Program</h1>
-            <p class="prequal-lede">You could reduce your debt and lower your monthly payments.</p>
+            <?php if ($isLowDebtDecline): ?>
+                <h1 class="prequal-title">Thank You&mdash;We Received Your Information</h1>
+                <p class="prequal-lede">A debt specialist is still available to discuss your situation and answer your questions.</p>
+            <?php else: ?>
+                <h1 class="prequal-title">You&rsquo;re Pre-Qualified for <br>a Debt Relief Program</h1>
+                <p class="prequal-lede">You could reduce your debt and lower your monthly payments.</p>
+            <?php endif; ?>
 
-            <?php if ($estimatedSavings > 0): ?>
+            <?php if (!$isLowDebtDecline && $estimatedSavings > 0): ?>
                 <div class="prequal-savings">
                     <span class="prequal-savings__label">You can save up to:</span>
                     <span class="prequal-savings__amount">$<?= $e(number_format($estimatedSavings)) ?></span>
                 </div>
+            <?php endif; ?>
+
+            <?php if ($declineOffer && $offerwallUrl !== null): ?>
+                <aside class="prequal-options" aria-label="Additional financial options">
+                    <strong>We&rsquo;ve also prepared additional options for you.</strong>
+                    <span>They should open in a separate tab while this page remains available.</span>
+                    <a href="<?= $e($offerwallUrl) ?>" target="jg-decline-options" rel="noopener">View additional options</a>
+                </aside>
             <?php endif; ?>
 
             <?php if ($buyerLogo !== null): ?>
@@ -453,6 +495,22 @@ if ($cgOn) {
             }, 1000);
         })();
     </script>
+    <?php if ($declineOffer && $offerwallUrl !== null): ?>
+        <script>
+            /* Fallback for popup blockers or non-JS form submissions. The normal
+               funnel reserves this named tab during the submit gesture and sets
+               the session marker before navigating here, so this does not open a
+               second offerwall tab or repeat on thank-you reload. */
+            (function() {
+                var key = 'jg_offerwall_opened_<?= (int) $leadId ?>';
+                try {
+                    if (sessionStorage.getItem(key) === '1') return;
+                    var popup = window.open(<?= json_encode($offerwallUrl, JSON_UNESCAPED_SLASHES) ?>, 'jg-decline-options');
+                    if (popup) sessionStorage.setItem(key, '1');
+                } catch (ignore) {}
+            })();
+        </script>
+    <?php endif; ?>
 </body>
 
 </html>
