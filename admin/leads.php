@@ -184,13 +184,13 @@ portal_topbar($user, $csrf, 'leads');
                 <?php foreach ($rows as $row): ?>
                     <?php $status = portal_lead_status($row); ?>
                     <tr class="table__row" onclick="location.href='lead.php?id=<?= (int) $row['id'] ?>'">
-                        <td class="mono"><a class="link" href="lead.php?id=<?= (int) $row['id'] ?>"><?= (int) $row['id'] ?></a></td>
-                        <td class="nowrap"><?= $e(portal_datetime($row['created_at'] ?? null)) ?></td>
-                        <td><?= $e(trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''))) ?></td>
-                        <td class="mono"><?= $e(portal_mask_email($row['email'] ?? null)) ?></td>
-                        <td class="mono nowrap"><?= $e(portal_mask_phone($row['phone'] ?? null)) ?></td>
-                        <td class="nowrap"><?= $e(portal_or_dash(trim(($row['city'] ?? '') . ', ' . ($row['state'] ?? ''), ' ,'))) ?></td>
-                        <td class="nowrap">
+                        <td class="mono" data-label="ID"><a class="link" href="lead.php?id=<?= (int) $row['id'] ?>"><?= (int) $row['id'] ?></a></td>
+                        <td class="nowrap" data-label="Received"><?= $e(portal_datetime($row['created_at'] ?? null)) ?></td>
+                        <td data-label="Name"><?= $e(trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? ''))) ?></td>
+                        <td class="mono" data-label="Email"><?= $e(portal_mask_email($row['email'] ?? null)) ?></td>
+                        <td class="mono nowrap" data-label="Phone"><?= $e(portal_mask_phone($row['phone'] ?? null)) ?></td>
+                        <td class="nowrap" data-label="Location"><?= $e(portal_or_dash(trim(($row['city'] ?? '') . ', ' . ($row['state'] ?? ''), ' ,'))) ?></td>
+                        <td class="nowrap" data-label="Debt">
                             <?php if (($row['total_debt'] ?? null) !== null): ?>
                                 <?= $e(portal_money((int) $row['total_debt'])) ?>
                                 <span class="hint" title="Verified figure source"><?= $e($row['total_debt_source'] ?? '') ?></span>
@@ -198,9 +198,9 @@ portal_topbar($user, $csrf, 'leads');
                                 <span class="muted"><?= $e(portal_or_dash($row['debt_amount'] ?? null)) ?></span>
                             <?php endif; ?>
                         </td>
-                        <td class="mono"><?= $e(portal_or_dash($row['affid'] ?? null)) ?></td>
-                        <td><?= $e(portal_or_dash($row['utm_source'] ?? null)) ?></td>
-                        <td class="nowrap">
+                        <td class="mono" data-label="Affiliate"><?= $e(portal_or_dash($row['affid'] ?? null)) ?></td>
+                        <td data-label="Source"><?= $e(portal_or_dash($row['utm_source'] ?? null)) ?></td>
+                        <td class="nowrap" data-label="Status">
                             <?= portal_badge($status) ?>
                             <?php if ((int) ($row['bot_suspected'] ?? 0) === 1 && ($row['bot_reason'] ?? '')): ?>
                                 <span class="hint"><?= $e($row['bot_reason'] ?? '') ?></span>

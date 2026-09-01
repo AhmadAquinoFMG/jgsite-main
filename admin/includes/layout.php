@@ -45,6 +45,13 @@ if (!function_exists('portal_head')) {
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <meta name="robots" content="noindex, nofollow">
             <title><?= pe($title) ?> — Lead Portal</title>
+            <?php /* Inter, not the funnel's Poppins: Poppins is a display face
+                     and this is a dense data tool. Weights limited to the four
+                     actually used. The stack falls back to the system UI font,
+                     so the portal stays legible if Google Fonts is blocked. */ ?>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
             <link rel="stylesheet" href="assets/admin.css?v=<?= $v ?>">
         </head>
 

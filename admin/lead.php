@@ -277,8 +277,14 @@ portal_topbar($user, $csrf, 'leads');
                     <?php endif; ?>
 
                     <div class="post__bodies">
-                        <details class="body">
-                            <summary class="body__toggle">Request</summary>
+                        <?php /* Request and response are distinguished by the rail
+                                 colour, the chip, AND the word — not colour alone.
+                                 Confusing "what we sent" with "what came back" is
+                                 the difference between our bug and theirs. */ ?>
+                        <details class="body body--request">
+                            <summary class="body__toggle">
+                                <span class="body__tag">Sent</span> Request
+                            </summary>
                             <div class="body__actions">
                                 <button class="btn btn--tiny js-reveal" type="button"
                                     data-lead="<?= (int) $lead['id'] ?>" data-field="log:<?= $e($rowKey) ?>:request"
@@ -288,8 +294,10 @@ portal_topbar($user, $csrf, 'leads');
                             <pre class="body__pre js-body"><?= $e(portal_format_body($log['request_body'])) ?></pre>
                         </details>
 
-                        <details class="body">
-                            <summary class="body__toggle">Response</summary>
+                        <details class="body body--response">
+                            <summary class="body__toggle">
+                                <span class="body__tag">Received</span> Response
+                            </summary>
                             <div class="body__actions">
                                 <button class="btn btn--tiny js-reveal" type="button"
                                     data-lead="<?= (int) $lead['id'] ?>" data-field="log:<?= $e($rowKey) ?>:response"
