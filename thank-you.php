@@ -190,11 +190,11 @@ if ($cgOn) {
             $efPayload['transaction_id'] = $efTransactionId;
         }
         ?>
-        <script type="text/javascript" src="https://<?= $e($cfg['everflow']['domain']) ?>/scripts/main.js"></script>
+        <!-- <script type="text/javascript" src="https://<?= $e($cfg['everflow']['domain']) ?>/scripts/everflow.js"></script>
         <script type="text/javascript">
             // TEMPORARILY DISABLED — LeadProsper fires the buyer-specific conversion.
             // EF.conversion(<?= json_encode($efPayload, JSON_UNESCAPED_SLASHES) ?>);
-        </script>
+        </script> -->
     <?php endif; ?>
 
     <?php if ($cgOn): ?>

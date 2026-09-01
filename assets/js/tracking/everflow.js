@@ -24,8 +24,10 @@
    a zero-interaction bounce never loads it — fine on a CPA model, since bounces
    don't convert anyway.
 
-   Conversion is NOT here — that fires on thank-you.php, against the offer the
-   affid stashed in the session resolves to.
+   Conversion is NOT here, and is not fired client-side at all right now:
+   thank-you.php's EF.conversion() block is commented out because LeadProsper
+   posts the buyer-specific conversion. That makes this file the only place the
+   SDK is ever loaded — one page, one load.
    ============================================================ */
 (function () {
     var cfg = (window.FUNNEL && window.FUNNEL.everflow) || {};
@@ -130,12 +132,28 @@
         }
     }
 
+    /* Loads the SDK at most once per pageview. Everflow's SDK misbehaves when
+       it's evaluated twice, and this page has three racing triggers (interaction,
+       4s timeout, form submit) plus a bfcache restore, so the guard is on the
+       load itself rather than on the trigger. If the SDK is already present —
+       another include, a re-entry after bfcache — we skip the tag and go
+       straight to the click. This is the only page that loads it: thank-you.php
+       fires no conversion (LeadProsper owns that), so nothing else pulls it in. */
     function loadEverflowSDK() {
         if (window._efSdkInitFired) return;
         window._efSdkInitFired = true;
 
+        if (typeof EF !== 'undefined') { runEverflowClick(); return; }
+
+        var src = 'https://' + (cfg.domain || 'www.f0cg2trk.com') + '/scripts/sdk/everflow.js';
+        var existing = document.querySelector('script[src="' + src + '"]');
+        if (existing) {
+            existing.addEventListener('load', runEverflowClick, { once: true });
+            return;
+        }
+
         var script = document.createElement('script');
-        script.src = 'https://' + (cfg.domain || 'www.f0cg2trk.com') + '/scripts/main.js';
+        script.src = src;
         script.async = true;
         script.onload = runEverflowClick;
         document.head.appendChild(script);
