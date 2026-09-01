@@ -95,7 +95,7 @@ if (!function_exists('jgscoring_score')) {
                 // The ad/creative name as the landing URL reported it. utm_content
                 // is the fallback because some placements carry the creative there
                 // and leave utm_campaign empty.
-                'campaign_id'          => (string) ($row['utm_campaign'] ?? $row['utm_content'] ?? ''),
+                'campaign_id'          => (string) ($row['lp_subid3'] ?? $row['source_id'] ?? ''),
                 // Fixed partner identifiers, not the visitor's utm_source — JG uses
                 // these three to attribute the lead to us. The visitor's own
                 // utm_source is already on the lead row and goes to LeadProsper.
@@ -107,7 +107,7 @@ if (!function_exists('jgscoring_score')) {
                 // JG's own misspelling — see the note above.
                 'employement_status'   => (string) (($jg['employment_map'] ?? [])[$employment] ?? ''),
                 'client_ip'            => (string) ($row['ip'] ?? ''),
-                'campaign_source'      => (string) ($jg['campaign_source'] ?? ''),
+                'campaign_source'      => (string) ($row['affid'] ?? ''),
                 'trustedform_cert_url' => (string) ($row['trustedform_url'] ?? ''),
             ],
         ];
