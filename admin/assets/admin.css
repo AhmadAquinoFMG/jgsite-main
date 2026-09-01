@@ -687,6 +687,12 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 10px;
     margin-top: 12px;
+    /* Each panel is as tall as its own content, not as tall as its neighbour.
+       Grid items stretch by default, which made opening one payload inflate the
+       still-closed one beside it into a tall empty box — indistinguishable, at a
+       glance, from having opened both. Open one, one grows; open both, both
+       grow. */
+    align-items: start;
 }
 
 .body {
@@ -915,8 +921,13 @@ body {
 
 @media (max-width: 560px) {
 
+    /* The nav stays. It used to be dropped here, which cost nothing while the
+       portal had a single screen — the only link was to the page you were
+       already on. With two, hiding it strands a phone on whichever one it
+       landed on. The wordmark goes instead: the JG mark still says where you
+       are, and the username was never load-bearing. */
     .topbar__name,
-    .topbar__nav {
+    .topbar__title {
         display: none;
     }
 
