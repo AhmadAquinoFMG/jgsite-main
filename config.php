@@ -537,15 +537,14 @@ return [
     ],
 
     // ---- Post-submit routing -------------------------------------------
-    // Verified debt only: >=$10k stays JG; $5k-$9,999 uses InCharge branding;
-    // $0-$4,999 and no-credit-read outcomes stay JG-branded but also receive
-    // the decline offerwall in a separate tab. Bots never open the offerwall.
+    // Verified debt only: >=$10k stays JG. InCharge is temporarily disabled;
+    // every amount below $10k and every no-credit-read outcome uses the United
+    // under-$10k buyer row and receives the offerwall in a separate tab.
+    // Bots never open the offerwall.
     'lead_routing' => [
         'qualify_min'    => (int) env('ROUTING_QUALIFY_MIN', '10000'),
-        'incharge_min'   => (int) env('ROUTING_INCHARGE_MIN', '5000'),
-        'incharge_max'   => (int) env('ROUTING_INCHARGE_MAX', '9999'),
         'house_buyer'    => env('ROUTING_HOUSE_BUYER', 'JG Wentworth'),
-        'incharge_buyer' => env('ROUTING_INCHARGE_BUYER', 'InCharge'),
+        'decline_buyer'  => env('ROUTING_DECLINE_BUYER', 'United Debt - Under $10k'),
         'offerwall_base' => env('OFFERWALL_BASE', 'offerwall.php'),
         // Used only when the buyers table is unavailable or has no InCharge
         // row. A live database row remains authoritative.

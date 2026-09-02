@@ -10,10 +10,8 @@ declare(strict_types=1);
 function lead_routing_decision(?int $verifiedDebt, bool $isBot, array $cfg): array
 {
     $qualifyMin = max(0, (int) ($cfg['qualify_min'] ?? 10000));
-    $inchargeMin = max(0, (int) ($cfg['incharge_min'] ?? 5000));
-    $inchargeMax = max($inchargeMin, (int) ($cfg['incharge_max'] ?? 9999));
     $houseBuyer = trim((string) ($cfg['house_buyer'] ?? 'JG Wentworth'));
-    $inchargeBuyer = trim((string) ($cfg['incharge_buyer'] ?? 'InCharge'));
+    $declineBuyer = trim((string) ($cfg['decline_buyer'] ?? 'United Debt - Under $10k'));
     $hasCreditRead = $verifiedDebt !== null;
     $debt = $hasCreditRead ? max(0, $verifiedDebt) : null;
 
@@ -31,16 +29,12 @@ function lead_routing_decision(?int $verifiedDebt, bool $isBot, array $cfg): arr
         $tier = 'qualified';
         $buyer = $houseBuyer;
         $decline = false;
-    } elseif ($debt !== null && $debt >= $inchargeMin && $debt <= $inchargeMax) {
-        $tier = 'incharge';
-        $buyer = $inchargeBuyer;
-        // This band stays on its InCharge-branded thank-you page while the
-        // separate decline-options tab is offered as requested.
-        $decline = true;
     } else {
-        // Includes verified $0-$4,999 and every no-read/failure outcome.
+        // InCharge is temporarily disabled. Every verified amount below the
+        // qualification threshold, plus every no-read/failure outcome, uses
+        // the dedicated United under-$10k buyer branding and DID.
         $tier = 'decline';
-        $buyer = $houseBuyer;
+        $buyer = $declineBuyer;
         $decline = true;
     }
 

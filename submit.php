@@ -887,10 +887,9 @@ $estimatedSavings = (int) round($debtForSavings * 0.4);
 
 /* ---------------------------------------- branded routing + decline offerwall
    The main tab always stays on our thank-you page. Verified >=$10k debt keeps
-   JG branding; verified $5k-$9,999 uses InCharge branding; verified <$5k and
-   every no-read outcome stay JG-branded and receive the separate offerwall.
-   InCharge also gets that separate decline tab because the requested decline
-   segment is every verified amount below $10k. */
+   JG branding. InCharge is temporarily disabled, so every verified amount below
+   $10k and every no-read outcome uses the United under-$10k buyer row and gets
+   the separate offerwall. */
 $routing = lead_routing_decision(
     $debtForConsumer,
     $botReason !== null,
