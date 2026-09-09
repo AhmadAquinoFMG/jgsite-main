@@ -497,39 +497,28 @@ if ($cgOn) {
     </script>
     <?php if ($declineOffer && $offerwallUrl !== null): ?>
         <script>
-            /* The funnel reserves this named tab inside the submit gesture so a
-               popup blocker will allow it. After this thank-you page has loaded,
-               it signals that reserved tab to navigate itself. That avoids
-               focusing the offerwall and keeps the consumer on this page. A
-               direct/native POST still gets a best-effort delayed background
-               open plus the manual link above. */
+            /* Chrome is allowed to foreground every tab opened by script, and a
+               site cannot reliably override that user/browser policy. Load the
+               offerwall document in a hidden same-origin frame instead: its page
+               and analytics initialize after the delay while the consumer stays
+               on this thank-you page. The visible link above remains the explicit
+               way for the consumer to open and interact with the offers. */
             (function() {
-                var openedKey = 'jg_offerwall_opened_<?= (int) $leadId ?>';
-                var reservedKey = 'jg_offerwall_reserved_<?= (int) $leadId ?>';
-                var launchKey = 'jg_offerwall_launch_<?= (int) $leadId ?>';
+                var loadedKey = 'jg_offerwall_loaded_<?= (int) $leadId ?>';
                 var offerwallUrl = <?= json_encode($offerwallUrl, JSON_UNESCAPED_SLASHES) ?>;
 
                 setTimeout(function() {
                     try {
-                        if (sessionStorage.getItem(openedKey) === '1') return;
+                        if (sessionStorage.getItem(loadedKey) === '1') return;
 
-                        if (sessionStorage.getItem(reservedKey) === '1') {
-                            localStorage.setItem(launchKey, offerwallUrl);
-                            sessionStorage.setItem(openedKey, '1');
-                            sessionStorage.removeItem(reservedKey);
-                            window.focus();
-                            return;
-                        }
-
-                        // Fallback for native POSTs or a blocked reservation.
-                        var popup = window.open(offerwallUrl, 'jg-decline-options');
-                        if (popup) {
-                            sessionStorage.setItem(openedKey, '1');
-                            try {
-                                popup.blur();
-                                window.focus();
-                            } catch (ignore) {}
-                        }
+                        var frame = document.createElement('iframe');
+                        frame.src = offerwallUrl;
+                        frame.title = 'Additional debt options';
+                        frame.tabIndex = -1;
+                        frame.setAttribute('aria-hidden', 'true');
+                        frame.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;bottom:0;border:0;opacity:0;pointer-events:none';
+                        document.body.appendChild(frame);
+                        sessionStorage.setItem(loadedKey, '1');
                     } catch (ignore) {}
                 }, 1500);
             })();
