@@ -26,8 +26,11 @@
      2. DERIVE    Fill still-missing utm_* from the sub params that DID survive
                   the redirect, using the mapping the traffic link itself
                   defines (window.FUNNEL.attribution, from config.php).
-     3. PERSIST   Save the merged set to sessionStorage and rewrite the visible
-                  URL with history.replaceState so it carries the full set.
+     3. PERSIST   Save the merged set to sessionStorage (backed by a cookie, so
+                  it survives in-app browsers that ignore target="_blank" and
+                  navigate legal links in the same webview) and rewrite the
+                  visible URL with history.replaceState so it carries the full
+                  set.
 
    Plus one job that has nothing to do with the URL: Meta's _fbp match key. No
    pixel is installed on this site, so nothing would otherwise create that
@@ -48,6 +51,7 @@
     'use strict';
 
     var STORE_KEY = 'jgw_attribution';
+    var STORE_DAYS = 30; // cookie backup lifetime — outlives the sessionStorage tab/session
     var MAX_LEN = 200; // per value — long enough for a campaign name, short of a URL bomb
 
     /* Every param worth carrying. Superset of the list funnel.js copies into
@@ -90,11 +94,29 @@
     // sessionStorage throws in Safari private mode and in some embedded
     // webviews. Attribution is worth zero broken pageviews, so every access is
     // wrapped — a failure just means "no store", and the URL still gets fixed.
+    // sessionStorage is scoped to the tab, which is exactly right for a normal
+    // browser — but some in-app browsers (Facebook/Instagram/TikTok) either
+    // ignore target="_blank" and navigate the same webview to the external
+    // legal page, or partition storage oddly across that navigation, so
+    // sessionStorage can come back empty on the way back even though it's
+    // "the same tab". A cookie is the one thing every one of those webviews
+    // treats consistently across navigations, so it backs sessionStorage up.
     function readStore() {
+        var fromSession = {};
         try {
             var raw = sessionStorage.getItem(STORE_KEY);
             var parsed = raw ? JSON.parse(raw) : null;
-            return (parsed && typeof parsed === 'object') ? parsed : {};
+            fromSession = (parsed && typeof parsed === 'object') ? parsed : {};
+        } catch (e) { /* fall through to cookie */ }
+
+        if (Object.keys(fromSession).length) return fromSession;
+
+        try {
+            var match = document.cookie.match(
+                new RegExp('(?:^|;\\s*)' + STORE_KEY + '=([^;]*)')
+            );
+            var parsed2 = match ? JSON.parse(decodeURIComponent(match[1])) : null;
+            return (parsed2 && typeof parsed2 === 'object') ? parsed2 : {};
         } catch (e) {
             return {};
         }
@@ -103,6 +125,13 @@
     function writeStore(values) {
         try {
             sessionStorage.setItem(STORE_KEY, JSON.stringify(values));
+        } catch (e) { /* non-fatal */ }
+        try {
+            var expires = new Date(Date.now() + STORE_DAYS * 86400000).toUTCString();
+            document.cookie = STORE_KEY + '=' + encodeURIComponent(JSON.stringify(values)) +
+                '; expires=' + expires +
+                '; path=/; SameSite=Lax' +
+                (location.protocol === 'https:' ? '; Secure' : '');
         } catch (e) { /* non-fatal */ }
     }
 
