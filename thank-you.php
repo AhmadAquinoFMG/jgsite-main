@@ -348,7 +348,7 @@ if ($cgOn) {
             <?php if ($declineOffer && $offerwallUrl !== null): ?>
                 <aside class="prequal-options" aria-label="Additional financial options">
                     <strong>We&rsquo;ve also prepared additional options for you.</strong>
-                    <span>This page will remain open while those options load in the background.</span>
+                    <span>The decline options are available in the other tab while this page remains open.</span>
                     <a href="<?= $e($offerwallUrl) ?>" target="jg-decline-options" rel="noopener">View additional options</a>
                 </aside>
             <?php endif; ?>
@@ -497,30 +497,20 @@ if ($cgOn) {
     </script>
     <?php if ($declineOffer && $offerwallUrl !== null): ?>
         <script>
-            /* Chrome is allowed to foreground every tab opened by script, and a
-               site cannot reliably override that user/browser policy. Load the
-               offerwall document in a hidden same-origin frame instead: its page
-               and analytics initialize after the delay while the consumer stays
-               on this thank-you page. The visible link above remains the explicit
-               way for the consumer to open and interact with the offers. */
+            /* When this TY page was opened by funnel.js, tell the original funnel
+               tab that TY is ready. The original tab waits another 1.5 seconds,
+               then navigates itself to the offerwall while this tab stays focused.
+               If the browser blocked the TY tab reservation, keep the customer on
+               TY and leave the explicit offerwall link above as the fallback. */
             (function() {
-                var loadedKey = 'jg_offerwall_loaded_<?= (int) $leadId ?>';
-                var offerwallUrl = <?= json_encode($offerwallUrl, JSON_UNESCAPED_SLASHES) ?>;
-
-                setTimeout(function() {
-                    try {
-                        if (sessionStorage.getItem(loadedKey) === '1') return;
-
-                        var frame = document.createElement('iframe');
-                        frame.src = offerwallUrl;
-                        frame.title = 'Additional debt options';
-                        frame.tabIndex = -1;
-                        frame.setAttribute('aria-hidden', 'true');
-                        frame.style.cssText = 'position:fixed;width:1px;height:1px;left:-9999px;bottom:0;border:0;opacity:0;pointer-events:none';
-                        document.body.appendChild(frame);
-                        sessionStorage.setItem(loadedKey, '1');
-                    } catch (ignore) {}
-                }, 1500);
+                try {
+                    if (!window.opener || window.opener.closed) return;
+                    window.opener.postMessage({
+                        type: 'jg-thank-you-ready',
+                        leadId: <?= (int) $leadId ?>
+                    }, window.location.origin);
+                    window.focus();
+                } catch (ignore) {}
             })();
         </script>
     <?php endif; ?>
