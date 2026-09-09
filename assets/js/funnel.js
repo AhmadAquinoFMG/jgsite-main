@@ -1090,54 +1090,6 @@
     }
 
     var submitting = false;
-    var thankYouWindow = null;
-    var pendingDecline = null;
-
-    function reserveThankYouWindow() {
-        // Chrome decides whether a newly-created tab is foregrounded. Use that
-        // behavior in our favor: this tab becomes the consumer-facing TY page,
-        // while the original funnel tab can later become the decline offerwall
-        // without stealing focus away from TY.
-        try {
-            thankYouWindow = window.open('', 'jg-thank-you');
-            if (!thankYouWindow) return;
-            thankYouWindow.document.open();
-            thankYouWindow.document.write(
-                '<!doctype html><html><head><meta charset="utf-8">' +
-                '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-                '<title>Submitting Your Information</title><style>' +
-                'body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(145deg,#00533a,#0c805b);font:16px Arial,sans-serif;color:#fff;text-align:center}' +
-                '.box{padding:32px}.dot{width:34px;height:34px;margin:0 auto 18px;border:4px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}' +
-                '</style></head><body><div class="box"><div class="dot"></div><strong>Submitting your information…</strong></div></body></html>'
-            );
-            thankYouWindow.document.close();
-            thankYouWindow.focus();
-        } catch (ignore) {
-            thankYouWindow = null;
-        }
-    }
-
-    function closeThankYouWindow() {
-        try {
-            if (thankYouWindow && !thankYouWindow.closed) thankYouWindow.close();
-            window.focus();
-        } catch (ignore) {}
-        thankYouWindow = null;
-    }
-
-    window.addEventListener('message', function (event) {
-        if (event.origin !== window.location.origin || !event.data || event.data.type !== 'jg-thank-you-ready') return;
-        if (!pendingDecline || String(event.data.leadId) !== String(pendingDecline.leadId)) return;
-
-        var decline = pendingDecline;
-        pendingDecline = null;
-        setTimeout(function () {
-            try {
-                if (thankYouWindow && !thankYouWindow.closed) thankYouWindow.focus();
-            } catch (ignore) {}
-            window.location.replace(decline.url);
-        }, 1500);
-    });
 
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
@@ -1147,7 +1099,6 @@
         submitted  = true; // a completion, not an abandonment — suppress event_abandon_*
         btnSubmit.disabled = true;
         btnSubmit.textContent = 'Submitting…';
-        reserveThankYouWindow();
 
         // ATTEMPT, not success: this fires before the POST resolves, so 422s and
         // network failures are in here too. The conversion signal is
@@ -1174,17 +1125,6 @@
             })
             .then(function (res) {
                 if (res.body && res.body.ok) {
-                    if (res.body.decline_url && thankYouWindow && !thankYouWindow.closed) {
-                        pendingDecline = {
-                            leadId: res.body.lead_id,
-                            url: res.body.decline_url
-                        };
-                        thankYouWindow.location.replace(res.body.redirect || 'thank-you.php');
-                        try { thankYouWindow.focus(); } catch (ignore) {}
-                        return;
-                    }
-
-                    closeThankYouWindow();
                     // submit.php builds the destination and appends the answers
                     // it just validated (includes/redirect.php), so we follow
                     // what it hands back rather than assembling a URL here from
@@ -1193,7 +1133,6 @@
                     window.location.assign(res.body.redirect || 'thank-you.php');
                     return;
                 }
-                closeThankYouWindow();
                 submitting = false;
                 setSubmitEnabled(true);
                 if (res.status === 422 && res.body && res.body.errors) {
@@ -1203,7 +1142,6 @@
                 }
             })
             .catch(function () {
-                closeThankYouWindow();
                 submitting = false;
                 submitted  = false;
                 setSubmitEnabled(true);

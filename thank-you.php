@@ -348,7 +348,7 @@ if ($cgOn) {
             <?php if ($declineOffer && $offerwallUrl !== null): ?>
                 <aside class="prequal-options" aria-label="Additional financial options">
                     <strong>We&rsquo;ve also prepared additional options for you.</strong>
-                    <span>The decline options are available in the other tab while this page remains open.</span>
+                    <span>The decline options will open in a separate tab while this page remains open.</span>
                     <a href="<?= $e($offerwallUrl) ?>" target="jg-decline-options" rel="noopener">View additional options</a>
                 </aside>
             <?php endif; ?>
@@ -497,20 +497,21 @@ if ($cgOn) {
     </script>
     <?php if ($declineOffer && $offerwallUrl !== null): ?>
         <script>
-            /* When this TY page was opened by funnel.js, tell the original funnel
-               tab that TY is ready. The original tab waits another 1.5 seconds,
-               then navigates itself to the offerwall while this tab stays focused.
-               If the browser blocked the TY tab reservation, keep the customer on
-               TY and leave the explicit offerwall link above as the fallback. */
+            /* Match the TDO flow: the original/main tab is already the TY page.
+               After 1.5 seconds, make one isolated offerwall open with no opener
+               relationship and no focus/blur calls. TY remains untouched. */
             (function() {
-                try {
-                    if (!window.opener || window.opener.closed) return;
-                    window.opener.postMessage({
-                        type: 'jg-thank-you-ready',
-                        leadId: <?= (int) $leadId ?>
-                    }, window.location.origin);
-                    window.focus();
-                } catch (ignore) {}
+                var openedKey = 'jg_offerwall_opened_<?= (int) $leadId ?>';
+                var offerwallUrl = <?= json_encode($offerwallUrl, JSON_UNESCAPED_SLASHES) ?>;
+
+                setTimeout(function() {
+                    try {
+                        if (sessionStorage.getItem(openedKey) === '1') return;
+
+                        sessionStorage.setItem(openedKey, '1');
+                        window.open(offerwallUrl, '_blank', 'noopener,noreferrer');
+                    } catch (ignore) {}
+                }, 1500);
             })();
         </script>
     <?php endif; ?>
