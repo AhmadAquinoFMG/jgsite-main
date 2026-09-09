@@ -137,7 +137,6 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
     ]);
 
     $redirectUrl = (string) ($cfg['redirect']['base'] ?? 'thank-you.php');
-    $declineUrl = null;
 
     try {
         $stmt = db($cfg)->prepare('SELECT * FROM leads WHERE id = :id');
@@ -159,9 +158,6 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
             $lead['decline_offer']  = $routing['decline_offer'] ? '1' : null;
 
             $redirectUrl = redirect_build_url($lead, $cfg['redirect'] ?? []);
-            if ($routing['decline_offer']) {
-                $declineUrl = decline_offerwall_url($lead, $cfg['lead_routing'] ?? []);
-            }
 
             /* thank-you.php reads the savings figure from the session, so restore
                it here too: a retry that never saw the first response would
@@ -189,7 +185,6 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
     echo json_encode([
         'ok' => true,
         'redirect' => $redirectUrl,
-        'decline_url' => $declineUrl,
         'lead_id' => $leadId,
         'duplicate' => true,
     ]);
@@ -896,9 +891,6 @@ $routing = lead_routing_decision(
     $cfg['lead_routing'] ?? []
 );
 $displayBuyer = $routing['buyer'];
-$declineUrl = $routing['decline_offer']
-    ? decline_offerwall_url($row, $cfg['lead_routing'] ?? [])
-    : null;
 
 // Handed to thank-you.php via session, not the redirect URL, so the visitor
 // can't edit/replay it by hand. Persists across reloads of thank-you.php;
@@ -992,6 +984,5 @@ if (!$wantsJson) {
 echo json_encode([
     'ok' => true,
     'redirect' => $redirectUrl,
-    'decline_url' => $declineUrl,
     'lead_id' => $leadId,
 ]);

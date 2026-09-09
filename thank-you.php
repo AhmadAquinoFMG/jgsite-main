@@ -348,7 +348,7 @@ if ($cgOn) {
             <?php if ($declineOffer && $offerwallUrl !== null): ?>
                 <aside class="prequal-options" aria-label="Additional financial options">
                     <strong>We&rsquo;ve also prepared additional options for you.</strong>
-                    <span>They should open in a separate tab while this page remains available.</span>
+                    <span>This page will remain open while those options load in the background.</span>
                     <a href="<?= $e($offerwallUrl) ?>" target="jg-decline-options" rel="noopener">View additional options</a>
                 </aside>
             <?php endif; ?>
