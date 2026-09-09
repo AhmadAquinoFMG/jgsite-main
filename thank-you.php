@@ -497,17 +497,41 @@ if ($cgOn) {
     </script>
     <?php if ($declineOffer && $offerwallUrl !== null): ?>
         <script>
-            /* Fallback for popup blockers or non-JS form submissions. The normal
-               funnel reserves this named tab during the submit gesture and sets
-               the session marker before navigating here, so this does not open a
-               second offerwall tab or repeat on thank-you reload. */
+            /* The funnel reserves this named tab inside the submit gesture so a
+               popup blocker will allow it. After this thank-you page has loaded,
+               it signals that reserved tab to navigate itself. That avoids
+               focusing the offerwall and keeps the consumer on this page. A
+               direct/native POST still gets a best-effort delayed background
+               open plus the manual link above. */
             (function() {
-                var key = 'jg_offerwall_opened_<?= (int) $leadId ?>';
-                try {
-                    if (sessionStorage.getItem(key) === '1') return;
-                    var popup = window.open(<?= json_encode($offerwallUrl, JSON_UNESCAPED_SLASHES) ?>, 'jg-decline-options');
-                    if (popup) sessionStorage.setItem(key, '1');
-                } catch (ignore) {}
+                var openedKey = 'jg_offerwall_opened_<?= (int) $leadId ?>';
+                var reservedKey = 'jg_offerwall_reserved_<?= (int) $leadId ?>';
+                var launchKey = 'jg_offerwall_launch_<?= (int) $leadId ?>';
+                var offerwallUrl = <?= json_encode($offerwallUrl, JSON_UNESCAPED_SLASHES) ?>;
+
+                setTimeout(function() {
+                    try {
+                        if (sessionStorage.getItem(openedKey) === '1') return;
+
+                        if (sessionStorage.getItem(reservedKey) === '1') {
+                            localStorage.setItem(launchKey, offerwallUrl);
+                            sessionStorage.setItem(openedKey, '1');
+                            sessionStorage.removeItem(reservedKey);
+                            window.focus();
+                            return;
+                        }
+
+                        // Fallback for native POSTs or a blocked reservation.
+                        var popup = window.open(offerwallUrl, 'jg-decline-options');
+                        if (popup) {
+                            sessionStorage.setItem(openedKey, '1');
+                            try {
+                                popup.blur();
+                                window.focus();
+                            } catch (ignore) {}
+                        }
+                    } catch (ignore) {}
+                }, 1500);
             })();
         </script>
     <?php endif; ?>

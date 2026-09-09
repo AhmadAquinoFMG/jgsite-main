@@ -1095,7 +1095,9 @@
     function reserveDeclineWindow() {
         // window.open() must happen inside the user's submit gesture. The server
         // needs the credit result before it knows whether this tab is required,
-        // so reserve it now, navigate it on a decline, or close it on approval.
+        // so reserve it now, let thank-you.php navigate it after that page loads,
+        // or close it on approval. Keep focus on the funnel while the reserved
+        // tab shows its neutral loading screen.
         try {
             declineWindow = window.open('', 'jg-decline-options');
             if (!declineWindow) return;
@@ -1106,9 +1108,19 @@
                 '<title>Checking Your Options</title><style>' +
                 'body{margin:0;min-height:100vh;display:grid;place-items:center;background:linear-gradient(145deg,#00533a,#0c805b);font:16px Arial,sans-serif;color:#fff;text-align:center}' +
                 '.box{padding:32px}.dot{width:34px;height:34px;margin:0 auto 18px;border:4px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:s .8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}' +
-                '</style></head><body><div class="box"><div class="dot"></div><strong>Checking additional options for you…</strong></div></body></html>'
+                '</style></head><body><div class="box"><div class="dot"></div><strong>Checking additional options for you…</strong></div>' +
+                '<script>addEventListener("message",function(e){' +
+                'if(e.origin!==location.origin||!e.data||e.data.type!=="jg-offerwall-arm")return;' +
+                'var k="jg_offerwall_launch_"+e.data.leadId;' +
+                'var t=setInterval(function(){var u=localStorage.getItem(k);if(!u)return;' +
+                'clearInterval(t);localStorage.removeItem(k);location.replace(u)},100)' +
+                '});<\/script></body></html>'
             );
             declineWindow.document.close();
+            try {
+                declineWindow.blur();
+                window.focus();
+            } catch (ignore) {}
         } catch (ignore) {
             declineWindow = null;
         }
@@ -1158,9 +1170,13 @@
                     if (res.body.decline_url) {
                         try {
                             if (declineWindow && !declineWindow.closed) {
-                                declineWindow.location.replace(res.body.decline_url);
                                 if (res.body.lead_id) {
-                                    sessionStorage.setItem('jg_offerwall_opened_' + res.body.lead_id, '1');
+                                    localStorage.removeItem('jg_offerwall_launch_' + res.body.lead_id);
+                                    declineWindow.postMessage({
+                                        type: 'jg-offerwall-arm',
+                                        leadId: res.body.lead_id
+                                    }, window.location.origin);
+                                    sessionStorage.setItem('jg_offerwall_reserved_' + res.body.lead_id, '1');
                                 }
                             }
                         } catch (ignore) {}
