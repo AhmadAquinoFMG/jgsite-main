@@ -162,10 +162,16 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
         ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PRETTY_PRINT) ?>
     </script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
+    <link rel="preload" href="<?= $e($cfg['brand']['logo_header']) ?>" as="image" fetchpriority="high">
+    <link rel="preload" href="assets/fonts/poppins-v24/pxiByp8kv8JHgFVrLCz7Z1xlFQ.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/poppins-v24/pxiEyp8kv8JHgFVrJJfecg.woff2" as="font" type="font/woff2" crossorigin>
+    <?php /* Keep the existing stylesheet as the source of truth. Inlining it
+             removes the render-blocking round trip without async style flashes.
+             Font URLs in faces.css are relative to this document. */ ?>
+    <style><?php
+        readfile(__DIR__ . '/assets/fonts/poppins-v24/faces.css');
+        readfile(__DIR__ . '/assets/css/style.css');
+    ?></style>
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
@@ -561,7 +567,7 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
             <!-- Trust badges -->
             <div class="trust-badges">
                 <?php foreach ($cfg['badges'] as $b): ?>
-                    <img src="<?= $e($b['src']) ?>" alt="<?= $e($b['alt']) ?>" loading="lazy">
+                    <img src="<?= $e($b['src']) ?>" alt="<?= $e($b['alt']) ?>" width="300" height="240" loading="lazy">
                 <?php endforeach; ?>
             </div>
         </div>

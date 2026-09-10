@@ -252,7 +252,7 @@ a { color: var(--green-deep); }
     font-size: 17px;
     font-weight: 600;
     color: var(--white);
-    background: var(--green);
+    background: var(--green-dark);
     border: 0;
     border-radius: 999px;             /* pill */
     cursor: pointer;
@@ -260,7 +260,7 @@ a { color: var(--green-deep); }
     transition: background .15s, transform .05s, box-shadow .15s;
 }
 .btn-next:hover,
-.btn-submit:hover { background: var(--green-dark); box-shadow: 0 10px 24px rgba(27, 151, 106, .34); }
+.btn-submit:hover { background: var(--green-deep); box-shadow: 0 10px 24px rgba(27, 151, 106, .34); }
 .btn-next:active,
 .btn-submit:active { transform: translateY(1px); }
 

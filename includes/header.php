@@ -6,7 +6,7 @@ $brand = $cfg['brand'];
     <div class="header-inner">
         <a class="logo" href="index.php" aria-label="<?= htmlspecialchars($brand['name']) ?>">
             <img src="<?= htmlspecialchars($brand['logo_header']) ?>"
-                 alt="<?= htmlspecialchars($brand['name']) ?> logo" width="200" height="44">
+                 alt="<?= htmlspecialchars($brand['name']) ?> logo" width="200" height="44" fetchpriority="high">
         </a>
     </div>
 </header>
