@@ -7,6 +7,21 @@ $e = static fn(mixed $value): string => htmlspecialchars((string) $value, ENT_QU
 
 $campaigns = $offerwall['campaigns'];
 
+/* Partner CTA links may carry {placeholder} tokens named after any attribution
+   key decline_offerwall_url() carries onto this page's URL (see
+   offerwall_attribution_keys()). {transaction_id} is an alias for Everflow's
+   ef_transaction_id. Values are URL-encoded; a token with no value becomes
+   empty rather than reaching the partner as literal "{sub2}". */
+require_once __DIR__ . '/includes/routing.php';
+$ctaTokens = [];
+foreach (offerwall_attribution_keys() as $key) {
+    $ctaTokens['{' . $key . '}'] = $_GET[$key] ?? '';
+}
+$ctaTokens['{transaction_id}'] = $_GET['ef_transaction_id'] ?? $_GET['transaction_id'] ?? '';
+$fillCta = static function (string $url) use ($ctaTokens): string {
+    return strtr($url, array_map(static fn($v): string => rawurlencode(trim((string) $v)), $ctaTokens));
+};
+
 usort($campaigns, static fn(array $a, array $b): int => ($a['sponsored'] ?? false) <=> ($b['sponsored'] ?? false));
 header('Content-Type: text/html; charset=UTF-8');
 ?>
@@ -75,7 +90,7 @@ header('Content-Type: text/html; charset=UTF-8');
                             </div>
                             <div class="offer-card__action">
                                 <a class="offer-button"
-                                   href="<?= $e($campaign['cta_link'] ?? '') ?>"
+                                   href="<?= $e($fillCta((string) ($campaign['cta_link'] ?? ''))) ?>"
                                    data-offer-cta
                                    data-cta-text="<?= $e($campaign['cta_text']) ?>"
                                    rel="nofollow sponsored">

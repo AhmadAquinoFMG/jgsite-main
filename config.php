@@ -523,6 +523,41 @@ return [
             // thank-you.php uses them for accurate copy and the popup fallback.
             'route'          => 'routing_tier',
             'decline'        => 'decline_offer',
+            // Attribution captured on the landing URL. It has to survive the
+            // thank-you hop because thank-you.php builds the offerwall URL from
+            // its own query string (decline_offerwall_url($_GET)), and partner
+            // CTAs in includes/offerwall-campaigns.php fill {sub2},
+            // {transaction_id}, ... from it. Same set as routing.php's allowlist.
+            'affid'             => 'affid',
+            'oid'               => 'oid',
+            'source_id'         => 'source_id',
+            'ef_transaction_id' => 'ef_transaction_id',
+            'sub1'              => 'sub1',
+            'sub2'              => 'sub2',
+            'sub3'              => 'sub3',
+            'sub4'              => 'sub4',
+            'sub5'              => 'sub5',
+            'sub6'              => 'sub6',
+            'lp_subid1'         => 'lp_subid1',
+            'lp_subid2'         => 'lp_subid2',
+            'lp_subid3'         => 'lp_subid3',
+            'lp_subid4'         => 'lp_subid4',
+            'lp_subid5'         => 'lp_subid5',
+            'lp_subid6'         => 'lp_subid6',
+            'utm_source'        => 'utm_source',
+            'utm_medium'        => 'utm_medium',
+            'utm_campaign'      => 'utm_campaign',
+            'utm_term'          => 'utm_term',
+            'utm_content'       => 'utm_content',
+            'utm_creative'      => 'utm_creative',
+            'utm_placement'     => 'utm_placement',
+            'utm_adgroup'       => 'utm_adgroup',
+            'utm_matchtype'     => 'utm_matchtype',
+            'gclid'             => 'gclid',
+            'gbraid'            => 'gbraid',
+            'ttclid'            => 'ttclid',
+            'ms_placement'      => 'ms_placement',
+            'ms_publisher'      => 'ms_publisher',
             // Meta match keys, for the Conversions API event CallGrid fires off
             // the call. fbc/fbp are the pixel's cookies; the request-level pair
             // must be the *visitor's* ip/ua as we saw them at submit — CallGrid's

@@ -35,7 +35,7 @@ return [
             'description' => 'Get your FICO Score for free and start improving your credit.',
             'benefits' => ['See what impacts your credit score', 'Free FICO Score and monitoring', 'Alerts included at no cost'],
             'cta_text' => 'View Options',
-            'cta_link' => 'https://www.f0cg2trk.com/2PLFG38/27DQ3QC/',
+            'cta_link' => 'https://click.validclick.net/rdr2.php?aff=fitz_media&q=experian&cmp=118666&ref={sub2}&clickid={transaction_id}',
         ],
         [
             'id' => 'upstart',

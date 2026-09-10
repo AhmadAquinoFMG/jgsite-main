@@ -67,6 +67,19 @@ function lead_stored_verified_debt(array $lead): ?int
  * is allowed into this URL, and the offerwall never appends these values to a
  * partner destination.
  */
+/** Attribution keys allowed onto the offerwall URL and usable as {token}s in CTA links. */
+function offerwall_attribution_keys(): array
+{
+    return [
+        'affid', 'oid', 'source_id', 'ef_transaction_id',
+        'sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'sub6',
+        'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5', 'lp_subid6',
+        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+        'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
+        'gclid', 'gbraid', 'fbclid', 'ttclid', 'ms_placement', 'ms_publisher',
+    ];
+}
+
 function decline_offerwall_url(array $lead, array $cfg): string
 {
     $base = trim((string) ($cfg['offerwall_base'] ?? 'offerwall.php'));
@@ -74,16 +87,8 @@ function decline_offerwall_url(array $lead, array $cfg): string
         $base = 'offerwall.php';
     }
 
-    $allowed = [
-        'affid', 'oid', 'source_id',
-        'sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'sub6',
-        'lp_subid1', 'lp_subid2', 'lp_subid3', 'lp_subid4', 'lp_subid5', 'lp_subid6',
-        'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-        'utm_creative', 'utm_placement', 'utm_adgroup', 'utm_matchtype',
-        'gclid', 'gbraid', 'fbclid', 'ttclid', 'ms_placement', 'ms_publisher',
-    ];
     $params = [];
-    foreach ($allowed as $key) {
+    foreach (offerwall_attribution_keys() as $key) {
         $value = trim((string) ($lead[$key] ?? ''));
         if ($value !== '') {
             $params[$key] = $value;
