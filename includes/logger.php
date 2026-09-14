@@ -3,13 +3,14 @@
 /**
  * Operational logger — structured, file-based, no Composer.
  *
- * Complements the DATA tables (`leads`, `equifax_logs`): this is an ops/audit
- * trail on disk for debugging the lead → verify → store → Equifax pipeline.
+ * Complements the DATA tables (`leads`, `jgscoring_logs`, `leadprosper_logs`):
+ * this is an ops/audit trail on disk for debugging the
+ * lead → verify → store → score → deliver pipeline.
  * One JSON object per line, daily-rotated, UTC timestamps.
  *
  *   logger($cfg);                              // init once (submit.php)
  *   app_log('info',  'lead',     'received',  ['rid' => $rid]);
- *   app_log('error', 'equifax',  'http_error',['status' => 500]);
+ *   app_log('error', 'jgscoring','http_error',['status' => 500]);
  *
  * Levels: debug < info < warning < error. Lines below config logging.level are
  * dropped. Logging must NEVER break a request — every write is best-effort and
@@ -17,7 +18,7 @@
  *
  * PII: callers pass only non-sensitive context (ids, status codes, buckets,
  * phone last-4). SSNs, ID tokens, emails and full DOBs are never logged here —
- * raw request/response bodies live in equifax_logs, not in this file.
+ * raw request/response bodies live in jgscoring_logs, not in this file.
  */
 
 if (!function_exists('app_log')) {
@@ -44,7 +45,7 @@ if (!function_exists('app_log')) {
      * Append one structured line to logs/app-YYYY-MM-DD.log.
      *
      * @param string $level   debug|info|warning|error
-     * @param string $channel logical stream, e.g. 'lead', 'equifax'
+     * @param string $channel logical stream, e.g. 'lead', 'jgscoring'
      * @param string $message short event slug, e.g. 'received', 'stored'
      * @param array  $context extra non-PII fields (rid, ids, status, …)
      */

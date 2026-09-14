@@ -252,7 +252,7 @@ a { color: var(--green-deep); }
     font-size: 17px;
     font-weight: 600;
     color: var(--white);
-    background: var(--green);
+    background: var(--green-dark);
     border: 0;
     border-radius: 999px;             /* pill */
     cursor: pointer;
@@ -260,7 +260,7 @@ a { color: var(--green-deep); }
     transition: background .15s, transform .05s, box-shadow .15s;
 }
 .btn-next:hover,
-.btn-submit:hover { background: var(--green-dark); box-shadow: 0 10px 24px rgba(27, 151, 106, .34); }
+.btn-submit:hover { background: var(--green-deep); box-shadow: 0 10px 24px rgba(27, 151, 106, .34); }
 .btn-next:active,
 .btn-submit:active { transform: translateY(1px); }
 
@@ -580,6 +580,29 @@ a { color: var(--green-deep); }
     height: 56px; width: auto;
     max-width: 300px;
     object-fit: contain;
+}
+
+.prequal-options {
+    display: grid;
+    gap: 6px;
+    margin: 20px 0 0;
+    padding: 18px 20px;
+    border: 1px solid rgba(0, 104, 70, .2);
+    border-radius: 14px;
+    background: rgba(232, 247, 239, .82);
+    color: var(--ink-soft);
+    text-align: center;
+}
+.prequal-options strong { color: var(--green-deep); }
+.prequal-options span { font-size: 13px; line-height: 1.5; }
+.prequal-options a {
+    justify-self: center;
+    margin-top: 6px;
+    color: var(--green-deep);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: underline;
+    text-underline-offset: 3px;
 }
 
 /* assigned specialist row */

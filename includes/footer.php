@@ -7,7 +7,7 @@ $brand   = $cfg['brand'];
 
         <div class="footer-head">
             <img class="footer-logo" src="<?= htmlspecialchars($brand['logo_footer']) ?>"
-                 alt="<?= htmlspecialchars($brand['name']) ?>" loading="lazy">
+                 alt="<?= htmlspecialchars($brand['name']) ?>" width="1214" height="150" loading="lazy">
         </div>
 
         <div class="footer-cols">

@@ -19,6 +19,26 @@ unset($_SESSION['prequal_savings'], $_SESSION['ef_conversion']);
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
+/* ---- Duplicate-submit guard ------------------------------------------------
+   One idempotency key per pageview. funnel.js re-POSTs the same FormData when a
+   submit fails, so a retry carries this same value and submit.php recognises it
+   as the SAME attempt rather than a second lead (session marker first, then the
+   UNIQUE on leads.submit_nonce as the backstop). Minted here rather than in JS
+   so a client can't choose or reuse it.
+
+   Nothing caches this page, so every visitor gets a distinct value; if a full-page
+   cache is ever put in front of it this field must be excluded from it, or one
+   cached nonce would collapse every visitor's lead into the first one.
+
+   The fallback is for a host without a working CSPRNG: uniqid() is predictable,
+   but the nonce only needs to be unique per pageview, and losing the guard
+   entirely would be worse. */
+try {
+    $submitNonce = bin2hex(random_bytes(16));
+} catch (Throwable $ex) {
+    $submitNonce = md5(uniqid('', true) . (string) mt_rand());
+}
+
 /* ---- Funnel landing event props -------------------------------------------
    One "event_view_landing" event per pageview, carrying the traffic source. Step 1
    (event_view_debt_amount) is the entry anchor of the drop-off report, so without
@@ -142,14 +162,42 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
         ], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_PRETTY_PRINT) ?>
     </script>
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
+    <link rel="preload" href="<?= $e($cfg['brand']['logo_header']) ?>" as="image" fetchpriority="high">
+    <link rel="preload" href="assets/fonts/poppins-v24/pxiByp8kv8JHgFVrLCz7Z1xlFQ.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="assets/fonts/poppins-v24/pxiEyp8kv8JHgFVrJJfecg.woff2" as="font" type="font/woff2" crossorigin>
+    <?php /* Keep the existing stylesheet as the source of truth. Inlining it
+             removes the render-blocking round trip without async style flashes.
+             Font URLs in faces.css are relative to this document. */ ?>
+    <style><?php
+        readfile(__DIR__ . '/assets/fonts/poppins-v24/faces.css');
+        readfile(__DIR__ . '/assets/css/style.css');
+    ?></style>
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>
+
+    <!-- Meta Pixel -->
+    <script>
+        !function(f,b,e,v,n,t,s)
+        {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+        n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+        if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+        n.queue=[];t=b.createElement(e);t.async=!0;
+        t.src=v;s=b.getElementsByTagName(e)[0];
+        s.parentNode.insertBefore(t,s)}(window, document,'script',
+        'https://connect.facebook.net/en_US/fbevents.js');
+        fbq('init', '1809915816237904');
+        fbq('init', '9860760613990195');
+        fbq('track', 'PageView');
+    </script>
+    <noscript>
+        <img height="1" width="1" style="display:none"
+             src="https://www.facebook.com/tr?id=1809915816237904&ev=PageView&noscript=1" />
+        <img height="1" width="1" style="display:none"
+             src="https://www.facebook.com/tr?id=9860760613990195&ev=PageView&noscript=1" />
+    </noscript>
+    <!-- End Meta Pixel -->
 
     <!-- Funnel entry, queued by includes/track.php until the deferred Umami tag
          is live. Reported as "Landed" in bin/funnel-slack-report.php. -->
@@ -192,6 +240,9 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                  forwarded on in includes/leadprosper.php. -->
                 <input type="hidden" name="product" value="Debt Relief">
                 <input type="hidden" name="form_name" value="DRMultiStep_PHP">
+                <!-- Idempotency key for this pageview's submit. See the top of this
+                 file and sql/alter_leads_add_submit_nonce.sql. -->
+                <input type="hidden" name="submit_nonce" value="<?= $e($submitNonce) ?>">
                 <input type="hidden" name="xxTrustedFormCertUrl" id="xxTrustedFormCertUrl">
                 <input type="hidden" name="universal_leadid" id="universal_leadid">
 
@@ -516,7 +567,7 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
             <!-- Trust badges -->
             <div class="trust-badges">
                 <?php foreach ($cfg['badges'] as $b): ?>
-                    <img src="<?= $e($b['src']) ?>" alt="<?= $e($b['alt']) ?>" loading="lazy">
+                    <img src="<?= $e($b['src']) ?>" alt="<?= $e($b['alt']) ?>" width="300" height="240" loading="lazy">
                 <?php endforeach; ?>
             </div>
         </div>

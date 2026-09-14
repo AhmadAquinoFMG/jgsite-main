@@ -1,17 +1,18 @@
--- HISTORICAL MIGRATION — kept so existing databases match schema.sql.
+-- Adds the direct JG Wentworth Lead Scoring integration (includes/jgscoring.php):
+-- the per-lead outcome columns and the jgscoring_logs audit table.
 --
--- Originally added the direct JG Wentworth Lead Scoring integration
--- (includes/jgscoring.php): the per-lead outcome columns and the jgscoring_logs
--- audit table. That integration has since been REMOVED from the codebase — it
--- posted to JG's lead intake while JG was also a buyer on the LeadProsper
--- campaign, which double-delivered the consumer and got the paying LeadProsper
--- copy rejected as a duplicate.
+-- HISTORY: this integration was removed once and has now been RESTORED as the
+-- source of verified total debt, replacing the Equifax pull. The reason it was
+-- pulled the first time still stands as a warning, not as a blocker: the
+-- endpoint is JG's lead INTAKE, so every live call creates a lead at JG, and
+-- with JG also a buyer on the LeadProsper campaign the consumer was delivered
+-- twice — the paying LeadProsper copy came back "duplicated by buyer". Keep JG
+-- off that campaign while jgscoring.mode=live.
 --
--- What these columns mean now: `leads.total_debt` is the debt figure actually
--- posted downstream, `leads.total_debt_source` says which source produced it,
--- and `leads.jgw_total_debt` holds a BUYER's verified figure as echoed back
--- through the LeadProsper response. The remaining jgw_* columns and
--- jgscoring_logs are legacy history and are no longer written.
+-- What these columns mean: `leads.total_debt` is the debt figure actually posted
+-- downstream (JG's total_debt_included), `leads.total_debt_source` says which
+-- source produced it ('jgw' | 'buyer'; 'equifax' on historical rows), and
+-- `leads.jgw_*` denormalize the scoring outcome for per-lead visibility.
 --
 -- Idempotent: safe to run against a database that already has some of these.
 --

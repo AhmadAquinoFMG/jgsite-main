@@ -46,7 +46,7 @@ return [
     // ---- Asset cache-busting -------------------------------------------
     // Bump this whenever CSS/JS changes so browsers/CDNs fetch fresh files.
     // Appended to asset URLs as ?v=… in index.php / thank-you.php.
-    'asset_version' => '39',
+    'asset_version' => '46',
 
     // ---- Analytics: Umami -----------------------------------------------
     // Privacy-friendly analytics. Used to measure funnel drop-off (which field
@@ -88,7 +88,7 @@ return [
 
     // ---- Operational logging -------------------------------------------
     // File-based structured log (includes/logger.php) for the lead pipeline.
-    // Separate from the leads/equifax_logs DATA tables — this is the ops trail.
+    // Separate from the leads/jgscoring_logs DATA tables — this is the ops trail.
     //   level: debug | info | warning | error (lines below it are dropped).
     //   dir:   defaults to <project>/logs (gitignored); override with LOG_DIR.
     'logging' => [
@@ -118,11 +118,88 @@ return [
         'jornaya_account'   => env('JORNAYA_ACCOUNT_ID', ''),
     ],
 
-    // ---- Equifax Consumer Credit Report (OneView, OAuth2) --------------
-    // submit.php pulls a credit report after storing the lead and logs the
-    // request/response to equifax_logs (includes/equifax.php). Best-effort — a
-    // failure is logged but never blocks the lead. Aligned with the proven
-    // integration in the sibling `tdo` project.
+    // ---- JG Wentworth Lead Scoring (Debt Resolution intake) -------------
+    // THE source of verified total debt. submit.php posts the stored lead to
+    // JG's DR intake (includes/jgscoring.php) and keeps `total_debt_included`
+    // from the response; that figure is what rides along on the LeadProsper
+    // direct-post and what the thank-you savings math uses. Best-effort — a
+    // failure is logged to jgscoring_logs but never blocks the lead.
+    //
+    // This REPLACED the Equifax credit pull below, which is now dormant.
+    //
+    //   mode: 'off'  → skip entirely, no log row (default).
+    //         'mock' → synthetic response, no network, DOES log. Use this to
+    //                  verify payload shape + downstream wiring without
+    //                  creating a real lead at JG.
+    //         'live' → real POST. ⚠ CREATES A REAL LEAD AT JG (see below).
+    //
+    // ⚠ DUPLICATE DELIVERY: this endpoint is JG's lead INTAKE, not a scoring
+    // lookup — every 'live' call creates a lead inside JG. The integration was
+    // removed once before for exactly this reason: JG also sits as a buyer on
+    // LeadProsper campaign 35954, so running both delivered the same consumer
+    // twice and the paying LeadProsper copy came back "duplicated by buyer".
+    // Before switching mode to 'live', remove JG as a buyer on that campaign
+    // (or accept the duplicate deliberately).
+    'jgscoring' => [
+        'mode'     => strtolower(env('JGSCORING_MODE', 'off')),
+        'endpoint' => env('JGSCORING_ENDPOINT', 'https://leadscoring.jgwentworth.com/api/leads/dr/'),
+        'token'    => env('JGSCORING_TOKEN', ''),
+        /* Sent as `Authorization: <scheme> <token>`, or as the bare token when
+           empty. JG documents the header name without a scheme and the prefix is
+           account-specific, so nothing is guessed here: put `Token` / `Bearer`
+           in JGSCORING_AUTH_SCHEME if your token needs one, or bake the prefix
+           into JGSCORING_TOKEN and leave this empty. A guessed scheme is an
+           invisible 401. */
+        'auth_scheme' => env('JGSCORING_AUTH_SCHEME', ''),
+        'timeout'     => (int) env('JGSCORING_TIMEOUT', '20'),
+
+        /* Fixed partner attribution, echoed in additional_fields. These are how
+           JG attributes the lead to US — they are NOT the visitor's utm_source
+           (that one is on the lead row and goes to LeadProsper). Values come
+           from JG's own sample payload; campaign_source is the numeric id JG
+           issued for this placement. */
+        'utm_source'         => env('JGSCORING_UTM_SOURCE', 'FMGWhiteLabel-Posted'),
+        'lead_source_detail' => env('JGSCORING_LEAD_SOURCE_DETAIL', 'FMGWhiteLabel'),
+        'lead_source'        => env('JGSCORING_LEAD_SOURCE', 'Affiliate'),
+        'campaign_source'    => env('JGSCORING_CAMPAIGN_SOURCE', ''),
+
+        /* Vocabulary bridge: our stored answer keys → the strings JG's payload
+           uses. 'Full Time' is straight from JG's sample; the other three are
+           the obvious counterparts but are NOT confirmed against JG's enum, so
+           they live here rather than in the client — one edit when JG confirms.
+           An unmapped value posts empty instead of posting our own key and
+           risking a 400 that would cost us the whole debt figure. */
+        'employment_map' => [
+            'employed'   => env('JGSCORING_EMP_EMPLOYED',   'Full Time'),
+            'unemployed' => env('JGSCORING_EMP_UNEMPLOYED',  'Unemployed'),
+            'disability' => env('JGSCORING_EMP_DISABILITY',  'Disability'),
+            'retired'    => env('JGSCORING_EMP_RETIRED',     'Retired'),
+        ],
+        /* Income is DELIBERATELY empty by default: JG's sample sends `income`
+           blank and their accepted values are undocumented, so there is nothing
+           to map to yet — and their sample lead was accepted with it empty
+           (they underwrite from debt + credit rating). The funnel's income
+           answer is still stored on the lead and still posted to LeadProsper.
+           Fill these in when JG publishes the enum. */
+        'income_map' => [
+            'Under $30,000'                => env('JGSCORING_INC_UNDER_30K', ''),
+            'Between $30,000 and $100,000' => env('JGSCORING_INC_30K_100K',  ''),
+            'Over $100,000'                => env('JGSCORING_INC_OVER_100K', ''),
+        ],
+    ],
+
+    // ---- Equifax Consumer Credit Report (OneView, OAuth2) — DORMANT ----
+    // NOTHING CALLS THIS. Verified total debt now comes from JG's DR intake
+    // above (includes/jgscoring.php); submit.php no longer calls
+    // equifax_pull(). The client, this config block and the EQUIFAX_* env
+    // vars are kept intact so the pull can be restored by re-adding the step
+    // in submit.php — no code archaeology required. leads.equifax_* and
+    // equifax_logs keep their historical rows either way.
+    //
+    // What it did: pulled a credit report after storing the lead and logged
+    // the request/response to equifax_logs. Best-effort — a failure was
+    // logged but never blocked the lead. Aligned with the proven integration
+    // in the sibling `tdo` project.
     //
     //   mode:  'off'        → skip entirely, no log row (default).
     //          'mock'       → synthetic response, DOES log (test the pipeline).
@@ -170,7 +247,7 @@ return [
 
     // ---- LeadProsper direct-post (lead distribution) --------------------
     // submit.php posts the lead to LeadProsper AFTER it's stored (and after the
-    // Equifax pull, so the verified total debt can be included). Best-effort —
+    // JG scoring call, so the verified total debt can be included). Best-effort —
     // aligned with the proven integration in the sibling `tdo` project, adapted
     // to this funnel's field names (includes/leadprosper.php).
     //
@@ -260,6 +337,42 @@ return [
         // never stored on the lead and never reaches Everflow. Empty = don't
         // substitute.
         'affid' => env('TEST_MODE_AFFID', '300'),
+    ],
+
+    // ---- Admin portal (admin/) -------------------------------------------
+    // Internal lead + post-log viewer. Reads the pipeline's tables; writes only
+    // portal_users.last_login_at and portal_audit (sql/alter_add_portal.sql).
+    //
+    // Accounts come from bin/portal-user.php — there is no signup form and no
+    // default account, so a fresh install has no way in until someone runs it.
+    'portal' => [
+        // Own session name, NOT the funnel's PHPSESSID. index.php, submit.php
+        // and thank-you.php all call session_start() on this same domain; a
+        // shared cookie name means logging into the portal walks over the
+        // funnel's session (and vice versa) for anyone with both open.
+        'session_name' => env('PORTAL_SESSION_NAME', 'JGPORTALSESS'),
+
+        // Idle timeout: seconds since the last request before a session is
+        // treated as expired. Short by admin-tool standards on purpose — the
+        // pages behind it show full consumer identity.
+        'idle_timeout' => (int) env('PORTAL_IDLE_TIMEOUT', '3600'),   // 1 hour
+        // Absolute cap, regardless of activity. A session that has been alive
+        // this long ends even if someone is actively clicking.
+        'max_lifetime' => (int) env('PORTAL_MAX_LIFETIME', '43200'),  // 12 hours
+
+        // Login throttle, counted out of portal_audit's `login_failed` rows
+        // (see the idx_throttle indexes). Applied to the submitted email AND to
+        // the source IP, so neither a single account nor a single host can be
+        // ground down. Tripping it logs 'login_blocked' rather than silently
+        // failing — a blocked admin should be visible in the trail.
+        'max_attempts'    => (int) env('PORTAL_MAX_ATTEMPTS', '5'),
+        'lockout_minutes' => (int) env('PORTAL_LOCKOUT_MINUTES', '15'),
+
+        // Force the Secure flag on the session cookie. Auto-detected from HTTPS
+        // otherwise, which is what a local http:// dev host needs — set this to
+        // 1 in production if the app sits behind a proxy that terminates TLS,
+        // where $_SERVER['HTTPS'] is not set despite the browser being on https.
+        'cookie_secure' => env('PORTAL_COOKIE_SECURE', '') === '1',
     ],
 
     // ---- Cloudflare Turnstile (bot protection on the final funnel step) -------
@@ -398,15 +511,53 @@ return [
             'date_of_birth'  => 'dob',
             'email'          => 'email',
             'phone'          => 'phone',
-            // Lead record. total_debt is the Equifax-verified figure and is
-            // absent when the pull returned nothing usable (see submit.php).
+            // Lead record. total_debt is the JG-verified figure and is absent
+            // when the scoring call returned nothing usable (see submit.php).
             'lead_id'        => 'lead_id',
             'total_debt'     => 'total_debt',
-            // Buyer that accepted the lead at LeadProsper. thank-you.php looks
-            // this up in the `buyers` table to decide whose logo to show under
-            // the savings callout (includes/buyers.php). Absent when no buyer
-            // accepted, or when LeadProsper is off. Not PII — a company name.
+            // Server-selected display buyer from the verified-debt routing band.
+            // thank-you.php resolves its logo/phone through the buyers table.
+            // This is presentation data, not the audited LP accepted-buyer field.
             'buyer'          => 'accepted_buyer',
+            // Server-derived presentation/routing flags. These contain no PII:
+            // thank-you.php uses them for accurate copy and the popup fallback.
+            'route'          => 'routing_tier',
+            'decline'        => 'decline_offer',
+            // Attribution captured on the landing URL. It has to survive the
+            // thank-you hop because thank-you.php builds the offerwall URL from
+            // its own query string (decline_offerwall_url($_GET)), and partner
+            // CTAs in includes/offerwall-campaigns.php fill {sub2},
+            // {transaction_id}, ... from it. Same set as routing.php's allowlist.
+            'affid'             => 'affid',
+            'oid'               => 'oid',
+            'source_id'         => 'source_id',
+            'ef_transaction_id' => 'ef_transaction_id',
+            'sub1'              => 'sub1',
+            'sub2'              => 'sub2',
+            'sub3'              => 'sub3',
+            'sub4'              => 'sub4',
+            'sub5'              => 'sub5',
+            'sub6'              => 'sub6',
+            'lp_subid1'         => 'lp_subid1',
+            'lp_subid2'         => 'lp_subid2',
+            'lp_subid3'         => 'lp_subid3',
+            'lp_subid4'         => 'lp_subid4',
+            'lp_subid5'         => 'lp_subid5',
+            'lp_subid6'         => 'lp_subid6',
+            'utm_source'        => 'utm_source',
+            'utm_medium'        => 'utm_medium',
+            'utm_campaign'      => 'utm_campaign',
+            'utm_term'          => 'utm_term',
+            'utm_content'       => 'utm_content',
+            'utm_creative'      => 'utm_creative',
+            'utm_placement'     => 'utm_placement',
+            'utm_adgroup'       => 'utm_adgroup',
+            'utm_matchtype'     => 'utm_matchtype',
+            'gclid'             => 'gclid',
+            'gbraid'            => 'gbraid',
+            'ttclid'            => 'ttclid',
+            'ms_placement'      => 'ms_placement',
+            'ms_publisher'      => 'ms_publisher',
             // Meta match keys, for the Conversions API event CallGrid fires off
             // the call. fbc/fbp are the pixel's cookies; the request-level pair
             // must be the *visitor's* ip/ua as we saw them at submit — CallGrid's
@@ -417,6 +568,27 @@ return [
             'fbc'               => 'fbc',
             'client_ip_address' => 'ip',
             'client_user_agent' => 'user_agent',
+        ],
+    ],
+
+    // ---- Post-submit routing -------------------------------------------
+    // Verified debt only: >=$10k stays JG. InCharge is temporarily disabled;
+    // every amount below $10k and every no-credit-read outcome uses the United
+    // under-$10k buyer row and receives the offerwall in a separate tab.
+    // Bots never open the offerwall.
+    'lead_routing' => [
+        'qualify_min'    => (int) env('ROUTING_QUALIFY_MIN', '10000'),
+        'house_buyer'    => env('ROUTING_HOUSE_BUYER', 'JG Wentworth'),
+        'decline_buyer'  => env('ROUTING_DECLINE_BUYER', 'United Debt - Under $10k'),
+        'offerwall_base' => env('OFFERWALL_BASE', 'offerwall.php'),
+        // Used only when the buyers table is unavailable or has no InCharge
+        // row. A live database row remains authoritative.
+        'incharge_fallback' => [
+            'label'        => 'InCharge Debt Solutions',
+            'logo_path'    => 'assets/img/buyers/Incharge_Debt_Solutions-r.webp',
+            'did'          => '1-855-600-0593',
+            'use_callgrid' => false,
+            'show_logo'    => true,
         ],
     ],
 

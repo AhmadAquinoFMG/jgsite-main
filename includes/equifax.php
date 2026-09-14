@@ -156,12 +156,14 @@ if (!function_exists('equifax_pull')) {
                 '_mock' => true,
             ], JSON_UNESCAPED_SLASHES);
             $mockDebt = equifax_extract_total_debt(json_decode($mockResponse, true));
+            $total_student_debt = equifax_extract_total_student_debt(json_decode($mockResponse, true));
             return $result + [
                 'response_status' => 200,
                 'response_body'   => $mockResponse,
                 'score'           => 742,
                 'decision'        => 'mock',
                 'total_debt'      => $mockDebt,
+                'total_student_debt' => $total_student_debt,
                 'error'           => null,
                 'duration_ms'     => 0,
             ];
@@ -176,6 +178,7 @@ if (!function_exists('equifax_pull')) {
                 'score'           => null,
                 'decision'        => null,
                 'total_debt'      => null,
+                'total_student_debt' => null,
                 'error'           => 'auth_failed: ' . $err,
                 'duration_ms'     => 0,
             ];
@@ -192,10 +195,12 @@ if (!function_exists('equifax_pull')) {
         $score     = null;
         $decision  = null;
         $totalDebt = null;
+        $total_student_debt = null;
         if ($http['status'] >= 200 && $http['status'] < 300 && $http['body']) {
             $parsed    = json_decode($http['body'], true);
             $score     = equifax_extract_score($parsed);
             $totalDebt = equifax_extract_total_debt($parsed);
+            $total_student_debt = equifax_extract_total_student_debt($parsed);
         }
 
         return $result + [
@@ -204,6 +209,7 @@ if (!function_exists('equifax_pull')) {
             'score'           => $score,
             'decision'        => $decision,
             'total_debt'      => $totalDebt,
+            'total_student_debt' => $total_student_debt,
             'error'           => $http['error'] ?: ($http['status'] >= 400 ? 'http_' . $http['status'] : null),
             'duration_ms'     => $duration,
         ];
@@ -227,12 +233,48 @@ if (!function_exists('equifax_pull')) {
     }
 
     /**
+     * Student-loan balances only, independent of the unsecured total.
+     * Reserved LP field name: student_loan; not included in outgoing payloads.
+     * Returns null for an unreadable report and 0 when no positive student
+     * balance is present in a decoded report.
+     */
+    function equifax_extract_total_student_debt($decoded): ?int
+    {
+        if (!is_array($decoded)) {
+            return null;
+        }
+        [$sum] = equifax_sum_trade_balances($decoded, false, true);
+        return (int) round($sum);
+    }
+
+    /** Identify student loans using the existing unsecured exclusion criteria. */
+    function equifax_trade_is_student(array $trade): bool
+    {
+        [$code, $desc] = equifax_code_pair(
+            $trade['accountType'] ?? ($trade['accountTypeCode'] ?? '')
+        );
+        if ($desc === '') {
+            $desc = strtolower((string) ($trade['accountTypeDescription'] ?? ''));
+        }
+        $text = $desc . ' ' . strtolower((string) ($trade['customerName'] ?? ($trade['creditorName'] ?? '')));
+        foreach ((array) ($trade['narrativeCodes'] ?? []) as $narrative) {
+            [, $nDesc] = equifax_code_pair($narrative);
+            $text .= ' ' . $nDesc;
+        }
+        return $code === '12' || equifax_text_has($text, [
+            'student', 'education', 'educational', 'sallie mae', 'navient',
+            'nelnet', 'mohela', 'fedloan', 'perkins', 'stafford', 'sofi student',
+        ]);
+    }
+
+    /**
      * Recursively sum trade-line balances anywhere in the report (under any
      * trades/tradelines/accounts list). With $unsecuredOnly, each trade must
-     * pass equifax_trade_is_unsecured() to count. Returns [sum, foundAny].
+     * pass equifax_trade_is_unsecured() to count. $studentOnly restricts the
+     * separate student total to student loans. Returns [sum, foundAny].
      * @return array{0:float,1:bool}
      */
-    function equifax_sum_trade_balances($node, bool $unsecuredOnly = true): array
+    function equifax_sum_trade_balances($node, bool $unsecuredOnly = true, bool $studentOnly = false): array
     {
         $sum = 0.0;
         $found = false;
@@ -250,6 +292,9 @@ if (!function_exists('equifax_pull')) {
                     if ($unsecuredOnly && !equifax_trade_is_unsecured($trade)) {
                         continue;
                     }
+                    if ($studentOnly && !equifax_trade_is_student($trade)) {
+                        continue;
+                    }
                     $balance = $trade['balanceAmount'] ?? ($trade['balance'] ?? ($trade['currentBalance'] ?? null));
                     if (is_numeric($balance) && (float) $balance > 0) {
                         $sum += (float) $balance;
@@ -257,7 +302,7 @@ if (!function_exists('equifax_pull')) {
                     }
                 }
             } elseif (is_array($value)) {
-                [$childSum, $childFound] = equifax_sum_trade_balances($value, $unsecuredOnly);
+                [$childSum, $childFound] = equifax_sum_trade_balances($value, $unsecuredOnly, $studentOnly);
                 $sum += $childSum;
                 $found = $found || $childFound;
             }

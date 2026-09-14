@@ -5,8 +5,8 @@
  *
  * Called from submit.php as part of bot detection (see docs/bot-protection.md).
  * Best-effort in shape (never throws) but its result IS blocking — unlike
- * Equifax/LeadProsper's "log & continue", a failed verify sets $botReason in
- * submit.php, which routes the lead away from Equifax/LeadProsper (but still
+ * JG/LeadProsper's "log & continue", a failed verify sets $botReason in
+ * submit.php, which routes the lead away from JG/LeadProsper (but still
  * returns {ok:true} to the caller — see submit.php).
  */
 

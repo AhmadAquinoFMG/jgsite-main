@@ -1090,6 +1090,7 @@
     }
 
     var submitting = false;
+
     form.addEventListener('submit', function (ev) {
         ev.preventDefault();
         if (submitting) return;

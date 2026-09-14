@@ -61,9 +61,9 @@ building anything downstream — see [Verifying](#verifying).
 
 ## 1. Server side (already built)
 
-Nothing to write. `submit.php` posts the lead after the Equifax pull (so the verified
+Nothing to write. `submit.php` posts the lead after the JG scoring call (so the verified
 total debt rides along) and skips suspected bots, matching the log-and-continue contract
-of the Equifax and LeadProsper steps — a Zapier outage can never cost a stored lead.
+of the JG scoring and LeadProsper steps — a Zapier outage can never cost a stored lead.
 
 | File | Role |
 | --- | --- |
