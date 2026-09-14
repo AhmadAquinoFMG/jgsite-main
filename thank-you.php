@@ -249,13 +249,25 @@ if ($cgOn) {
                that call just isn't attributable. */
             (function() {
                 var assigned = '';
+                var fallback = <?= json_encode($ctaTel) ?>;
+                var numberAssignmentTimer;
 
                 function applyNumber() {
-                    if (!assigned) return;
                     var link = document.getElementById('call-now');
                     if (!link) return;
 
-                    link.href = 'tel:' + assigned.replace(/[^\d+]/g, '');
+                    var numberToUse = assigned || fallback;
+                    if (!numberToUse) return;
+
+                    link.href = 'tel:' + numberToUse.replace(/[^\d+]/g, '');
+                }
+
+                function ensureNumber() {
+                    if (assigned) return;
+                    // If pool didn't assign a number within 1.5s, use the original
+                    numberAssignmentTimer = setTimeout(function() {
+                        if (!assigned) applyNumber();
+                    }, 1500);
                 }
 
                 document.addEventListener('callgrid:numberAssigned', function(event) {
@@ -263,6 +275,8 @@ if ($cgOn) {
                     if (!number) return;
 
                     assigned = String(number).trim();
+                    clearTimeout(numberAssignmentTimer);
+
                     if (document.readyState === 'loading') {
                         document.addEventListener('DOMContentLoaded', applyNumber, {
                             once: true
@@ -272,10 +286,18 @@ if ($cgOn) {
                     }
                 });
 
+                // Fallback when number pool is exhausted or SDK doesn't respond:
+                // use the original tracking number after a timeout
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', ensureNumber);
+                } else {
+                    ensureNumber();
+                }
+
                 // A bfcache restore re-runs no scripts and re-fires no events,
                 // but it does rebuild the DOM from the snapshot — reassert the
-                // pooled number so a back-navigation doesn't silently revert the
-                // CTA to the static one.
+                // pooled number (or fallback) so a back-navigation doesn't silently
+                // revert the CTA to the static one.
                 window.addEventListener('pageshow', function(event) {
                     if (event.persisted) applyNumber();
                 });
