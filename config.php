@@ -515,9 +515,11 @@ return [
             // when the scoring call returned nothing usable (see submit.php).
             'lead_id'        => 'lead_id',
             'total_debt'     => 'total_debt',
-            // Server-selected display buyer from the verified-debt routing band.
-            // thank-you.php resolves its logo/phone through the buyers table.
-            // This is presentation data, not the audited LP accepted-buyer field.
+            // The buyer LeadProsper reported as having accepted the lead,
+            // falling back to the routing-band buyer when LP named none (off,
+            // bot, rejected, error). thank-you.php resolves its logo/phone
+            // through the buyers table. Presentation only — the audited copy is
+            // leads.lp_accepted_buyer, which nothing downstream reads from here.
             'buyer'          => 'accepted_buyer',
             // Server-derived presentation/routing flags. These contain no PII:
             // thank-you.php uses them for accurate copy and the popup fallback.

@@ -150,9 +150,15 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
             );
 
             /* Values redirect_build_url() reads that are not stored under these
-               names — same synthesis as the tail of this file. */
+               names — same synthesis as the tail of this file, including the
+               same precedence: the buyer LeadProsper accepted (persisted to
+               lp_accepted_buyer by the original request) wins, and the routing
+               band only stands in when that request never got an answer. Read
+               from the row rather than re-derived, because a retry must not
+               re-post to LeadProsper just to learn the buyer again. */
             $lead['lead_id']        = $leadId;
-            $lead['accepted_buyer'] = $routing['buyer'];
+            $storedBuyer            = trim((string) ($lead['lp_accepted_buyer'] ?? ''));
+            $lead['accepted_buyer'] = $storedBuyer !== '' ? $storedBuyer : $routing['buyer'];
             $lead['routing_tier']   = $routing['tier'];
             $lead['decline_offer']  = $routing['decline_offer'] ? '1' : null;
 
@@ -1008,10 +1014,24 @@ if ($botReason !== null) {
    "verified" name. */
 $row['lead_id']    = $leadId;
 $row['total_debt'] = $debtForConsumer;
-/* Third such value: the server-selected display buyer for this debt band, so
-   thank-you.php can look up the correct logo and phone. The actual LP buyer is
-   still preserved separately in leads.lp_accepted_buyer for reconciliation. */
-$row['accepted_buyer'] = $displayBuyer;
+/* Third such value: WHICH BUYER ACTUALLY BOUGHT THE LEAD, as LeadProsper
+   reported it, so thank-you.php shows that company's logo and that company's
+   number. The consumer is told "you have been matched with X" — X has to be the
+   firm that will call them, which only LeadProsper knows.
+
+   $displayBuyer is the FALLBACK, not the source. LeadProsper names no buyer on
+   several ordinary paths — LP switched off, a bot skipping the post entirely, a
+   rejected lead, an HTTP failure, a multi-sell response with no accepted entry —
+   and the page still needs a logo and a dialable CTA. In those cases the
+   debt-band routing buyer stands in, exactly as it did when it was the only
+   source. LP's answer is authoritative whenever there is one.
+
+   NOTE the registry dependency: this param is matched against `buyers`.`name` as
+   a substring (buyer_find()), so every buyer LeadProsper can return needs a
+   matching token row or the page silently falls back to the house number and no
+   logo. Routing-band names ('United Debt - Under $10k') were ours to choose;
+   these are the campaign's to change. */
+$row['accepted_buyer'] = $acceptedBuyer ?? $displayBuyer;
 $row['routing_tier'] = $routing['tier'];
 $row['decline_offer'] = $routing['decline_offer'] ? '1' : null;
 

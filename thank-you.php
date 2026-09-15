@@ -38,10 +38,12 @@ $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
 $firstName = mb_substr(trim((string) ($_GET['first_name'] ?? '')), 0, 40);
 
 /* Buyer logo. submit.php appends ?buyer=<name as LeadProsper reported it> to the
-   redirect; the `buyers` table says whether that buyer has a logo and whether to
-   show it. Null — no row, show_logo off (JG Wentworth: the whole funnel is
-   already JG-branded, so their logo here adds nothing), no path, or the file is
-   missing — renders nothing at all rather than an empty slot.
+   redirect — or, when LP named no buyer (off, bot, rejected, error), the
+   debt-band routing buyer as a stand-in. The `buyers` table says whether that
+   buyer has a logo and whether to show it. Null — no row, show_logo off (JG
+   Wentworth: the whole funnel is already JG-branded, so their logo here adds
+   nothing), no path, or the file is missing — renders nothing at all rather
+   than an empty slot.
 
    Unlike prequal_savings this rides in the URL, so a visitor can hand-type
    another buyer's name and see their logo. Fine for decoration; see the note in
