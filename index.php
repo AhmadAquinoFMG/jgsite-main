@@ -11,10 +11,12 @@
  * UI ONLY: Google Places (step 5) is a lazy-loaded STUB — see
  * assets/js/funnel.js. Submit is not wired to a backend.
  */
-// A fresh funnel run invalidates any estimated savings from a prior
-// submission held in the session for thank-you.php (see submit.php).
+// A fresh funnel run invalidates everything a prior submission left in the
+// session for thank-you.php and offerwall.php (see submit.php). student_debt
+// matters most here: left behind, the next consumer through this browser gets a
+// student-loan card on their offerwall quoting the LAST one's balance.
 session_start();
-unset($_SESSION['prequal_savings'], $_SESSION['ef_conversion']);
+unset($_SESSION['prequal_savings'], $_SESSION['ef_conversion'], $_SESSION['student_debt']);
 
 $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');

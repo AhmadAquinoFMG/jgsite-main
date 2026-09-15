@@ -7,8 +7,38 @@ declare(strict_types=1);
  * These destinations are intentionally fixed to the links on the referenced
  * offerwall. No lead fields, attribution parameters, or other PII are appended
  * to a partner URL.
+ *
+ * Two lists, not one. 'campaigns' is the wall every declined lead sees.
+ * 'student_campaigns' is shown ONLY to a lead Equifax found a student-loan
+ * balance for and that was not already sold to the student buyer — see
+ * lead_routing_decision()'s student_offer. It is prepended above the general
+ * wall rather than mixed into it: a consumer who arrives carrying student debt
+ * is there for that, and burying the one relevant card among six personal-loan
+ * offers wastes the only thing we know about them.
  */
 return [
+    /* Student-loan offers. Gated; see offerwall.php. Keep this list short —
+       its whole value is that it is the first and most relevant thing on the
+       page, which a second and third card dilute. */
+    'student_campaigns' => [
+        [
+            'id' => 'docupop',
+            'name' => 'DocuPop',
+            'logo' => 'assets/img/offers/Docupop-Logo_v02.png',
+            'description' => 'Find out which federal student loan repayment programs you may qualify for.',
+            'benefits' => [
+                'Federal repayment and forgiveness program matching',
+                'Paperwork prepared and filed for you',
+                'Free eligibility review',
+            ],
+            'cta_text' => 'Check My Options',
+            // TODO: replace with the live DocuPop tracking link before launch.
+            // Left as the bare site so a premature deploy sends the consumer
+            // somewhere real and simply earns nothing, rather than 404ing them.
+            'cta_link' => 'https://www.docupop.com/',
+        ],
+    ],
+
     'campaigns' => [
         [
             'id' => 'lending_for_bad_credit',

@@ -143,10 +143,19 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
         $lead = $stmt->fetch();
 
         if ($lead) {
+            /* Both extra inputs come off the stored row: the original request
+               already paid for the Equifax pull and the LeadProsper post, and a
+               retry must not repeat either just to re-derive the band. A first
+               attempt that died before those writes landed simply yields nulls
+               here and the same unsecured-debt routing it would have got then. */
             $routing = lead_routing_decision(
                 lead_stored_verified_debt($lead),
                 !empty($lead['bot_suspected']),
-                $cfg['lead_routing'] ?? []
+                $cfg['lead_routing'] ?? [],
+                isset($lead['student_debt']) && $lead['student_debt'] !== ''
+                    ? (int) $lead['student_debt']
+                    : null,
+                $lead['lp_accepted_buyer'] ?? null
             );
 
             /* Values redirect_build_url() reads that are not stored under these
@@ -175,6 +184,12 @@ $respondDuplicate = function (int $leadId, string $detectedBy) use ($cfg, $rid) 
                 ? (int) $lead['total_debt']
                 : leadprosper_debt_bucket_amount((string) ($lead['debt_amount'] ?? ''));
             $_SESSION['prequal_savings'] = (int) round($debt * 0.4);
+            /* Same reason as the savings figure: a retry that never saw the first
+               response would otherwise reach an offerwall with no student card.
+               Cleared rather than left stale when this lead carries no balance. */
+            $_SESSION['student_debt'] = $routing['student_offer']
+                ? (int) $routing['student_debt']
+                : null;
         }
     } catch (Throwable $ex) {
         // Falls back to the bare thank-you page — still better than a duplicate.
@@ -943,14 +958,20 @@ $debtForSavings   = $debtForConsumer ?? leadprosper_debt_bucket_amount((string) 
 $estimatedSavings = (int) round($debtForSavings * 0.4);
 
 /* ---------------------------------------- branded routing + decline offerwall
-   The main tab always stays on our thank-you page. Verified >=$10k debt keeps
-   JG branding. InCharge is temporarily disabled, so every verified amount below
-   $10k and every no-read outcome uses the United under-$10k buyer row and gets
-   the separate offerwall. */
+   The main tab always stays on our thank-you page. A student-loan balance at or
+   above the threshold that LeadProsper sold to the student buyer takes the
+   student band and keeps that buyer's branding, whatever the unsecured figure
+   says. Otherwise: verified >=$10k unsecured debt keeps JG branding, and
+   (InCharge being temporarily disabled) every amount below $10k and every
+   no-read outcome uses the United under-$10k buyer row and gets the separate
+   offerwall — now carrying the student-loan card when there is any balance at
+   all to carry it for. */
 $routing = lead_routing_decision(
     $debtForConsumer,
     $botReason !== null,
-    $cfg['lead_routing'] ?? []
+    $cfg['lead_routing'] ?? [],
+    $studentDebt,
+    $acceptedBuyer
 );
 $displayBuyer = $routing['buyer'];
 
@@ -968,6 +989,15 @@ $displayBuyer = $routing['buyer'];
 if (!headers_sent()) {
     session_start();
     $_SESSION['prequal_savings'] = $estimatedSavings;
+    /* Whether the offerwall should carry the student-loan card, and the balance
+       its copy quotes. The SAME value also rides the offerwall URL, because the
+       wall opens in a separate tab and the session is the only copy that a
+       visitor cannot edit — offerwall.php prefers this one and treats the URL as
+       a fallback. Null (not 0) when there is nothing to offer, so a second lead
+       in one session cannot inherit the first one's card. */
+    $_SESSION['student_debt'] = $routing['student_offer']
+        ? (int) $routing['student_debt']
+        : null;
 }
 
 /* ---------------------------------------- Everflow conversion handoff
@@ -1032,6 +1062,11 @@ $row['total_debt'] = $debtForConsumer;
    logo. Routing-band names ('United Debt - Under $10k') were ours to choose;
    these are the campaign's to change. */
 $row['accepted_buyer'] = $acceptedBuyer ?? $displayBuyer;
+/* Fourth: Equifax's student-loan total, forwarded only when the offerwall has a
+   reason to show the card. Left null in the student band — that lead was sold to
+   the student buyer and is never offered the same buyer again — so the param is
+   simply absent and the card cannot render. */
+$row['student_debt'] = $routing['student_offer'] ? (int) $routing['student_debt'] : null;
 $row['routing_tier'] = $routing['tier'];
 $row['decline_offer'] = $routing['decline_offer'] ? '1' : null;
 

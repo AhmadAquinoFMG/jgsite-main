@@ -521,6 +521,12 @@ return [
             // through the buyers table. Presentation only — the audited copy is
             // leads.lp_accepted_buyer, which nothing downstream reads from here.
             'buyer'          => 'accepted_buyer',
+            // Equifax's student-loan total, carried so thank-you.php can pass it
+            // on when it rebuilds the offerwall URL from its own query string
+            // (decline_offerwall_url($_GET)). Absent at 0 or unread. It is a
+            // display hint for the student-loan card's copy and nothing else —
+            // $_SESSION['student_debt'] is the copy anything else should trust.
+            'student_debt'   => 'student_debt',
             // Server-derived presentation/routing flags. These contain no PII:
             // thank-you.php uses them for accurate copy and the popup fallback.
             'route'          => 'routing_tier',
@@ -583,6 +589,28 @@ return [
         'house_buyer'    => env('ROUTING_HOUSE_BUYER', 'JG Wentworth'),
         'decline_buyer'  => env('ROUTING_DECLINE_BUYER', 'United Debt - Under $10k'),
         'offerwall_base' => env('OFFERWALL_BASE', 'offerwall.php'),
+
+        // ---- Student-loan band -----------------------------------------
+        // Equifax reports student/education loans as their own total, excluded
+        // from the unsecured figure above (equifax_trade_is_student()), so these
+        // two thresholds measure different debts and neither implies the other.
+        //
+        // A lead reaches the student band only when BOTH hold: the balance is at
+        // or above student_qualify_min AND LeadProsper reported student_buyer as
+        // having accepted it. The buyer test is what makes the thank-you page
+        // honest — it names a firm that actually bought the file.
+        //
+        // student_buyer is a MATCH TOKEN, compared case-insensitively as a
+        // substring of the name LeadProsper returns, exactly like buyers.name:
+        // 'DocuPop' matches 'DocuPop Student Loan Services'. Setting it empty
+        // switches the band off entirely.
+        //
+        // There is no minimum for the OFFERWALL card: any balance above zero
+        // surfaces it (see lead_routing_decision()). Showing a card costs
+        // nothing, and the consumer below the sale threshold is precisely the
+        // one with no other offer here worth taking.
+        'student_qualify_min' => (int) env('ROUTING_STUDENT_QUALIFY_MIN', '10000'),
+        'student_buyer'       => env('ROUTING_STUDENT_BUYER', 'DocuPop'),
         // Used only when the buyers table is unavailable or has no InCharge
         // row. A live database row remains authoritative.
         'incharge_fallback' => [

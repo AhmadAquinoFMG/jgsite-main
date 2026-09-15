@@ -16,12 +16,16 @@ $cfg = require __DIR__ . '/config.php';
 $e   = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
 $route = strtolower(trim((string) ($_GET['route'] ?? 'qualified')));
-if (!in_array($route, ['qualified', 'incharge', 'decline', 'bot'], true)) {
+if (!in_array($route, ['qualified', 'incharge', 'decline', 'bot', 'student'], true)) {
     $route = 'qualified';
 }
 $declineOffer = (string) ($_GET['decline'] ?? '') === '1';
 $leadId = max(0, (int) ($_GET['lead_id'] ?? 0));
 $isLowDebtDecline = $route === 'decline';
+/* The student-loan band (see lead_routing_decision()). Not a decline — the lead
+   was sold — so it keeps the pre-qualified title, the buyer logo and the buyer's
+   own CALL NOW number, and gets no offerwall. */
+$isStudentRoute = $route === 'student';
 
 $pq        = $cfg['prequal'];
 $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seconds
@@ -367,7 +371,14 @@ if ($cgOn) {
                 <p class="prequal-lede">You&rsquo;re pre-qualified for a debt relief program.</p>
             <?php endif; ?>
 
-            <?php if (!$isLowDebtDecline && $estimatedSavings > 0): ?>
+            <?php /* Suppressed on the student band. The figure is 40% of the
+                     UNSECURED total, which for a consumer routed here on a
+                     student-loan balance is a different debt and often a trivial
+                     one — quoting "$800" to someone sold on $40k of student loans
+                     is worse than quoting nothing. A student-loan figure does not
+                     belong here either: what DocuPop can do with a balance is
+                     theirs to state, not ours to estimate. */ ?>
+            <?php if (!$isLowDebtDecline && !$isStudentRoute && $estimatedSavings > 0): ?>
                 <div class="prequal-savings">
                     <span class="prequal-savings__label">You could save an estimated:</span>
                     <span class="prequal-savings__amount">$<?= $e(number_format($estimatedSavings)) ?></span>

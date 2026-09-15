@@ -104,6 +104,19 @@
     transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
 .offer-card:hover { transform: translateY(-2px); border-color: #a9d1bf; box-shadow: 0 13px 34px rgba(12, 63, 46, .14); }
+
+/* The student-loan card, shown only to a lead whose credit file carried a
+   student balance. It leads the wall and is the one offer here matched to
+   something we actually read about this consumer, so it is lifted off the
+   general list — a heavier border and a deeper shadow, nothing louder. The
+   rest of the card geometry is inherited, so it stays the same object at every
+   breakpoint and needs no responsive rules of its own. */
+.offer-card--student {
+    border-color: #a9d1bf;
+    border-width: 2px;
+    box-shadow: 0 12px 32px rgba(12, 63, 46, .14);
+}
+.offer-card--student:hover { border-color: #7cbda2; }
 .offer-logo {
     width: 92px;
     height: 70px;
