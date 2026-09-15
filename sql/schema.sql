@@ -59,6 +59,9 @@ CREATE TABLE IF NOT EXISTS `leads` (
     -- qualifies on this figure, so a buyer's own number must never overwrite it.
     -- (Historical rows hold the Equifax-verified unsecured total instead.)
     `total_debt`      INT UNSIGNED DEFAULT NULL,
+    -- Equifax-extracted student loan debt, sent to LeadProsper as a separate
+    -- field independent of total_debt.
+    `student_debt`    INT UNSIGNED DEFAULT NULL,
     -- Which figure fed our records / the consumer-facing math (thank-you savings,
     -- redirect params, Zapier): 'jgw' when our own JG scoring call produced it,
     -- 'buyer' when that call failed and a buyer's echoed figure filled the gap.

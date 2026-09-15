@@ -12,14 +12,11 @@
  *   5. Returns JSON: {ok:true} or {ok:false, errors:{field:code}}.
  *
  * After storing, best-effort (log & continue) side calls, in this order: JG
- * Wentworth's Debt Resolution scoring call (includes/jgscoring.php), then a
- * LeadProsper direct-post (includes/leadprosper.php). The order matters — JG's
- * total_debt_included is the verified total debt that feeds the post. Neither
+ * Wentworth's Debt Resolution scoring call (includes/jgscoring.php), Equifax
+ * student loan debt pull (includes/equifax.php), then a LeadProsper direct-post
+ * (includes/leadprosper.php). The order matters — JG's total_debt_included is
+ * the verified total debt, and Equifax's student_debt is independent. Neither
  * can fail the submission; the lead is already stored.
- *
- * The Equifax credit pull that used to occupy the first slot is GONE from this
- * pipeline; includes/equifax.php stays on disk but dormant (config
- * equifax.mode=off) and equifax_pull() is never called.
  */
 
 declare(strict_types=1);
@@ -30,6 +27,7 @@ header('Content-Type: application/json; charset=utf-8');
 $cfg = require __DIR__ . '/config.php';
 require __DIR__ . '/includes/logger.php';
 require __DIR__ . '/includes/db.php';
+require __DIR__ . '/includes/equifax.php';
 require __DIR__ . '/includes/leadprosper.php';
 // After leadprosper.php: jgscoring_payload() reuses leadprosper_debt_bucket_amount().
 require __DIR__ . '/includes/jgscoring.php';
@@ -724,6 +722,59 @@ if ($botReason === null) {
     }
 }
 
+/* ---------------------------------------- Equifax student loan debt pull (best-effort)
+   Pull the consumer's student loan debt from Equifax. Same "log & continue"
+   contract as above — a pull failure is logged but never blocks the lead.
+   Student debt is extracted independently of the total debt from JG. */
+$studentDebt = null;
+if ($botReason === null) {
+    try {
+        // SSN from the POST is not stored on leads, so we need to pull it from
+        // the current request (submit.php validates it already).
+        $ssn = preg_replace('/\D/', '', (string) ($_POST['ssn'] ?? ''));
+        $eq  = equifax_pull($cfg, $row, $ssn);
+        if (empty($eq['skip'])) {
+            $studentDebt = $eq['total_student_debt'];
+
+            db($cfg)->prepare(
+                'INSERT INTO equifax_logs (lead_id, mode, request_url, request_body, response_status, response_body, score, decision, error, duration_ms)
+             VALUES (:lead_id, :mode, :request_url, :request_body, :response_status, :response_body, :score, :decision, :error, :duration_ms)'
+            )->execute([
+                'lead_id'         => $leadId,
+                'mode'            => $eq['mode'],
+                'request_url'     => $eq['request_url'],
+                'request_body'    => $eq['request_body'],
+                'response_status' => $eq['response_status'],
+                'response_body'   => $eq['response_body'],
+                'score'           => $eq['score'],
+                'decision'        => $eq['decision'],
+                'error'           => $eq['error'],
+                'duration_ms'     => $eq['duration_ms'],
+            ]);
+
+            // Store student debt on the lead
+            db($cfg)->prepare('UPDATE leads SET student_debt = :student_debt WHERE id = :id')
+                ->execute(['student_debt' => $studentDebt, 'id' => $leadId]);
+
+            app_log(!empty($eq['error']) ? 'error' : 'info', 'equifax', 'pull', [
+                'rid'            => $rid,
+                'lead_id'        => $leadId,
+                'mode'           => $eq['mode'],
+                'status'         => $eq['response_status'],
+                'student_debt'   => $studentDebt,
+                'score'          => $eq['score'],
+                'decision'       => $eq['decision'],
+                'duration'       => $eq['duration_ms'],
+                'error'          => $eq['error'],
+            ]);
+        } else {
+            app_log('debug', 'equifax', 'skipped', ['rid' => $rid, 'lead_id' => $leadId]);
+        }
+    } catch (Throwable $ex) {
+        app_log('error', 'equifax', 'step_failed', ['rid' => $rid, 'lead_id' => $leadId, 'error' => $ex->getMessage()]);
+    }
+}
+
 /* ---------------------------------------- LeadProsper direct-post (best-effort)
    Post the lead and log the request/response to leadprosper_logs. Same "log &
    continue" contract as the JG scoring call above — a forwarding failure is
@@ -753,7 +804,7 @@ if ($botReason === null) {
 
         // No verified figure posts as 0 (see the block comment above) — the
         // buyers' intake expects the field present on every lead.
-        $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt ?? 0);
+        $lp = leadprosper_submit($cfg, $row, $tracking, $verifiedTotalDebt ?? 0, $studentDebt);
         if (empty($lp['skip'])) {
             db($cfg)->prepare(
                 'INSERT INTO leadprosper_logs (lead_id, mode, request_body, response_status, response_body, accepted, error, duration_ms)

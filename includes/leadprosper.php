@@ -36,16 +36,19 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
 
     /**
      * Build the LeadProsper payload from the stored lead row, the JG-verified
-     * total debt (if any), and first-touch tracking params. Empty values are
-     * dropped so optional fields aren't posted blank.
+     * total debt (if any), Equifax-extracted student debt (if any), and
+     * first-touch tracking params. Empty values are dropped so optional fields
+     * aren't posted blank.
      *
-     * @param array    $cfg       Full config array (reads $cfg['leadprosper']).
-     * @param array    $row       The exact row inserted into `leads` (submit.php's $row).
-     * @param array    $tracking  Flat map of tracking params (affid, oid, ef_transaction_id, …).
-     * @param int|null $totalDebt JG-verified total debt, or null if the call was
-     *                            skipped/failed or returned no figure.
+     * @param array    $cfg         Full config array (reads $cfg['leadprosper']).
+     * @param array    $row         The exact row inserted into `leads` (submit.php's $row).
+     * @param array    $tracking    Flat map of tracking params (affid, oid, ef_transaction_id, …).
+     * @param int|null $totalDebt   JG-verified total debt, or null if the call was
+     *                              skipped/failed or returned no figure.
+     * @param int|null $studentDebt Equifax-extracted student loan debt, or null if
+     *                              the pull was skipped/failed or found no loans.
      */
-    function leadprosper_payload(array $cfg, array $row, array $tracking, ?int $totalDebt): array
+    function leadprosper_payload(array $cfg, array $row, array $tracking, ?int $totalDebt, ?int $studentDebt = null): array
     {
         $lp = $cfg['leadprosper'] ?? [];
 
@@ -81,6 +84,7 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
                substituted into total_debt.
                (array_filter below drops a '' — and would NOT drop a 0.) */
             'total_debt'           => $totalDebt ?? 0,
+            'student_debt'         => $studentDebt,
             'self_assessed_debt'   => $selfAssessedDebt,
             'employed'             => $row['employment'] ?? '',
             'behind_payment'       => $row['behind_payment'] ?? '',
@@ -153,7 +157,7 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
      *               response:?string, buyer_total_debt:?int, accepted_buyer:?string,
      *               error:?string, duration_ms:int}
      */
-    function leadprosper_submit(array $cfg, array $row, array $tracking, ?int $totalDebt): array
+    function leadprosper_submit(array $cfg, array $row, array $tracking, ?int $totalDebt, ?int $studentDebt = null): array
     {
         $lp   = $cfg['leadprosper'] ?? [];
         $mode = $lp['mode'] ?? 'off';
@@ -194,7 +198,7 @@ if (!function_exists('leadprosper_debt_bucket_amount')) {
             return $result;
         }
 
-        $payload = leadprosper_payload($cfg, $row, $tracking, $totalDebt);
+        $payload = leadprosper_payload($cfg, $row, $tracking, $totalDebt, $studentDebt);
         // Stored for the audit log with the key redacted — never persist the secret.
         $result['sent'] = json_encode(array_merge($payload, ['lp_key' => '***']), JSON_UNESCAPED_SLASHES);
 
