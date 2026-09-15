@@ -136,9 +136,10 @@ if (!function_exists('equifax_pull')) {
 
         // ---- mock: synthesize a response, no network ----
         // The trade list deliberately mixes qualifying and disqualifying lines
-        // so the unsecured filter is exercised locally: the two unsecured cards
-        // (18,400 + 9,050) plus the medical line (7,050) total 34,500 — the
-        // mortgage, auto and student loan are dropped.
+        // so both filters are exercised locally. Unsecured: the two cards
+        // (18,400 + 12,000), the unsecured note (9,050) and the medical line
+        // (7,050) total 46,500 — the mortgage and auto are dropped. Student:
+        // the education loan alone, 38,200.
         if ($mode === 'mock') {
             $mockResponse = json_encode([
                 'consumers' => ['equifaxUSConsumerCreditReport' => [[
@@ -150,6 +151,10 @@ if (!function_exists('equifax_pull')) {
                         ['accountType' => ['code' => '26', 'description' => 'Real Estate Mortgage'], 'balanceAmount' => 214000],
                         ['accountType' => ['code' => '3A', 'description' => 'Auto Loan'],         'balanceAmount' => 21750],
                         ['accountType' => ['code' => '12', 'description' => 'Education Loan'],    'balanceAmount' => 38200],
+                        // Regression trap: an ordinary credit card from a creditor
+                        // whose NAME reads "educational". Belongs in the unsecured
+                        // total and must never reach student_debt.
+                        ['accountType' => ['code' => '18', 'description' => 'Credit Card'], 'customerName' => 'EDUCATIONAL SYSTEMS FCU', 'balanceAmount' => 12000],
                     ],
                     'identityScanAlerts' => [],
                 ]]],
@@ -233,8 +238,8 @@ if (!function_exists('equifax_pull')) {
     }
 
     /**
-     * Student-loan balances only, independent of the unsecured total.
-     * Reserved LP field name: student_loan; not included in outgoing payloads.
+     * Student-loan balances only — the figure posted to LeadProsper as
+     * `student_debt`, independent of the unsecured total.
      * Returns null for an unreadable report and 0 when no positive student
      * balance is present in a decoded report.
      */
@@ -247,24 +252,56 @@ if (!function_exists('equifax_pull')) {
         return (int) round($sum);
     }
 
-    /** Identify student loans using the existing unsecured exclusion criteria. */
+    /**
+     * Is this trade line a student/education loan?
+     *
+     * Ported from the proven Credit Puller rule and deliberately NARROW, because
+     * it decides what leaves as `student_debt`:
+     *
+     *   - The creditor name is NOT matched. "Educational Systems FCU" issues
+     *     ordinary credit cards; matching its name reported a revolving balance
+     *     as student debt.
+     *   - Exact phrases only, never the bare words 'student'/'education', for
+     *     the same reason.
+     *   - Account type 01 (Unsecured) never qualifies on text alone — 01 is the
+     *     unsecured bucket, and only a literal type 12 moves a line out of it.
+     *
+     * Erring narrow is the right direction: a missed loan under-reports
+     * student_debt, while a false positive reports settleable unsecured debt to
+     * the buyer as student debt.
+     */
     function equifax_trade_is_student(array $trade): bool
     {
         [$code, $desc] = equifax_code_pair(
             $trade['accountType'] ?? ($trade['accountTypeCode'] ?? '')
         );
+        if ($code === '12') {
+            return true;
+        }
+        if ($code === '01') {
+            return false;
+        }
+
         if ($desc === '') {
             $desc = strtolower((string) ($trade['accountTypeDescription'] ?? ''));
         }
-        $text = $desc . ' ' . strtolower((string) ($trade['customerName'] ?? ($trade['creditorName'] ?? '')));
+        [, $pDesc] = equifax_code_pair(
+            $trade['portfolioType'] ?? ($trade['portfolioTypeCode'] ?? '')
+        );
+        if ($pDesc === '') {
+            $pDesc = strtolower((string) ($trade['portfolioTypeDescription'] ?? ''));
+        }
+        $text = $desc . ' ' . $pDesc;
+
         foreach ((array) ($trade['narrativeCodes'] ?? []) as $narrative) {
-            [, $nDesc] = equifax_code_pair($narrative);
+            [$nCode, $nDesc] = equifax_code_pair($narrative);
+            if ($nCode === 'BU') {
+                return true;
+            }
             $text .= ' ' . $nDesc;
         }
-        return $code === '12' || equifax_text_has($text, [
-            'student', 'education', 'educational', 'sallie mae', 'navient',
-            'nelnet', 'mohela', 'fedloan', 'perkins', 'stafford', 'sofi student',
-        ]);
+
+        return equifax_text_has($text, ['student loan', 'education loan']);
     }
 
     /**
@@ -363,11 +400,11 @@ if (!function_exists('equifax_pull')) {
         }
 
         // ---- 1. student / education loans — excluded unconditionally ----
-        // 12 = Education loan. Keywords catch servicer-labelled lines that
-        // report under a generic installment type.
-        $studentCodes = ['12'];
-        $studentWords = ['student', 'education', 'educational', 'sallie mae', 'navient', 'nelnet', 'mohela', 'fedloan', 'perkins', 'stafford', 'sofi student'];
-        if (in_array($code, $studentCodes, true) || equifax_text_has($text, $studentWords)) {
+        // Same test that decides student_debt, so the two totals are exactly
+        // complementary: every line is unsecured, student, or neither — never
+        // counted twice, and never dropped from both because one side matched
+        // on a creditor name the other side ignores.
+        if (equifax_trade_is_student($trade)) {
             return false;
         }
 

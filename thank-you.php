@@ -32,6 +32,11 @@ $holdSecs  = max(1, (int) $pq['hold_minutes']) * 60;           // countdown seco
 // it when a visitor starts the funnel over. Absent/zero hides the callout.
 $estimatedSavings = max(0, (int) ($_SESSION['prequal_savings'] ?? 0));
 
+// Greeting name. Rides in the URL (config ['redirect']['params']) like ?buyer=,
+// so it is visitor-editable and decorative only — never read for anything that
+// matters. Capped so a hand-edited param can't blow out the heading.
+$firstName = mb_substr(trim((string) ($_GET['first_name'] ?? '')), 0, 40);
+
 /* Buyer logo. submit.php appends ?buyer=<name as LeadProsper reported it> to the
    redirect; the `buyers` table says whether that buyer has a logo and whether to
    show it. Null — no row, show_logo off (JG Wentworth: the whole funnel is
@@ -356,13 +361,13 @@ if ($cgOn) {
                 <h1 class="prequal-title">Thank You&mdash;We Received Your Information</h1>
                 <p class="prequal-lede">A debt specialist is still available to discuss your situation and answer your questions.</p>
             <?php else: ?>
-                <h1 class="prequal-title">You&rsquo;re Pre-Qualified for <br>a Debt Relief Program</h1>
-                <p class="prequal-lede">You could reduce your debt and lower your monthly payments.</p>
+                <h1 class="prequal-title">Congratulations<?= $firstName !== '' ? ', ' . $e($firstName) : '' ?>!</h1>
+                <p class="prequal-lede">You&rsquo;re pre-qualified for a debt relief program.</p>
             <?php endif; ?>
 
             <?php if (!$isLowDebtDecline && $estimatedSavings > 0): ?>
                 <div class="prequal-savings">
-                    <span class="prequal-savings__label">You can save up to:</span>
+                    <span class="prequal-savings__label">You could save an estimated:</span>
                     <span class="prequal-savings__amount">$<?= $e(number_format($estimatedSavings)) ?></span>
                 </div>
             <?php endif; ?>

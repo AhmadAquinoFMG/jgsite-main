@@ -39,7 +39,7 @@ complete. Set `APP_ENV=production` on staging/live so the phone gate is enforced
 | `includes/firebase.php` | Verifies the Firebase phone-auth ID token (native openssl, no Admin SDK). |
 | `includes/compliance.php` | TrustedForm + Jornaya (LeadiD) tags, rendered into `<head>` when configured. |
 | `includes/jgscoring.php` | JG Wentworth DR intake client + logger (`off`/`mock`/`live` modes). Source of verified total debt. |
-| `includes/equifax.php` | Equifax Consumer Credit Report client + logger. **Dormant** — kept on disk, never called. |
+| `includes/equifax.php` | Equifax Consumer Credit Report client + logger (`off`/`mock`/`live` modes). Source of student loan debt. |
 | `includes/leadprosper.php` | LeadProsper direct-post client + logger (`off`/`test`/`live` modes). |
 | `includes/buyers.php` | Buyer registry lookup — the matched buyer's logo and CALL NOW number (`buyers.did`) for the thank-you page. |
 | `assets/js/tracking/everflow.js` | Everflow click attribution (lazy-loaded SDK + cookie watcher); conversion fires client-side on `thank-you.php` via an Everflow campaign trigger. |
@@ -130,11 +130,20 @@ instead of coming back as a 422 from the final Submit.
   > (payload build, `jgscoring_logs` insert, `leads.jgw_*` update, LeadProsper
   > hand-off) with a synthetic response and no network call.
 
+- **Equifax Student Loan Debt (independent of total debt)** — `includes/equifax.php`
+  pulls the consumer's credit report and extracts student loan balances only. This
+  `student_debt` figure is sent separately to LeadProsper as a distinct field,
+  independent of `total_debt` from JG. The Equifax request body and response are
+  logged to `equifax_logs` for audit. Best-effort; ships in `off` mode — set
+  `EQUIFAX_MODE=mock` to validate with synthetic data, `live` for real pulls.
+  The student debt is always sent to LeadProsper (in both test and live modes)
+  whenever Equifax is enabled, and is stored on `leads.student_debt`.
+
 - **LeadProsper** — direct-post lead distribution (`includes/leadprosper.php`), posted
-  after the lead is stored and after the JG scoring call so the verified
-  total debt can be included. Best-effort; logs every attempt to `leadprosper_logs`. Ships in `off`
-  mode — set `LEADPROSPER_MODE=test` to validate field mapping without billing/delivering,
-  `live` once you're ready.
+  after the lead is stored, the JG scoring call (for verified total debt), and the
+  Equifax pull (for student debt). Best-effort; logs every attempt to `leadprosper_logs`.
+  Ships in `off` mode — set `LEADPROSPER_MODE=test` to validate field mapping without
+  billing/delivering, `live` once you're ready.
 - **QA test mode** — a test visit runs the funnel for real (real validation, a
   real row in `leads`) but posts the lead to LeadProsper with `lp_action=test`:
   it appears in the campaign's lead log flagged **TEST** and is never billed or
