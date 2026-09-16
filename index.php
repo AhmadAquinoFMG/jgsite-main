@@ -543,6 +543,12 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                     <button type="button" class="btn-back" id="btnBack" aria-label="Back" hidden
                         data-umami-event="event_back_click">
                         <img src="assets/img/chevron-left-grey.svg" alt="" width="26" height="26">
+                        <!-- Shown only when Back is the row's only control (the radio
+                         steps, which have no Continue): a lone 56px arrow in the corner
+                         reads as a minor affordance, and on those steps it is the ONLY
+                         thing the visitor can press. aria-label carries the same word
+                         either way, so nothing changes for a screen reader. -->
+                        <span class="btn-back__label">Back</span>
                     </button>
                     <!-- Both buttons are shared across every step, which is why these are
                      NOT named after a field: they count CLICKS. funnel.js shows one

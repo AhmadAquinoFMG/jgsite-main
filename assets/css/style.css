@@ -280,6 +280,31 @@ a { color: var(--green-deep); }
 }
 .btn-back:hover { border-color: var(--green); background: rgba(27, 151, 106, .05); }
 .btn-back img { display: block; width: auto; height: 26px; }
+.btn-back__label { display: none; }
+
+/* Back alone in the row (the radio steps, which advance on the choice and so
+   carry no Continue). A 56px arrow tucked in the corner is the shape of a
+   secondary escape hatch next to a primary button; with the primary gone it is
+   the step's only control and is dressed as one - full width, labelled, still
+   outlined rather than filled so it never reads as the way FORWARD. The 17px
+   padding is 18px minus this button's 1px border, which keeps it exactly as
+   tall as Continue on the steps either side of it. */
+.form-nav[data-nav="none"] .btn-back {
+    flex: 1 1 auto;
+    width: 100%;
+    height: auto;
+    gap: 8px;
+    padding: 17px 24px;
+    border-radius: 999px;
+}
+.form-nav[data-nav="none"] .btn-back img { height: 22px; }
+.form-nav[data-nav="none"] .btn-back__label {
+    display: inline;
+    font-family: inherit;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
 
 /* in-step primary button (Continue) spans the step width */
 .step .btn-next { width: 100%; margin-top: 8px; }

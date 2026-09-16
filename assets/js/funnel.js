@@ -288,7 +288,12 @@
         // On step 1 the row now holds nothing at all - no back arrow, no button -
         // so hide the row itself rather than leave its top margin standing as a
         // band of dead space under the options.
-        if (formNav) formNav.hidden = btnBack.hidden && btnNext.hidden && btnSubmit.hidden;
+        if (formNav) {
+            formNav.hidden = btnBack.hidden && btnNext.hidden && btnSubmit.hidden;
+            // Lets CSS lay Back out as the full-width button it becomes when it is
+            // the row's only control, rather than a corner arrow beside nothing.
+            formNav.setAttribute('data-nav', nav);
+        }
 
         runLazyLoad(current);
 
