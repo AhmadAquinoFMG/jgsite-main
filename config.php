@@ -158,8 +158,8 @@ return [
            (that one is on the lead row and goes to LeadProsper). Values come
            from JG's own sample payload; campaign_source is the numeric id JG
            issued for this placement. */
-        'utm_source'         => env('JGSCORING_UTM_SOURCE', 'FMGWhiteLabel-Posted'),
-        'lead_source_detail' => env('JGSCORING_LEAD_SOURCE_DETAIL', 'FMGWhiteLabel'),
+        'utm_source'         => env('JGSCORING_UTM_SOURCE', 'FMG-Posted4'),
+        'lead_source_detail' => env('JGSCORING_LEAD_SOURCE_DETAIL', 'FMG-Posted4'),
         'lead_source'        => env('JGSCORING_LEAD_SOURCE', 'Affiliate'),
         'campaign_source'    => env('JGSCORING_CAMPAIGN_SOURCE', ''),
 

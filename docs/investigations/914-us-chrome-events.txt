@@ -1,0 +1,208 @@
+- banner:
+  - link "umami":
+    - /url: https://umami.is
+    - generic: umami
+  - button:
+- generic: Traffic
+- button "Overview":
+  - generic: Overview
+- button "Events":
+  - generic: Events
+- button "Sessions":
+  - generic: Sessions
+- button "Realtime":
+  - generic: Realtime
+- button "Performance":
+  - generic: Performance
+- button "Compare":
+  - generic: Compare
+- button "Breakdown":
+  - generic: Breakdown
+- generic: Behavior
+- button "Goals":
+  - generic: Goals
+- button "Funnels":
+  - generic: Funnels
+- button "Journeys":
+  - generic: Journeys
+- button "Retention":
+  - generic: Retention
+- generic: Growth
+- button "UTM":
+  - generic: UTM
+- button "Revenue":
+  - generic: Revenue
+- button "Attribution":
+  - generic: Attribution
+- button:
+- button:
+- button:
+- heading "JG Wentworth Site" [level=2]
+- generic: 2 Online
+- button "Filter":
+  - generic: Filter
+- button:
+- button [disabled]:
+- combobox:
+  - generic: Last 24 hours
+- textbox: 24hour
+- generic: Query
+- generic: Contains
+- generic: oid=914
+- generic: Country
+- generic: Is
+- generic: United States
+- generic: Browser
+- generic: Is
+- generic: Chrome
+- button:
+- generic: Visitors
+- generic "159"
+- generic "121":
+  - generic: 318%
+- generic: Visits
+- generic "171"
+- generic "131":
+  - generic: 327%
+- generic: Events
+- generic "462"
+- generic "198":
+  - generic: 75%
+- generic: Unique events
+- generic "21"
+- generic "-18":
+  - generic: 46%
+- tablist:
+  - tab "Chart" [selected]
+  - tab "Activity"
+  - tab "Properties"
+- tabpanel "Chart":
+  - generic: event_view_debt_amount
+  - generic: event_view_landing
+  - generic: event_choice_debt_amount
+  - generic: event_abandon_debt_amount
+  - generic: event_back_click
+  - generic: event_engage_first_name
+  - generic: event_resume_income
+  - generic: event_income_complete
+  - generic: event_continue_click
+  - generic: event_view_name
+  - generic: event_choice_behind_payment
+  - generic: event_choice_employment
+  - generic: event_view_behind_payment
+  - generic: event_choice_income
+  - generic: event_employment_complete
+  - generic: event_view_employment
+  - generic: event_abandon_name
+  - generic: event_view_income
+  - generic: event_behind_payment_complete
+  - generic: event_debt_amount_complete
+  - generic: Event
+  - generic: Count
+  - generic "event_view_landing":
+    - link "event_view_landing":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_view_landing
+  - generic "178"
+  - generic: 39%
+  - generic "event_view_debt_amount":
+    - link "event_view_debt_amount":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_view_debt_amount
+  - generic "172"
+  - generic: 37%
+  - generic "event_abandon_debt_amount":
+    - link "event_abandon_debt_amount":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_abandon_debt_amount
+  - generic "87"
+  - generic: 19%
+  - generic "event_continue_click":
+    - link "event_continue_click":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_continue_click
+  - generic "5"
+  - generic: 1%
+  - generic "event_choice_income":
+    - link "event_choice_income":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_choice_income
+  - generic "2"
+  - generic: 0%
+  - generic "event_choice_debt_amount":
+    - link "event_choice_debt_amount":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_choice_debt_amount
+  - generic "2"
+  - generic: 0%
+  - generic "event_choice_employment":
+    - link "event_choice_employment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_choice_employment
+  - generic "2"
+  - generic: 0%
+  - generic "event_view_employment":
+    - link "event_view_employment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_view_employment
+  - generic "1"
+  - generic: 0%
+  - generic "event_income_complete":
+    - link "event_income_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_income_complete
+  - generic "1"
+  - generic: 0%
+  - generic "event_engage_first_name":
+    - link "event_engage_first_name":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_engage_first_name
+  - generic "1"
+  - generic: 0%
+  - generic "event_behind_payment_complete":
+    - link "event_behind_payment_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_behind_payment_complete
+  - generic "1"
+  - generic: 0%
+  - generic "event_view_behind_payment":
+    - link "event_view_behind_payment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_view_behind_payment
+  - generic "1"
+  - generic: 0%
+  - generic "event_employment_complete":
+    - link "event_employment_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_employment_complete
+  - generic "1"
+  - generic: 0%
+  - generic "event_view_income":
+    - link "event_view_income":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_view_income
+  - generic "1"
+  - generic: 0%
+  - generic "event_resume_income":
+    - link "event_resume_income":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_resume_income
+  - generic "1"
+  - generic: 0%
+  - generic "event_abandon_name":
+    - link "event_abandon_name":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_abandon_name
+  - generic "1"
+  - generic: 0%
+  - generic "event_choice_behind_payment":
+    - link "event_choice_behind_payment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_choice_behind_payment
+  - generic "1"
+  - generic: 0%
+  - generic "event_view_name":
+    - link "event_view_name":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_view_name
+  - generic "1"
+  - generic: 0%
+  - generic "event_debt_amount_complete":
+    - link "event_debt_amount_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_debt_amount_complete
+  - generic "1"
+  - generic: 0%
+  - generic "event_resume_employment":
+    - link "event_resume_employment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_resume_employment
+  - generic "1"
+  - generic: 0%
+  - generic "event_back_click":
+    - link "event_back_click":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&country=eq.US&browser=eq.chrome&event=eq.event_back_click
+  - generic "1"
+  - generic: 0%
+- region "Notifications"
+- alert

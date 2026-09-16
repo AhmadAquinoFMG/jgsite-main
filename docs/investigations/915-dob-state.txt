@@ -1,0 +1,18 @@
+- banner:
+  - link "JG Wentworth":
+    - /url: index.php
+    - img "JG Wentworth logo"
+- main:
+  - text: Website
+  - textbox
+  - heading "What's your date of birth?" [level=2]
+  - generic: Date of Birth *
+  - textbox "Date of Birth *" [active]:
+    - /placeholder: MM/DD/YYYY
+  - button "Open calendar":
+  - paragraph: By clicking "Continue" you consent to allow JG Wentworth to access your credit report as described below. This will not impact your credit score.
+  - button "Back"
+  - button "Continue"
+  - img "Trustpilot 4.8/5 Stars"
+  - img "BBB Accredited Business — A+ Rating"
+  - img "Google 4.5/5 Stars"

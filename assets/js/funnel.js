@@ -44,6 +44,10 @@
        after a step is inserted, moved or dropped:
 
          event_view_<field>       first time the step is shown
+         event_choice_<field>     the step's selection CHANGED (index.php marks the
+                                  option cards with data-jg-choice)
+         event_validate_<field>   step 1 only: the outcome of a Continue click,
+                                  carrying `selected` — whether an option was picked
          event_engage_<field>     first focus of one of its inputs (index.php marks
                                   these with data-jg-event)
          event_<field>_complete   the step validated and the visitor advanced
@@ -75,6 +79,75 @@
         } else if (window.umami && typeof window.umami.track === 'function') {
             window.umami.track(event, data);
         }
+    }
+
+    /* ---- shared event context -------------------------------------------
+       Which ad sent this visitor, which build they saw, and how far into the
+       visit the event happened. Carried by the choice and validation events
+       below so a first-step drop-off can be read per traffic source and per
+       release without joining these events against anything else.
+
+       Sourced from location.search, which assets/js/tracking/attribution.js has
+       already repaired by the time this file runs — it restores the utm_* params
+       Everflow's click redirect strips, and the whole set after an in-session
+       reload — so these are the values the lead itself will carry.
+
+       Each key lists its sources in priority order: the Everflow sub the traffic
+       link actually carries, then the utm_* attribution.js derives from that sub
+       (see 'attribution' in config.php), so a link built with the utm directly
+       still resolves.
+
+       PRIVACY: a fixed whitelist of four ad identifiers, capped per value. Never
+       location.href or the raw query string — a 422 bounce puts the visitor's own
+       answers back on the URL — and never a cookie: _fbp/_fbc are person-level
+       match keys for Meta and have no business in a funnel metric. The only form
+       value that travels is the chosen option's label, which is a config-defined
+       bucket ("$25,000 - $49,999"), not a fact about the person. */
+    var AD_SOURCES = {
+        offer:     ['oid'],
+        affiliate: ['affid'],
+        ad_id:     ['sub1', 'utm_creative'],   // sub1={{ad.id}}
+        placement: ['utm_placement', 'sub7']   // sub7={{placement}}
+    };
+    var MAX_PROP_LEN = 100;                    // matches index.php's landing props
+
+    var adContext = (function () {
+        var qs  = new URLSearchParams(location.search);
+        var out = {};
+        Object.keys(AD_SOURCES).forEach(function (key) {
+            for (var i = 0; i < AD_SOURCES[key].length; i++) {
+                var v = (qs.get(AD_SOURCES[key][i]) || '').trim();
+                if (v) { out[key] = v.slice(0, MAX_PROP_LEN); return; }
+            }
+        });
+        return out;
+    }());
+
+    var build    = String((window.FUNNEL && window.FUNNEL.assetVersion) || '');
+    var loadedAt = Date.now();
+
+    // Milliseconds since the visit began. performance.now() is monotonic and counts
+    // from navigation start, so it survives a clock change mid-session and includes
+    // the time before this script parsed; the Date.now() difference is the fallback
+    // for anything without it.
+    function elapsedMs() {
+        if (window.performance && typeof window.performance.now === 'function') {
+            return Math.round(window.performance.now());
+        }
+        return Date.now() - loadedAt;
+    }
+
+    // Written onto the caller's own object, never a shared one: elapsed differs on
+    // every call, and one caller's extra props would leak into the next event.
+    function withContext(props) {
+        Object.keys(adContext).forEach(function (k) { props[k] = adContext[k]; });
+        props.build      = build;
+        props.elapsed_ms = elapsedMs();
+        return props;
+    }
+
+    function pickedOption(n) {
+        return stepEl(n).querySelector('input[type=radio]:checked');
     }
 
     // A step already seen and shown again is a RESUME (back button, or a 422
@@ -113,6 +186,36 @@
         if (!name || engagedFields[name]) return;
         engagedFields[name] = true;
         track(name, stepProps(current));
+    });
+
+    // Option cards (steps 1–4) carry data-jg-choice naming the event to fire when
+    // that group's selection CHANGES. index.php used to put data-umami-event on the
+    // radios, whose declarative tracking counts CLICKS, and two things were wrong
+    // with that: tapping the option already chosen counted again although nothing
+    // had changed, and arrow-keying through the radiogroup — the whole point of
+    // role="radiogroup" — counted nothing at all. 'change' fires exactly once per
+    // real selection, whatever made it. Routed through track() (and so through
+    // jgTrack) rather than Umami's own listener, so a choice made before the
+    // deferred tag is live is queued instead of dropped.
+    form.addEventListener('change', function (ev) {
+        var input = ev.target;
+        if (!input || !input.closest) return;
+        var card = input.closest('[data-jg-choice]');
+        if (!card) return;
+        var name = card.getAttribute('data-jg-choice');
+        if (!name) return;
+
+        var section = card.closest('.step');
+        var n = section ? Number(section.dataset.step) : current;
+        track(name, withContext({
+            step:   n,
+            field:  field(n),
+            choice: String(input.value || '').slice(0, MAX_PROP_LEN),
+            // Read, not assumed: a radio is always checked when it fires change, but
+            // the same handler then still reports an unchecked box correctly if a
+            // group ever becomes multi-select.
+            selected: !!input.checked
+        }));
     });
 
     // Abandonment: fire once when the visitor leaves before submitting (tab
@@ -1012,7 +1115,26 @@
 
     /* ------------------------------------------------------------ events */
     btnNext.addEventListener('click', function () {
-        if (!validateStep(current)) return;
+        var valid = validateStep(current);
+
+        // Step 1 only: the outcome of EVERY Continue click on the debt-amount step.
+        // event_debt_amount_complete is the funnel anchor and fires once, on the
+        // first pass; this one counts ATTEMPTS, so `selected: false` measures how
+        // many visitors press Continue with nothing chosen — and repeats of it are
+        // the friction that follows. For a radio step "valid" and "an option is
+        // selected" are the same question, which is why the outcome rides as
+        // `selected` rather than a second flag saying the same thing.
+        if (current === 1) {
+            var picked = pickedOption(1);
+            track('event_validate_' + field(1), withContext({
+                step:     1,
+                field:    field(1),
+                selected: !!picked,
+                choice:   picked ? String(picked.value || '').slice(0, MAX_PROP_LEN) : ''
+            }));
+        }
+
+        if (!valid) return;
 
         // Step 6: resolve the address (may geocode) and advance ONLY if it came back
         // whole — street, city, state, ZIP and country. A partial address keeps the

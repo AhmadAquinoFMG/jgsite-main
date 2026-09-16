@@ -329,15 +329,21 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                  request time to reject implausibly fast completions. -->
                 <input type="hidden" name="form_rendered_at" value="<?= time() ?>">
 
-                <!-- ===== Step 1: debt amount (radio, auto-advance) ===== -->
+                <!-- ===== Step 1: debt amount (radio, auto-advance) =====
+                 data-jg-choice marks an option card with the event funnel.js fires
+                 when that group's selection CHANGES. It replaces the radios' own
+                 data-umami-event, whose declarative tracking counts CLICKS: a visitor
+                 who re-tapped the option already chosen was counted a second time
+                 although nothing had changed, and one who arrow-keyed through the
+                 radiogroup was not counted at all. A change event is exactly one per real
+                 selection, however it was made. -->
                 <section class="step is-active" data-step="1" data-advance="auto">
                     <h1 class="form-header">Get Debt Relief</h1>
                     <p class="form-subtext">How much debt do you owe?</p>
                     <div class="choice-group" role="radiogroup" aria-label="Debt amount">
                         <?php foreach ($cfg['debt_options'] as $opt): ?>
-                            <label class="choice">
-                                <input type="radio" name="debt_amount" value="<?= $e($opt) ?>" required
-                                    data-umami-event="event_choice_debt_amount" data-umami-event-choice="<?= $e($opt) ?>">
+                            <label class="choice" data-jg-choice="event_choice_debt_amount">
+                                <input type="radio" name="debt_amount" value="<?= $e($opt) ?>" required>
                                 <span class="choice-radio" aria-hidden="true"></span>
                                 <span class="choice-label"><?= $e($opt) ?></span>
                             </label>
@@ -350,9 +356,8 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                     <h2 class="step-title">Are you behind on any of your payments?</h2>
                     <div class="choice-group" role="radiogroup" aria-label="Behind on payments">
                         <?php foreach ($cfg['behind_payment_options'] as $val => $label): ?>
-                            <label class="choice">
-                                <input type="radio" name="behind_payment" value="<?= $e($val) ?>" required
-                                    data-umami-event="event_choice_behind_payment" data-umami-event-choice="<?= $e($val) ?>">
+                            <label class="choice" data-jg-choice="event_choice_behind_payment">
+                                <input type="radio" name="behind_payment" value="<?= $e($val) ?>" required>
                                 <span class="choice-radio" aria-hidden="true"></span>
                                 <span class="choice-label"><?= $e($label) ?></span>
                             </label>
@@ -365,9 +370,8 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                     <h2 class="step-title">What is your employment status?</h2>
                     <div class="choice-group" role="radiogroup" aria-label="Employment status">
                         <?php foreach ($cfg['employment_options'] as $val => $label): ?>
-                            <label class="choice">
-                                <input type="radio" name="employment" value="<?= $e($val) ?>" required
-                                    data-umami-event="event_choice_employment" data-umami-event-choice="<?= $e($val) ?>">
+                            <label class="choice" data-jg-choice="event_choice_employment">
+                                <input type="radio" name="employment" value="<?= $e($val) ?>" required>
                                 <span class="choice-radio" aria-hidden="true"></span>
                                 <span class="choice-label"><?= $e($label) ?></span>
                             </label>
@@ -380,9 +384,8 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                     <h2 class="step-title">What is your annual income before taxes?</h2>
                     <div class="choice-group" role="radiogroup" aria-label="Annual income">
                         <?php foreach ($cfg['income_options'] as $opt): ?>
-                            <label class="choice">
-                                <input type="radio" name="income" value="<?= $e($opt) ?>" required
-                                    data-umami-event="event_choice_income" data-umami-event-choice="<?= $e($opt) ?>">
+                            <label class="choice" data-jg-choice="event_choice_income">
+                                <input type="radio" name="income" value="<?= $e($opt) ?>" required>
                                 <span class="choice-radio" aria-hidden="true"></span>
                                 <span class="choice-label"><?= $e($opt) ?></span>
                             </label>
@@ -583,6 +586,9 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
         window.FUNNEL = {
             googlePlacesKey: <?= json_encode($cfg['google_places_key'] ?? '', JSON_UNESCAPED_SLASHES) ?>,
             appEnv: <?= json_encode($cfg['app_env'] ?? 'production', JSON_UNESCAPED_SLASHES) ?>,
+            // Which build the visitor saw. Rides on the funnel's analytics events so a
+            // move in the numbers can be pinned to the release that caused it.
+            assetVersion: <?= json_encode((string) ($cfg['asset_version'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,
             everflow: {
                 offerFirstParty: <?= json_encode((string) ($cfg['everflow']['offer_first_party'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,
                 offerThirdParty: <?= json_encode((string) ($cfg['everflow']['offer_third_party'] ?? ''), JSON_UNESCAPED_SLASHES) ?>,

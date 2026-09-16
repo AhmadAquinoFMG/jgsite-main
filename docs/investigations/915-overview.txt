@@ -1,0 +1,444 @@
+- banner:
+  - link "umami":
+    - /url: https://umami.is
+    - generic: umami
+  - button:
+- generic: Traffic
+- button "Overview":
+  - generic: Overview
+- button "Events":
+  - generic: Events
+- button "Sessions":
+  - generic: Sessions
+- button "Realtime":
+  - generic: Realtime
+- button "Performance":
+  - generic: Performance
+- button "Compare":
+  - generic: Compare
+- button "Breakdown":
+  - generic: Breakdown
+- generic: Behavior
+- button "Goals":
+  - generic: Goals
+- button "Funnels":
+  - generic: Funnels
+- button "Journeys":
+  - generic: Journeys
+- button "Retention":
+  - generic: Retention
+- generic: Growth
+- button "UTM":
+  - generic: UTM
+- button "Revenue":
+  - generic: Revenue
+- button "Attribution":
+  - generic: Attribution
+- button:
+- button:
+- button:
+- heading "JG Wentworth Site" [level=2]
+- generic: 2 Online
+- button "Filter":
+  - generic: Filter
+- button:
+- button [disabled]:
+- combobox:
+  - generic: Last 24 hours
+- textbox: 24hour
+- generic: Query
+- generic: Contains
+- generic: oid=915
+- button:
+- generic: Visitors
+- generic "679"
+- generic "169":
+  - generic: 33%
+- generic: Visits
+- generic "703"
+- generic "176":
+  - generic: 33%
+- generic: Views
+- generic "997"
+- generic "229":
+  - generic: 29%
+- generic: Bounce rate
+- generic "1.422475106685633": 1%
+- generic "0%":
+  - generic: 49%
+- generic: Visit duration
+- generic "50.32290184921764": 50s
+- generic "-6s":
+  - generic: 11%
+- generic: Visitors
+- generic: Views
+- button "Notes":
+  - generic: Notes
+- heading "Pages" [level=2]
+- tablist:
+  - tab "Path" [selected]
+  - tab "URL"
+  - tab "Entry page"
+  - tab "Exit page"
+- tabpanel "Path":
+  - generic: Path
+  - generic: Visitors
+  - generic /:
+    - link /:
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&path=eq.%2F
+  - generic "675"
+  - generic: 74%
+  - generic "/thank-you.php":
+    - link "/thank-you.php":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&path=eq.%2Fthank-you.php
+  - generic "208"
+  - generic: 23%
+  - generic "/offerwall.php":
+    - link "/offerwall.php":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&path=eq.%2Fofferwall.php
+  - generic "35"
+  - generic: 4%
+  - button "More":
+    - text: More
+- heading "Sources" [level=2]
+- tablist:
+  - tab "Referrers" [selected]
+  - tab "Channels"
+- tabpanel "Referrers":
+  - generic: Referrer
+  - generic: Visitors
+  - generic "facebook.com":
+    - link "facebook.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.facebook.com
+  - generic "232"
+  - generic: 39%
+  - generic "60poe.rdtk.io":
+    - link "60poe.rdtk.io":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.60poe.rdtk.io
+  - generic "127"
+  - generic: 21%
+  - generic "m.facebook.com":
+    - link "m.facebook.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.m.facebook.com
+  - generic "127"
+  - generic: 21%
+  - generic "instagram.com":
+    - link "instagram.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.instagram.com
+  - generic "105"
+  - generic: 18%
+  - generic "cashoutequity.com":
+    - link "cashoutequity.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.cashoutequity.com
+  - generic "3"
+  - generic: 1%
+  - generic "homeequityquiz.com":
+    - link "homeequityquiz.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.homeequityquiz.com
+  - generic "2"
+  - generic: 0%
+  - generic "ratetext20.com":
+    - link "ratetext20.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.ratetext20.com
+  - generic "1"
+  - generic: 0%
+  - generic "threads.com":
+    - link "threads.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.threads.com
+  - generic "1"
+  - generic: 0%
+  - generic "l.facebook.com":
+    - link "l.facebook.com":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&referrer=eq.l.facebook.com
+  - generic "1"
+  - generic: 0%
+  - button "More":
+    - text: More
+- heading "Environment" [level=2]
+- tablist:
+  - tab "Browsers" [selected]
+  - tab "OS"
+  - tab "Devices"
+- tabpanel "Browsers":
+  - generic: Browser
+  - generic: Visitors
+  - img "chrome"
+  - generic "Chrome":
+    - link "Chrome":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.chrome
+  - generic "284"
+  - generic: 42%
+  - img "facebook"
+  - generic "Facebook":
+    - link "Facebook":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.facebook
+  - generic "239"
+  - generic: 35%
+  - img "instagram"
+  - generic "Instagram":
+    - link "Instagram":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.instagram
+  - generic "98"
+  - generic: 14%
+  - img "chromium-webview"
+  - generic "Chrome (webview)":
+    - link "Chrome (webview)":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.chromium-webview
+  - generic "37"
+  - generic: 5%
+  - img "ios"
+  - generic "iOS":
+    - link "iOS":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.ios
+  - generic "7"
+  - generic: 1%
+  - img "ios-webview"
+  - generic "iOS (webview)":
+    - link "iOS (webview)":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.ios-webview
+  - generic "6"
+  - generic: 1%
+  - img "samsung"
+  - generic "Samsung":
+    - link "Samsung":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.samsung
+  - generic "3"
+  - generic: 0%
+  - img "safari"
+  - generic "Safari":
+    - link "Safari":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.safari
+  - generic "3"
+  - generic: 0%
+  - img "crios"
+  - generic "Chrome (iOS)":
+    - link "Chrome (iOS)":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&browser=eq.crios
+  - generic "2"
+  - generic: 0%
+  - button "More":
+    - text: More
+- heading "Location" [level=2]
+- tablist:
+  - tab "Countries" [selected]
+  - tab "Regions"
+  - tab "Cities"
+- tabpanel "Countries":
+  - generic: Country
+  - generic: Visitors
+  - img "US"
+  - generic "United States":
+    - link "United States":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&country=eq.US
+  - generic "678"
+  - generic: 100%
+  - img "PH"
+  - generic "Philippines":
+    - link "Philippines":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1?query=c.oid%3D915&country=eq.PH
+  - generic "1"
+  - generic: 0%
+  - button "More":
+    - text: More
+- heading "Traffic" [level=2]
+- generic: Sun
+- generic: Mon
+- generic: Tue
+- generic: Wed
+- generic: Thu
+- generic: Fri
+- generic: Sat
+- generic: 12am
+- generic: 1am
+- generic: 2am
+- generic: 3am
+- generic: 4am
+- generic: 5am
+- generic: 6am
+- generic: 7am
+- generic: 8am
+- generic: 9am
+- generic: 10am
+- generic: 11am
+- generic: 12pm
+- generic: 1pm
+- generic: 2pm
+- generic: 3pm
+- generic: 4pm
+- generic: 5pm
+- generic: 6pm
+- generic: 7pm
+- generic: 8pm
+- generic: 9pm
+- generic: 10pm
+- generic: 11pm
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- button
+- region "Notifications"
+- alert

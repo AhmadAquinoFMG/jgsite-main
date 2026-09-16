@@ -1,0 +1,307 @@
+- banner:
+  - link "umami":
+    - /url: https://umami.is
+    - generic: umami
+  - button:
+- generic: Traffic
+- button "Overview":
+  - generic: Overview
+- button "Events":
+  - generic: Events
+- button "Sessions":
+  - generic: Sessions
+- button "Realtime":
+  - generic: Realtime
+- button "Performance":
+  - generic: Performance
+- button "Compare":
+  - generic: Compare
+- button "Breakdown":
+  - generic: Breakdown
+- generic: Behavior
+- button "Goals":
+  - generic: Goals
+- button "Funnels":
+  - generic: Funnels
+- button "Journeys":
+  - generic: Journeys
+- button "Retention":
+  - generic: Retention
+- generic: Growth
+- button "UTM":
+  - generic: UTM
+- button "Revenue":
+  - generic: Revenue
+- button "Attribution":
+  - generic: Attribution
+- button:
+- button:
+- button:
+- heading "JG Wentworth Site" [level=2]
+- generic: 2 Online
+- button "Filter":
+  - generic: Filter
+- button:
+- button [disabled]:
+- combobox:
+  - generic: Last 24 hours
+- textbox: 24hour
+- generic: Query
+- generic: Contains
+- generic: oid=914
+- generic: Country
+- generic: Is
+- generic: United States
+- button:
+- generic: Visitors
+- generic "291"
+- generic "194":
+  - generic: 200%
+- generic: Visits
+- generic "317"
+- generic "212":
+  - generic: 201%
+- generic: Events
+- generic "1001": 1.00k
+- generic "487":
+  - generic: 94%
+- generic: Unique events
+- generic "38"
+- generic "-2":
+  - generic: 5%
+- tablist:
+  - tab "Chart" [selected]
+  - tab "Activity"
+  - tab "Properties"
+- tabpanel "Chart":
+  - generic: event_view_debt_amount
+  - generic: event_abandon_debt_amount
+  - generic: event_continue_click
+  - generic: event_choice_debt_amount
+  - generic: event_view_landing
+  - generic: event_view_employment
+  - generic: event_engage_first_name
+  - generic: event_engage_address
+  - generic: event_engage_last_name
+  - generic: event_choice_employment
+  - generic: event_address_complete
+  - generic: event_view_address
+  - generic: event_name_complete
+  - generic: event_view_dob
+  - generic: event_view_phone
+  - generic: event_behind_payment_complete
+  - generic: event_view_thank_you
+  - generic: event_view_email
+  - generic: event_view_name
+  - generic: event_dob_complete
+  - generic: event_submit_click
+  - generic: event_choice_behind_payment
+  - generic: event_view_income
+  - generic: event_view_behind_payment
+  - generic: event_choice_income
+  - generic: event_income_complete
+  - generic: event_employment_complete
+  - generic: event_submit_attempt
+  - generic: event_email_complete
+  - generic: event_engage_phone
+  - generic: event_address_resolved
+  - generic: event_engage_email
+  - generic: event_debt_amount_complete
+  - generic: event_engage_dob
+  - generic: event_resume_income
+  - generic: event_back_click
+  - generic: event_abandon_name
+  - generic: Event
+  - generic: Count
+  - generic "event_view_landing":
+    - link "event_view_landing":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_landing
+  - generic "345"
+  - generic: 34%
+  - generic "event_view_debt_amount":
+    - link "event_view_debt_amount":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_debt_amount
+  - generic "339"
+  - generic: 34%
+  - generic "event_abandon_debt_amount":
+    - link "event_abandon_debt_amount":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_abandon_debt_amount
+  - generic "195"
+  - generic: 19%
+  - generic "event_continue_click":
+    - link "event_continue_click":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_continue_click
+  - generic "27"
+  - generic: 3%
+  - generic "event_choice_debt_amount":
+    - link "event_choice_debt_amount":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_choice_debt_amount
+  - generic "6"
+  - generic: 1%
+  - generic "event_choice_employment":
+    - link "event_choice_employment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_choice_employment
+  - generic "5"
+  - generic: 0%
+  - generic "event_choice_income":
+    - link "event_choice_income":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_choice_income
+  - generic "5"
+  - generic: 0%
+  - generic "event_employment_complete":
+    - link "event_employment_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_employment_complete
+  - generic "4"
+  - generic: 0%
+  - generic "event_behind_payment_complete":
+    - link "event_behind_payment_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_behind_payment_complete
+  - generic "4"
+  - generic: 0%
+  - generic "event_income_complete":
+    - link "event_income_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_income_complete
+  - generic "4"
+  - generic: 0%
+  - generic "event_debt_amount_complete":
+    - link "event_debt_amount_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_debt_amount_complete
+  - generic "4"
+  - generic: 0%
+  - generic "event_choice_behind_payment":
+    - link "event_choice_behind_payment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_choice_behind_payment
+  - generic "4"
+  - generic: 0%
+  - generic "event_engage_first_name":
+    - link "event_engage_first_name":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_engage_first_name
+  - generic "4"
+  - generic: 0%
+  - generic "event_view_employment":
+    - link "event_view_employment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_employment
+  - generic "4"
+  - generic: 0%
+  - generic "event_view_behind_payment":
+    - link "event_view_behind_payment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_behind_payment
+  - generic "4"
+  - generic: 0%
+  - generic "event_view_name":
+    - link "event_view_name":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_name
+  - generic "4"
+  - generic: 0%
+  - generic "event_view_income":
+    - link "event_view_income":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_income
+  - generic "4"
+  - generic: 0%
+  - generic "event_engage_dob":
+    - link "event_engage_dob":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_engage_dob
+  - generic "2"
+  - generic: 0%
+  - generic "event_email_complete":
+    - link "event_email_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_email_complete
+  - generic "2"
+  - generic: 0%
+  - generic "event_view_thank_you":
+    - link "event_view_thank_you":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_thank_you
+  - generic "2"
+  - generic: 0%
+  - generic "event_name_complete":
+    - link "event_name_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_name_complete
+  - generic "2"
+  - generic: 0%
+  - generic "event_engage_address":
+    - link "event_engage_address":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_engage_address
+  - generic "2"
+  - generic: 0%
+  - generic "event_submit_attempt":
+    - link "event_submit_attempt":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_submit_attempt
+  - generic "2"
+  - generic: 0%
+  - generic "event_view_phone":
+    - link "event_view_phone":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_phone
+  - generic "2"
+  - generic: 0%
+  - generic "event_engage_email":
+    - link "event_engage_email":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_engage_email
+  - generic "2"
+  - generic: 0%
+  - generic "event_address_complete":
+    - link "event_address_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_address_complete
+  - generic "2"
+  - generic: 0%
+  - generic "event_dob_complete":
+    - link "event_dob_complete":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_dob_complete
+  - generic "2"
+  - generic: 0%
+  - generic "event_address_resolved":
+    - link "event_address_resolved":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_address_resolved
+  - generic "2"
+  - generic: 0%
+  - generic "event_view_dob":
+    - link "event_view_dob":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_dob
+  - generic "2"
+  - generic: 0%
+  - generic "event_engage_last_name":
+    - link "event_engage_last_name":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_engage_last_name
+  - generic "2"
+  - generic: 0%
+  - generic "event_abandon_name":
+    - link "event_abandon_name":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_abandon_name
+  - generic "2"
+  - generic: 0%
+  - generic "event_view_email":
+    - link "event_view_email":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_email
+  - generic "2"
+  - generic: 0%
+  - generic "event_engage_phone":
+    - link "event_engage_phone":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_engage_phone
+  - generic "2"
+  - generic: 0%
+  - generic "event_submit_click":
+    - link "event_submit_click":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_submit_click
+  - generic "2"
+  - generic: 0%
+  - generic "event_view_address":
+    - link "event_view_address":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_view_address
+  - generic "2"
+  - generic: 0%
+  - generic "event_back_click":
+    - link "event_back_click":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_back_click
+  - generic "1"
+  - generic: 0%
+  - generic "event_resume_income":
+    - link "event_resume_income":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_resume_income
+  - generic "1"
+  - generic: 0%
+  - generic "event_resume_employment":
+    - link "event_resume_employment":
+      - /url: /analytics/us/share/4XbqcyO28U5M6NK1/events?query=c.oid%3D914&date=24hour&page=1&country=eq.US&event=eq.event_resume_employment
+  - generic "1"
+  - generic: 0%
+- region "Notifications"
+- alert
