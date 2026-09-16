@@ -174,6 +174,24 @@
         track('event_' + field(n) + '_complete', stepProps(n));
     }
 
+    // Step 1 only: the outcome of EVERY attempt to leave the debt-amount step --
+    // the auto-advance a selection triggers, or a Continue click.
+    // event_debt_amount_complete is the funnel anchor and fires once, on the first
+    // pass; this one counts ATTEMPTS, so `selected: false` measures how many
+    // visitors press Continue with nothing chosen, and repeats of it are the
+    // friction that follows. For a radio step "valid" and "an option is selected"
+    // are the same question, which is why the outcome rides as `selected` rather
+    // than a second flag saying the same thing.
+    function trackValidateStep1() {
+        var picked = pickedOption(1);
+        track('event_validate_' + field(1), withContext({
+            step:     1,
+            field:    field(1),
+            selected: !!picked,
+            choice:   picked ? String(picked.value || '').slice(0, MAX_PROP_LEN) : ''
+        }));
+    }
+
     // First-touch per field. index.php marks each input with data-jg-event; we fire
     // that event once, on first focus. focusin (not click) so tab/keyboard entry
     // counts too — which is also why these can't be plain data-umami-event
@@ -266,8 +284,16 @@
         active.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // A pending auto-advance (radio / dropdown steps) is held here so that a Back
+    // press inside the brief pause after a selection CANCELS the hop forward
+    // instead of racing it.
+    var advanceTimer = null;
+    function cancelAutoAdvance() {
+        if (advanceTimer) { clearTimeout(advanceTimer); advanceTimer = null; }
+    }
+
     function goNext() { if (current < total) { current++; render(); } }
-    function goBack() { if (current > 1) { current--; render(); } }
+    function goBack() { cancelAutoAdvance(); if (current > 1) { current--; render(); } }
 
     /* -------------------------------------------------------- validation */
     function clearError(scope) {
@@ -1117,22 +1143,8 @@
     btnNext.addEventListener('click', function () {
         var valid = validateStep(current);
 
-        // Step 1 only: the outcome of EVERY Continue click on the debt-amount step.
-        // event_debt_amount_complete is the funnel anchor and fires once, on the
-        // first pass; this one counts ATTEMPTS, so `selected: false` measures how
-        // many visitors press Continue with nothing chosen — and repeats of it are
-        // the friction that follows. For a radio step "valid" and "an option is
-        // selected" are the same question, which is why the outcome rides as
-        // `selected` rather than a second flag saying the same thing.
-        if (current === 1) {
-            var picked = pickedOption(1);
-            track('event_validate_' + field(1), withContext({
-                step:     1,
-                field:    field(1),
-                selected: !!picked,
-                choice:   picked ? String(picked.value || '').slice(0, MAX_PROP_LEN) : ''
-            }));
-        }
+        // The Continue half of the step-1 attempt count (see trackValidateStep1).
+        if (current === 1) trackValidateStep1();
 
         if (!valid) return;
 
@@ -1168,11 +1180,61 @@
     });
     btnBack.addEventListener('click', goBack);
 
-    // radio steps (1–4): clear any error on selection; the Continue button
-    // (not auto-advance) drives the step forward, consistent with all pages.
+    /* ------------------------------------------ auto-advance (steps 1-4)
+       On a step marked data-advance="auto" the selection IS the answer, so
+       making one carries the visitor forward on its own: one tap per question
+       instead of tap-then-Continue. Continue stays on the step as the fallback
+       for the paths below that deliberately do NOT auto-advance.
+
+       Radios listen for 'click', not 'change', and the difference is the whole
+       point:
+
+         - Re-tapping the option already chosen - the common move after pressing
+           Back - fires click but not change, and that tap plainly means "yes,
+           this one, carry on". On 'change' it would do nothing and the visitor
+           would be left hunting for Continue.
+
+         - Arrow-keying through the radiogroup is the mirror image: it fires
+           change but never click. Keyboard visitors therefore still BROWSE the
+           options with the arrows and leave when they mean to, on Enter (which
+           clicks Continue), instead of being thrown forward by the first keypress.
+
+       A <select> has no such split - its change event only fires on a committed
+       choice, keyboard included - so dropdowns advance on change. No step ships
+       one today (the state dropdown lives on the multi-field address step, which
+       is not marked auto), but a single-dropdown step added later works with no
+       further JS.
+
+       The short pause lets the visitor SEE the option they picked fill in; the
+       step swapping under a tap that appears to have done nothing reads as a
+       glitch. The step number is re-checked when the timer fires, so a Back
+       press (or a 422 bounce) inside the pause never drags the visitor forward. */
+    var AUTO_ADVANCE_MS = 180;
+
+    function queueAutoAdvance(section) {
+        var n = Number(section.dataset.step);
+        if (n !== current) return;            // not the visible step: leave it alone
+        clearError(section);
+        cancelAutoAdvance();
+        advanceTimer = setTimeout(function () {
+            advanceTimer = null;
+            if (n !== current || !validateStep(n)) return;
+            if (n === 1) trackValidateStep1();
+            trackStepComplete(n);
+            goNext();
+        }, AUTO_ADVANCE_MS);
+    }
+
     form.querySelectorAll('.step[data-advance="auto"] input[type=radio]').forEach(function (r) {
-        r.addEventListener('change', function () {
-            clearError(r.closest('.step'));
+        // Keyboard selection still clears a standing error even though it does
+        // not advance, so "Please choose an option" cannot outlive the choice.
+        r.addEventListener('change', function () { clearError(r.closest('.step')); });
+        r.addEventListener('click',  function () { queueAutoAdvance(r.closest('.step')); });
+    });
+
+    form.querySelectorAll('.step[data-advance="auto"] select').forEach(function (sel) {
+        sel.addEventListener('change', function () {
+            if (sel.value) queueAutoAdvance(sel.closest('.step'));
         });
     });
 
