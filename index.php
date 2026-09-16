@@ -545,7 +545,10 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
                         <img src="assets/img/chevron-left-grey.svg" alt="" width="26" height="26">
                     </button>
                     <!-- Both buttons are shared across every step, which is why these are
-                     NOT named after a field: they count CLICKS. event_continue_click
+                     NOT named after a field: they count CLICKS. funnel.js shows one
+                     of them per step (see navFor) and NEITHER on the radio steps,
+                     which advance on the choice itself; on step 1 the whole row is
+                     hidden, since the back arrow is absent there too. event_continue_click
                      includes attempts that bounce off validation (the per-step signal
                      is event_<field>_complete) and event_submit_click includes retries
                      after a 422. Umami's click-only declarative tracking is exactly

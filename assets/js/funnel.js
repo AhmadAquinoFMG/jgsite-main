@@ -35,6 +35,7 @@
     var btnBack   = document.getElementById('btnBack');
     var btnNext   = document.getElementById('btnNext');
     var btnSubmit = document.getElementById('btnSubmit');
+    var formNav   = form.querySelector('.form-nav');
 
     function stepEl(n)   { return steps[n - 1]; }
 
@@ -253,6 +254,20 @@
     });
 
     /* --------------------------------------------------------- rendering */
+
+    // What the back arrow shares the form-nav row with on a given step:
+    //   'next'   Continue - the default, and what every typed step needs, since
+    //            nothing about typing says the visitor is finished typing.
+    //   'submit' the final phone step, which carries the consent text.
+    //   'none'   a step marked data-advance="auto": choosing an option IS leaving
+    //            the step, so a Continue button would only ask a second time for
+    //            what it has already been handed. Read off data-advance rather
+    //            than a data-nav="none" of its own, so the two can never disagree.
+    function navFor(n) {
+        var el = stepEl(n);
+        return el.dataset.nav || (el.dataset.advance === 'auto' ? 'none' : 'next');
+    }
+
     function render() {
         steps.forEach(function (s) {
             s.classList.toggle('is-active', Number(s.dataset.step) === current);
@@ -267,12 +282,13 @@
         fill.style.width = ((current / total) * 100) + '%';
 
         btnBack.hidden = current === 1;
-        // The back arrow shares the form-nav row with one primary button, chosen
-        // per step via data-nav: 'next' (Continue, default) on the input steps,
-        // 'submit' (Submit) on the final phone step, which carries the consent text.
-        var nav = stepEl(current).dataset.nav || 'next';
+        var nav = navFor(current);
         btnNext.hidden   = nav !== 'next';
         btnSubmit.hidden = nav !== 'submit';
+        // On step 1 the row now holds nothing at all - no back arrow, no button -
+        // so hide the row itself rather than leave its top margin standing as a
+        // band of dead space under the options.
+        if (formNav) formNav.hidden = btnBack.hidden && btnNext.hidden && btnSubmit.hidden;
 
         runLazyLoad(current);
 
@@ -1183,21 +1199,22 @@
     /* ------------------------------------------ auto-advance (steps 1-4)
        On a step marked data-advance="auto" the selection IS the answer, so
        making one carries the visitor forward on its own: one tap per question
-       instead of tap-then-Continue. Continue stays on the step as the fallback
-       for the paths below that deliberately do NOT auto-advance.
+       instead of tap-then-Continue. These steps carry no Continue button at all
+       (see navFor) - having chosen, there is nothing left for it to ask.
 
        Radios listen for 'click', not 'change', and the difference is the whole
        point:
 
          - Re-tapping the option already chosen - the common move after pressing
            Back - fires click but not change, and that tap plainly means "yes,
-           this one, carry on". On 'change' it would do nothing and the visitor
-           would be left hunting for Continue.
+           this one, carry on". On 'change' it would do nothing, and with no
+           Continue button to fall back on the visitor would be stuck.
 
          - Arrow-keying through the radiogroup is the mirror image: it fires
            change but never click. Keyboard visitors therefore still BROWSE the
            options with the arrows and leave when they mean to, on Enter (which
-           clicks Continue), instead of being thrown forward by the first keypress.
+           the keydown handler routes back here), instead of being thrown forward
+           by the first keypress.
 
        A <select> has no such split - its change event only fires on a committed
        choice, keyboard included - so dropdowns advance on change. No step ships
@@ -1240,13 +1257,17 @@
 
     // Enter advances manual steps (never submits early). Behaviour follows the
     // step's nav: 'next' clicks Continue, 'submit' (final phone step) allows the
-    // native submit.
+    // native submit, and 'none' - the auto-advance steps, which have no button -
+    // commits the option the visitor arrow-keyed to. That last one is how a
+    // keyboard visitor leaves a step whose Continue button is gone, and with
+    // nothing chosen it is how they are told to choose something.
     form.addEventListener('keydown', function (ev) {
         if (ev.key !== 'Enter') return;
-        var nav = stepEl(current).dataset.nav || 'next';
+        var nav = navFor(current);
         if (nav === 'submit') return;
         ev.preventDefault();
         if (nav === 'next') btnNext.click();
+        else if (nav === 'none') queueAutoAdvance(stepEl(current));
     });
 
     // Map each server-validated field to the step that collects it, so a 422
