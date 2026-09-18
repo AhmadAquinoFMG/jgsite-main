@@ -87,16 +87,26 @@ $buyerLogo = buyer_logo_of($buyer);
    outage degrades to a number that still reaches JG — untracked, but never a
    dead button on the page the visitor just converted on.
 
-   For a buyer whose row keeps CallGrid on (JG, and therefore the default) this
-   is only the number the page RENDERS: the number pool still assigns a tracking
-   DID and rewrites the tel: target below, so this is what the swap replaces.
-   That makes the house row's `did` the number tracking is layered on — keep a
-   CallGrid line there, not a raw DID, or unmatched visits stop being attributed.
-   For a buyer with use_callgrid = 0 (InCharge) nothing rewrites it, so it is the
+   On the house line (JG, and therefore every unmatched visit) this is only the
+   number the page RENDERS: the number pool still assigns a tracking DID and
+   rewrites the tel: target below, so this is what the swap replaces. That makes
+   the house row's `did` the number tracking is layered on — keep a CallGrid
+   line there, not a raw DID, or unmatched visits stop being attributed.
+
+   On a buyer's OWN number (InCharge, DocuPop) nothing rewrites it, so it is the
    number dialled too. */
-$ctaBuyer  = $buyer ?? buyer_find($cfg, (string) ($pq['cta_buyer'] ?? $cfg['brand']['name']));
-$ctaPhone  = buyer_phone_of($ctaBuyer) ?? (string) $cfg['brand']['phone'];
-$ctaTel    = phone_tel_href($ctaPhone);                        // tel: href, E.164
+$houseName   = (string) ($pq['cta_buyer'] ?? $cfg['brand']['name']);
+$ctaBuyer    = $buyer ?? buyer_find($cfg, $houseName);
+$ctaOwnPhone = buyer_phone_of($ctaBuyer);                      // the row's own DID, or null
+$ctaPhone    = $ctaOwnPhone ?? (string) $cfg['brand']['phone'];
+$ctaTel      = phone_tel_href($ctaPhone);                      // tel: href, E.164
+
+/* Whether the number that ended up on the button is one of OURS: the house
+   row's DID, or ['brand']['phone'] when the row named no usable one. False only
+   when a buyer's own published line is on the button. This, not the
+   use_callgrid flag alone, is what the number pool below is gated on — see
+   there. */
+$ctaIsHouseNumber = $ctaOwnPhone === null || buyer_is_house($ctaBuyer, $houseName);
 
 /* Everflow conversion. submit.php stashes the affid here only after it accepted
    the lead, so this can't fire for a visitor who merely opened the page. The
@@ -132,18 +142,24 @@ $efTransactionId = (string) ($efConversion['transaction_id'] ?? '');
    emitted at all) when either id is missing, so a half-configured environment
    can't load the SDK with a blank organization.
 
-   Also off for a buyer that takes its own calls (buyers.use_callgrid = 0 —
-   InCharge): nothing below is emitted, so the SDK never loads, no pooled number
-   is assigned, and the CTA keeps the buyer's own DID as both the number shown
-   and the number dialled. Putting our pool in front of a line the buyer already
-   owns would re-route a call they paid for and book it against a campaign source
-   that isn't ours.
+   Also off whenever the button is NOT carrying one of our own numbers — any
+   buyer showing a `did` of their own (InCharge, DocuPop), whatever their
+   use_callgrid flag says. Nothing below is emitted, so the SDK never loads, no
+   pooled number is assigned, and the CTA keeps the buyer's own DID as both the
+   number shown and the number dialled. Putting our pool in front of a line the
+   buyer already owns would re-route a call they paid for and book it against a
+   campaign source that isn't ours — and use_callgrid defaults to 1, so a buyer
+   added without anyone thinking about the flag must not be opted in by omission.
 
-   Keyed off $ctaBuyer, not the matched buyer, so the flag always belongs to the
-   row whose number is actually on the button — including the house row that
-   backs an unmatched visit. */
+   A matched buyer with no usable DID is still tracked: the button fell back to
+   the house number, which is ours to layer a pooled DID on. $ctaIsHouseNumber
+   above is the one that knows the difference; buyer_uses_callgrid() stays as the
+   explicit per-row switch. Both read $ctaBuyer, not the matched buyer, so they
+   always describe the row whose number is actually on the button — including
+   the house row that backs an unmatched visit. */
 $cg = $cfg['callgrid'];
 $cgOn = $cg['enabled'] && $cg['organization_id'] !== '' && $cg['campaign_source_id'] !== ''
+    && $ctaIsHouseNumber
     && buyer_uses_callgrid($ctaBuyer);
 
 /* CallGrid custom tags — the lead's details, forwarded so its webhook template

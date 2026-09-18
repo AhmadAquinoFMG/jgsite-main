@@ -207,6 +207,35 @@ if (!function_exists('buyer_find')) {
     }
 
     /**
+     * Whether the number on the CALL NOW button is the house (JG) line rather
+     * than a buyer's own.
+     *
+     * True for the row named by ['prequal']['cta_buyer'], and true for null —
+     * with no row the page falls back to ['brand']['phone'], which is JG's
+     * published line. False for every other buyer, whose `did` reaches a company
+     * that isn't us.
+     *
+     * Matching mirrors buyer_find(): the stored `name` is a short token and the
+     * configured house name is the full one (LOCATE('Wentworth', 'JG
+     * Wentworth')), so the comparison runs the same way round, case-insensitively
+     * — and off the row thank-you.php already has, rather than a second query.
+     *
+     * @param  array|null $buyer     Row from buyer_find(), or null.
+     * @param  string     $houseName Configured house buyer name.
+     */
+    function buyer_is_house(?array $buyer, string $houseName): bool
+    {
+        if ($buyer === null) {
+            return true;
+        }
+
+        $token     = trim($buyer['name']);
+        $houseName = trim($houseName);
+
+        return $token !== '' && $houseName !== '' && stripos($houseName, $token) !== false;
+    }
+
+    /**
      * Whether CallGrid's number pool may run for this buyer's thank-you page.
      *
      * False for a buyer that takes its own calls (`buyers.use_callgrid = 0`,
@@ -222,6 +251,11 @@ if (!function_exists('buyer_find')) {
      * reads their DID and the pool still swaps the tel: target. Pass the row the
      * button's number actually came from, which on an unmatched visit is the
      * house row rather than null (see thank-you.php).
+     *
+     * This is the buyer's OPT-OUT, not the whole gate. The flag defaults to 1,
+     * so a buyer added without anyone thinking about it would still hand our
+     * pool a line that isn't ours; thank-you.php therefore also requires
+     * buyer_is_house(), and the swap runs only on the house number.
      *
      * @param  array|null $buyer Row from buyer_find(), or null.
      */
