@@ -176,6 +176,10 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
     ?></style>
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php /* Top of the TikTok funnel. ViewContent is the event Events Manager
+             asks for on the page an ad lands on, and it is NOT what ttq.page()
+             already reports - TikTok counts the two separately. */ ?>
+    <?php $tiktokEvents = [['ViewContent']]; ?>
     <?php include __DIR__ . '/includes/tiktok.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>

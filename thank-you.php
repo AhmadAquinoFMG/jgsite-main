@@ -202,6 +202,16 @@ if ($cgOn) {
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php /* The conversion, reported to TikTok. Gated on lead_id, which only
+             submit.php puts on the redirect, so a direct visit or a refresh
+             after the query string was dropped reports nothing. route=bot is
+             excluded for the same reason the honeypot exists.
+
+             NOT gated on a buyer accepting the lead: that is a different
+             question and the wrong one here. A rejected or duplicate lead is
+             still a person who completed this funnel, and completion is what
+             the bid is being optimised toward. */ ?>
+    <?php $tiktokEvents = ($leadId > 0 && $route !== 'bot') ? [['CompleteRegistration']] : []; ?>
     <?php include __DIR__ . '/includes/tiktok.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
 

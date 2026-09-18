@@ -26,10 +26,17 @@
  * anything later in the page can call ttq.track() straight away. Deferring it
  * would leave ttq undefined for exactly the inline code most likely to want it.
  *
- * PAGEVIEWS ONLY. Nothing calls ttq.track() anywhere, so TikTok can optimise on
- * traffic but not on leads and the campaign reports zero conversions against
- * real spend. thank-you.php is where that event belongs, but the event name has
- * to match what is configured in Events Manager first.
+ * CONVERSION EVENTS come from $tiktokEvents, which the including page sets
+ * before the include: a list of ['EventName', ['param' => 'value']] pairs,
+ * params optional. ttq.page() is the PAGEVIEW and is deliberately not one of
+ * them - TikTok counts Pageview and ViewContent as separate events, and a pixel
+ * reporting neither ViewContent nor a completion is what raises "Missing
+ * events" in Events Manager. That alert is why this exists.
+ *
+ * THE NAMES MUST MATCH WHAT IS CONFIGURED IN EVENTS MANAGER. A name the pixel
+ * is not expecting is dropped on arrival: nothing errors, the request still
+ * leaves the browser, and the campaign still reports zero while the code looks
+ * right. Confirm every name against the pixel's event list before spend runs.
  *
  * $cfg is provided by the including page.
  */
@@ -53,6 +60,10 @@ if ($tiktokHost === 'localhost'
 if (preg_match('/^[A-Za-z0-9]{1,40}$/', $tiktokPixelId) !== 1) {
     return;
 }
+
+/* Conversion events set by the including page. Anything unnamed is skipped
+   rather than emitted as ttq.track(""), which TikTok would reject. */
+$tiktokEvents = isset($tiktokEvents) && is_array($tiktokEvents) ? $tiktokEvents : [];
 ?>
 <!-- TikTok Pixel Code Start -->
 <script>
@@ -63,6 +74,11 @@ var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n
 
   ttq.load('<?= htmlspecialchars($tiktokPixelId, ENT_QUOTES, 'UTF-8') ?>');
   ttq.page();
+<?php foreach ($tiktokEvents as $tiktokEvent): ?>
+<?php   $tiktokEventName = (string) ($tiktokEvent[0] ?? ''); ?>
+<?php   if ($tiktokEventName === '') { continue; } ?>
+  ttq.track(<?= json_encode($tiktokEventName, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?><?= !empty($tiktokEvent[1]) ? ', ' . json_encode($tiktokEvent[1], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) : '' ?>);
+<?php endforeach; ?>
 }(window, document, 'ttq');
 </script>
 <!-- TikTok Pixel Code End -->
