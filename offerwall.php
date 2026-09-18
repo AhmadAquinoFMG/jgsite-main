@@ -65,6 +65,7 @@ header('Content-Type: text/html; charset=UTF-8');
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
     <link rel="stylesheet" href="assets/css/offerwall.css?v=6">
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php include __DIR__ . '/includes/tiktok.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
 </head>
 <body class="offerwall-page">

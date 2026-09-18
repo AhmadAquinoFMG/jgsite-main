@@ -176,6 +176,7 @@ $og_image         = $origin . '/assets/img/og-image.png?v=' . $cfg['asset_versio
     ?></style>
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php include __DIR__ . '/includes/tiktok.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
     <?php include __DIR__ . '/includes/compliance.php'; ?>
 

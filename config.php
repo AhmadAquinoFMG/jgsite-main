@@ -69,6 +69,26 @@ return [
         'website_id' => '40f1f6d9-80c1-49cf-b6ef-0280ac052f83',
     ],
 
+    // ---- TikTok Pixel --------------------------------------------------
+    // Ad-platform pixel, rendered by includes/tiktok.php on every page. Not a
+    // secret - it ships in the HTML and only says which TikTok Ads account a
+    // pageview belongs to - so it is committed here rather than left to a
+    // deploy-time .env edit, which .env being gitignored would not survive.
+    //
+    // SHARED WITH THE DEBTWAVE FUNNEL, on purpose. One pixel spanning two
+    // sites reports one combined number, and the pixel does not record which
+    // site a pageview came from, so the two cannot be separated afterwards.
+    // Create a pixel of this funnel's own in Events Manager and put it in
+    // TIKTOK_PIXEL_ID to split them.
+    //
+    // `?:` rather than env()'s own default: a bare `TIKTOK_PIXEL_ID=` line is
+    // present-but-empty, and env() would return that empty string as a real
+    // value and render a pixel that loads nothing. The tag is suppressed on
+    // local hosts either way - see includes/tiktok.php.
+    'tiktok' => [
+        'pixel_id' => env('TIKTOK_PIXEL_ID') ?: 'DAMK15BC77U0Q99JIM90',
+    ],
+
     // ---- Google Places (address autocomplete, step 5) ------------------
     // Loaded lazily in assets/js/funnel.js. Set GOOGLE_PLACES_KEY in .env
     // (see .env.example). Leave empty to fall back to the built-in mock

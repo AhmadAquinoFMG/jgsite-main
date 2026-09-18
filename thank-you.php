@@ -202,6 +202,7 @@ if ($cgOn) {
     <link rel="stylesheet" href="assets/css/style.css?v=<?= $e($cfg['asset_version']) ?>">
 
     <?php include __DIR__ . '/includes/analytics.php'; ?>
+    <?php include __DIR__ . '/includes/tiktok.php'; ?>
     <?php include __DIR__ . '/includes/track.php'; ?>
 
     <!-- Funnel completion. This is the report's authoritative "completed" signal:
